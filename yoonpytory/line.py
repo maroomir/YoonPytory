@@ -6,6 +6,8 @@ from yoonpytory.math import *
 class YoonLine2D:
     slope = 0
     intercept = 0
+    start_pos = YoonVector2D()
+    end_pos = YoonVector2D()
 
     def __str__(self):
         return "SLOPE : {0}, INTERCEPT : {1}".format(self.slope, self.intercept)
@@ -16,14 +18,18 @@ class YoonLine2D:
                 assert isinstance(args[i], YoonVector2D)
             array_x = YoonVector2D.to_ndarray_x(args)
             array_y = YoonVector2D.to_ndarray_y(args)
-            self.slope, self.intercept = get_linear_regression(array_x, array_y)
+            min_x = YoonVector2D.minimum_x(args)
+            max_x = YoonVector2D.maximum_x(args)
+            self.slope, self.intercept = least_square(array_x, array_y)
+            self.start_pos = YoonVector2D(min_x, self.y(min_x))
+            self.end_pos = YoonVector2D(max_x, self.y(max_x))
         else:
             if kwargs.get("list"):
                 for i in range(len(kwargs["list"])):
                     assert isinstance(kwargs["list"][i], YoonVector2D)
                 array_x = YoonVector2D.to_ndarray_x(kwargs["list"])
                 array_y = YoonVector2D.to_ndarray_y(kwargs["list"])
-                self.slope, self.intercept = get_linear_regression(array_x, array_y)
+                self.slope, self.intercept = least_square(array_x, array_y)
             elif kwargs.get("slope"):
                 assert isinstance(kwargs["slope"], (int, float))
                 self.slope = kwargs["slope"]
@@ -37,6 +43,10 @@ class YoonLine2D:
                 assert isinstance(kwargs["y2"], (int, float))
                 self.slope = (kwargs["y1"] - kwargs["y2"]) / (kwargs["x1"] - kwargs["x2"])
                 self.intercept = kwargs["y1"] - self.slope * kwargs["x1"]
+                min_x = kwargs["x1"] if kwargs["x1"] < kwargs["x2"] else kwargs["x2"]
+                max_x = kwargs["x1"] if kwargs["x1"] > kwargs["x2"] else kwargs["x2"]
+                self.start_pos = YoonVector2D(min_x, self.y(min_x))
+                self.end_pos = YoonVector2D(max_x, self.y(max_x))
 
     def __copy__(self):
         return YoonLine2D(slope=self.slope, intercept=self.intercept)

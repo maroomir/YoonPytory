@@ -1,3 +1,4 @@
+import sys
 import math
 import numpy
 from yoonpytory.dir import eYoonDir2D
@@ -83,6 +84,50 @@ class YoonVector2D:
             assert isinstance(args[i], YoonVector2D)
             list_y.append([args[i].y])
         return numpy.array(list_y)
+
+    @classmethod
+    def minimum_x(cls, args):
+        if not len(args) > 0:
+            raise Exception("Arguments is not enough")
+        min_x = sys.maxsize
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_x > args[i].x:
+                min_x = args[i].x
+        return min_x
+
+    @classmethod
+    def maximum_x(cls, args):
+        if not len(args) > 0:
+            raise Exception("Arguments is not enough")
+        max_x = -sys.maxsize
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_x < args[i].x:
+                max_x = args[i].x
+        return max_x
+
+    @classmethod
+    def minimum_y(cls, args):
+        if not len(args) > 0:
+            raise Exception("Arguments is not enough")
+        min_y = sys.maxsize
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_y > args[i].y:
+                min_y = args[i].y
+        return min_y
+
+    @classmethod
+    def maximum_y(cls, args):
+        if not len(args) > 0:
+            raise Exception("Arguments is not enough")
+        max_y = -sys.maxsize
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_y < args[i].x:
+                max_y = args[i].x
+        return max_y
 
     @classmethod
     def zero_vector(cls):

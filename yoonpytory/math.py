@@ -1,7 +1,7 @@
 import numpy
 
 
-def get_linear_regression(arrayX, arrayY):
+def least_square(arrayX, arrayY):
     assert isinstance(arrayX, numpy.ndarray)
     assert isinstance(arrayY, numpy.ndarray)
     if arrayX.size != arrayY.size:
