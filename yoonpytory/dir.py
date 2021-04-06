@@ -16,7 +16,7 @@ class eYoonDir2D(Enum):
     def __str__(self):
         return "{0}".format(self.name)
 
-    def go(self, strTag):
+    def go(self, strTag: str):
         dic = {"clock4": self.previous_quadrant(),
                "anticlock4": self.next_quadrant(),
                "clock8": self.previous_octant(),
@@ -32,7 +32,7 @@ class eYoonDir2D(Enum):
         else:
             return self
 
-    def back(self, strTag):
+    def back(self, strTag: str):
         dic = {"clock4": self.next_quadrant(),
                "anticlock4": self.previous_quadrant(),
                "clock8": self.next_octant(),
@@ -234,7 +234,7 @@ class eYoonDir2D(Enum):
             return -1
 
     @classmethod
-    def from_clock_number(cls, nClock):
+    def from_clock_number(cls, nClock: int):
         if nClock in [0, 12]:
             return cls.TOP
         elif nClock in [1, 2]:
@@ -270,7 +270,7 @@ class eYoonDir2D(Enum):
             return -1
 
     @classmethod
-    def from_quadrant(cls, nQuad):
+    def from_quadrant(cls, nQuad: int):
         dic = {0: cls.CENTER,
                1: cls.TOP_RIGHT,
                2: cls.TOP_LEFT,
@@ -297,7 +297,7 @@ class eYoonDir2D(Enum):
             return 0, 0
 
     @classmethod
-    def from_tuple(cls, pPair):
+    def from_tuple(cls, pPair: tuple):
         assert isinstance(pPair, tuple)
         x = pPair[0]
         y = pPair[1]
@@ -360,3 +360,7 @@ class eYoonDir2D(Enum):
             return eYoonDir2D.from_tuple((origin_x - input_x, origin_y - input_y))
         else:
             return self.back(other)
+
+    def __eq__(self, other):
+        assert isinstance(other, eYoonDir2D)
+        return self.name == other.name

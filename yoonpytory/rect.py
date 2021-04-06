@@ -138,7 +138,7 @@ class YoonRect2D:
     def area(self):
         return self.width * self.height
 
-    def is_contain(self, vector):
+    def is_contain(self, vector: YoonVector2D):
         assert isinstance(vector, YoonVector2D)
         if self.left() < vector.x < self.right() and self.top() < vector.y < self.bottom():
             return True
@@ -153,10 +153,10 @@ class YoonRect2D:
         right = max(self.left(), other.left(), self.right(), other.right())
         return YoonRect2D(x=(left + right) / 2, y=(top + bottom) / 2, width=right - left, height=bottom - top)
 
-    def __mul__(self, number):
+    def __mul__(self, number: (int, float)):
         assert isinstance(number, (int, float))
         return YoonRect2D(pos=self.center_pos.__copy__(), width=number * self.width, height=number * self.height)
 
-    def __eq__(self, other):
+    def __eq__(self, other: (int, float)):
         assert isinstance(other, YoonRect2D)
         return self.center_pos == other.center_pos and self.width == other.width and self.height == other.height

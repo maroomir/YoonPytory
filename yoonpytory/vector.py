@@ -28,7 +28,7 @@ class YoonVector2D:
         return "{0}".format(self.to_tuple())
 
     @classmethod
-    def direction_vector(cls, eDir, **kwargs):
+    def direction_vector(cls, eDir : eYoonDir2D, **kwargs):
         assert isinstance(eDir, eYoonDir2D)
         dic = {eYoonDir2D.NONE: (0, 0),
                eYoonDir2D.CENTER: (0, 0),
@@ -188,31 +188,31 @@ class YoonVector2D:
         dy = vector.y - self.y
         return math.atan2(dy, dx)
 
-    def scale(self, scaleX, scaleY):
+    def scale(self, scaleX: (int, float), scaleY: (int, float)):
         matrix = numpy.eye(3)
         matrix[0, 0] = scaleX
         matrix[1, 1] = scaleY
         result = matrix.dot(self.to_numpy(3, 1))
         return YoonVector2D(result[0, 0], result[1, 0], stepX=self.__step_x, stepY=self.__step_y)
 
-    def go(self, strTag):
+    def go(self, strTag: str):
         assert isinstance(strTag, str)
         direction = self.direction().go(strTag)
         return YoonVector2D.direction_vector(direction, stepX=self.__step_x, stepY=self.__step_y)
 
-    def back(self, strTag):
+    def back(self, strTag: str):
         assert isinstance(strTag, str)
         direction = self.direction().back(strTag)
         return YoonVector2D.direction_vector(direction, stepX=self.__step_x, stepY=self.__step_y)
 
-    def move(self, moveX, moveY):
+    def move(self, moveX: (int, float), moveY: (int, float)):
         matrix = numpy.eye(3)
         matrix[0, 2] = moveX
         matrix[1, 2] = moveY
         result = matrix.dot(self.to_numpy(3, 1))
         return YoonVector2D(result[0, 0], result[1, 0], stepX=self.__step_x, stepY=self.__step_y)
 
-    def to_numpy(self, nRow, nCol):
+    def to_numpy(self, nRow: int, nCol: int):
         return numpy.array([self.x, self.y, 1]).reshape(nRow, nCol)
 
     def to_list(self):

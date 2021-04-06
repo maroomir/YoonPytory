@@ -1,7 +1,7 @@
 import numpy
 
 
-def least_square(arrayX, arrayY):
+def least_square(arrayX: numpy.ndarray, arrayY: numpy.ndarray):
     assert isinstance(arrayX, numpy.ndarray)
     assert isinstance(arrayY, numpy.ndarray)
     if arrayX.size != arrayY.size:

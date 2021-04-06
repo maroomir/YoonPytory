@@ -51,19 +51,19 @@ class YoonLine2D:
     def __copy__(self):
         return YoonLine2D(slope=self.slope, intercept=self.intercept)
 
-    def x(self, y):
+    def x(self, y: (int, float)):
         assert isinstance(y, (int, float))
         return (y - self.intercept) / self.slope
 
-    def y(self, x):
+    def y(self, x: (int, float)):
         assert isinstance(x, (int, float))
         return x * self.slope + self.intercept
 
-    def distance(self, vector):
+    def distance(self, vector: YoonVector2D):
         assert isinstance(vector, YoonVector2D)
         return abs(self.slope * vector.x - vector.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
 
-    def is_contain(self, vector):
+    def is_contain(self, vector: YoonVector2D):
         assert isinstance(vector, YoonVector2D)
         return vector.y == vector.x * self.slope + self.intercept
 
@@ -74,3 +74,7 @@ class YoonLine2D:
     def __sub__(self, other):
         assert isinstance(other, YoonLine2D)
         return YoonLine2D(slope=self.slope - other.slope, intercept=self.intercept + other.intercept)
+
+    def __eq__(self, other):
+        assert isinstance(other, YoonLine2D)
+        return (self.slope == other.slope) and (self.intercept == other.intercept)
