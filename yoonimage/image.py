@@ -71,3 +71,14 @@ class YoonImage:
     def resize(self, scale_x: (int, float), scale_y: (int, float)):
         buffer_result = cv2.resize(self.__buffer, None, fx=scale_x, fy=scale_y)
         return YoonImage(buffer=buffer_result)
+
+    def draw_rectangle(self, rect: YoonRect2D, color):
+        cv2.rectangle(self.__buffer, rect.top_left().to_tuple(), rect.bottom_right().to_tuple(), color, 2)
+
+    def draw_text(self, text: str, pos: YoonVector2D, color):
+        cv2.putText(self.__buffer, pos.to_tuple(), cv2.FONT_HERSHEY_PLAIN, 3, color, 3)
+
+    def show_image(self):
+        cv2.imshow("Image", self.__buffer)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()

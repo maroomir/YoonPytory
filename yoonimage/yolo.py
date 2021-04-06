@@ -3,7 +3,6 @@ import numpy
 from yoonimage.image import YoonImage
 from yoonimage.object import YoonObject
 from yoonpytory.rect import YoonRect2D
-from yoonimage.object import listing
 
 
 class YoloParameter():
@@ -39,4 +38,11 @@ def detection(image: YoonImage, param: YoloParameter, thres_score: float):
             if max_score > thres_score:
                 rect = YoonRect2D(x=info_array[0]*image.width, y=info_array[1]*image.height, width=info_array[2]*image.width, height=info_array[3]*image.height)
                 object_list.append(YoonObject(id=max_id, score=max_score, object=rect, image=image.crop(rect)))
-    cv2.dnn.NMSBoxes(listing(object_list, "object"), listing(object_list, "score"), score_threshold=thres_score, nms_threshold=0.4)
+    clean_results = cv2.dnn.NMSBoxes(YoonObject.listing(object_list, "object"), YoonObject.listing(object_list, "score"), thres_score=thres_score, nms_threshold=0.4)
+    for i in range(object_list):
+        if i in clean_results:
+            object_id = object_list[i].id
+            image.draw_rectangle(object_list[i].object, color=param.colors[object_id])
+            image.draw_text(param.classes[object_id], color=param.colors[object_id])
+    image.show_image()
+

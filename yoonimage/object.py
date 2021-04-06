@@ -23,15 +23,15 @@ class YoonObject:
         return YoonObject(id=self.label, score=self.score, pixel=self.pixel_count, object=self.object,
                           image=self.object_image)
 
-
-def listing(objects: list, tag: str):
-    result = []
-    for object in objects:
-        if isinstance(object, YoonObject):
-            dic = {"id": object.label,
-                   "score": object.score,
-                   "pixel": object.pixel_count,
-                   "object": object.object,
-                   "image": object.object_image}
-            result.append(dic[tag])
-    return result
+    @staticmethod
+    def listing(objects: list, tag: str):
+        result = []
+        for content in objects:
+            if isinstance(content, YoonObject):
+                dic = {"id": content.label,
+                       "score": content.score,
+                       "pixel": content.pixel_count,
+                       "object": content.object,
+                       "image": content.object_image}
+                result.append(dic[tag])
+        return result
