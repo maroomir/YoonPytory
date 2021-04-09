@@ -6,8 +6,8 @@ from yoonpytory.math import *
 class YoonLine2D:
     slope = 0
     intercept = 0
-    start_pos = YoonVector2D()
-    end_pos = YoonVector2D()
+    start_pos = YoonVector2D(0, 0)
+    end_pos = YoonVector2D(0, 0)
 
     def __str__(self):
         return "SLOPE : {0}, INTERCEPT : {1}".format(self.slope, self.intercept)
@@ -16,20 +16,20 @@ class YoonLine2D:
         if len(args) > 0:
             for i in range(len(args)):
                 assert isinstance(args[i], YoonVector2D)
-            array_x = YoonVector2D.to_ndarray_x(args)
-            array_y = YoonVector2D.to_ndarray_y(args)
-            min_x = YoonVector2D.minimum_x(args)
-            max_x = YoonVector2D.maximum_x(args)
-            self.slope, self.intercept = least_square(array_x, array_y)
-            self.start_pos = YoonVector2D(min_x, self.y(min_x))
-            self.end_pos = YoonVector2D(max_x, self.y(max_x))
+            arrayX = YoonVector2D.to_array_x(args)
+            arrayY = YoonVector2D.to_array_y(args)
+            minX = YoonVector2D.minimum_x(args)
+            minY = YoonVector2D.maximum_x(args)
+            self.slope, self.intercept = least_square(arrayX, arrayY)
+            self.start_pos = YoonVector2D(minX, self.y(minX))
+            self.end_pos = YoonVector2D(minY, self.y(minY))
         else:
             if kwargs.get("list"):
                 for i in range(len(kwargs["list"])):
                     assert isinstance(kwargs["list"][i], YoonVector2D)
-                array_x = YoonVector2D.to_ndarray_x(kwargs["list"])
-                array_y = YoonVector2D.to_ndarray_y(kwargs["list"])
-                self.slope, self.intercept = least_square(array_x, array_y)
+                arrayX = YoonVector2D.to_array_x(kwargs["list"])
+                arrayY = YoonVector2D.to_array_y(kwargs["list"])
+                self.slope, self.intercept = least_square(arrayX, arrayY)
             elif kwargs.get("slope"):
                 assert isinstance(kwargs["slope"], (int, float))
                 self.slope = kwargs["slope"]
@@ -43,10 +43,10 @@ class YoonLine2D:
                 assert isinstance(kwargs["y2"], (int, float))
                 self.slope = (kwargs["y1"] - kwargs["y2"]) / (kwargs["x1"] - kwargs["x2"])
                 self.intercept = kwargs["y1"] - self.slope * kwargs["x1"]
-                min_x = kwargs["x1"] if kwargs["x1"] < kwargs["x2"] else kwargs["x2"]
-                max_x = kwargs["x1"] if kwargs["x1"] > kwargs["x2"] else kwargs["x2"]
-                self.start_pos = YoonVector2D(min_x, self.y(min_x))
-                self.end_pos = YoonVector2D(max_x, self.y(max_x))
+                minX = kwargs["x1"] if kwargs["x1"] < kwargs["x2"] else kwargs["x2"]
+                minY = kwargs["x1"] if kwargs["x1"] > kwargs["x2"] else kwargs["x2"]
+                self.start_pos = YoonVector2D(minX, self.y(minX))
+                self.end_pos = YoonVector2D(minY, self.y(minY))
 
     def __copy__(self):
         return YoonLine2D(slope=self.slope, intercept=self.intercept)
@@ -59,22 +59,22 @@ class YoonLine2D:
         assert isinstance(x, (int, float))
         return x * self.slope + self.intercept
 
-    def distance(self, vector: YoonVector2D):
-        assert isinstance(vector, YoonVector2D)
-        return abs(self.slope * vector.x - vector.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
+    def distance(self, pVector: YoonVector2D):
+        assert isinstance(pVector, YoonVector2D)
+        return abs(self.slope * pVector.x - pVector.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
 
-    def is_contain(self, vector: YoonVector2D):
-        assert isinstance(vector, YoonVector2D)
-        return vector.y == vector.x * self.slope + self.intercept
+    def is_contain(self, pVector: YoonVector2D):
+        assert isinstance(pVector, YoonVector2D)
+        return pVector.y == pVector.x * self.slope + self.intercept
 
-    def __add__(self, other):
-        assert isinstance(other, YoonLine2D)
-        return YoonLine2D(slope=self.slope + other.slope, intercept=self.intercept + other.intercept)
+    def __add__(self, pLine):
+        assert isinstance(pLine, YoonLine2D)
+        return YoonLine2D(slope=self.slope + pLine.slope, intercept=self.intercept + pLine.intercept)
 
-    def __sub__(self, other):
-        assert isinstance(other, YoonLine2D)
-        return YoonLine2D(slope=self.slope - other.slope, intercept=self.intercept + other.intercept)
+    def __sub__(self, pLine):
+        assert isinstance(pLine, YoonLine2D)
+        return YoonLine2D(slope=self.slope - pLine.slope, intercept=self.intercept + pLine.intercept)
 
-    def __eq__(self, other):
-        assert isinstance(other, YoonLine2D)
-        return (self.slope == other.slope) and (self.intercept == other.intercept)
+    def __eq__(self, pLine):
+        assert isinstance(pLine, YoonLine2D)
+        return (self.slope == pLine.slope) and (self.intercept == pLine.intercept)

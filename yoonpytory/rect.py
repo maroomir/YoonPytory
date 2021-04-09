@@ -10,7 +10,7 @@ class YoonRect2D:
     center_pos = YoonVector2D(0, 0)
 
     def __str__(self):
-        return "WIDTH : {0}, HEIGHT : {1}, CENTER {2}".format(self.width, self.height, self.center_pos.__str__())
+        return "WIDTH : {0}, HEIGHT : {1}, CENTER {2}, TL : {3}, BR : {4}".format(self.width, self.height, self.center_pos.__str__(), self.top_left().__str__(), self.bottom_right().__str__())
 
     def __init__(self, *args, **kwargs):
         if len(args) > 0:
@@ -124,39 +124,45 @@ class YoonRect2D:
     def bottom_right(self):
         return YoonVector2D(self.right(), self.bottom())
 
-    def to_ndarray_x(self):
+    def to_array_x(self):
         return numpy.array([self.top_right().x, self.top_left().x, self.bottom_left().x, self.bottom_right().x])
 
-    def to_ndarray_y(self):
+    def to_array_y(self):
         return numpy.array([self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y])
 
-    def to_ndarray_xy(self):
-        list_x = [self.top_right().x, self.top_left().x, self.bottom_left().x, self.bottom_right().x]
-        list_y = [self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y]
-        return numpy.array(list_x, list_y)
+    def to_array_xy(self):
+        listX = [self.top_right().x, self.top_left().x, self.bottom_left().x, self.bottom_right().x]
+        listY = [self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y]
+        return numpy.array(listX, listY)
+
+    def to_list(self):
+        return [self.left(), self.top(), self.width, self.height]
+
+    def to_tuple(self):
+        return self.left(), self.top(), self.width, self.height
 
     def area(self):
         return self.width * self.height
 
-    def is_contain(self, vector: YoonVector2D):
-        assert isinstance(vector, YoonVector2D)
-        if self.left() < vector.x < self.right() and self.top() < vector.y < self.bottom():
+    def is_contain(self, pVector: YoonVector2D):
+        assert isinstance(pVector, YoonVector2D)
+        if self.left() < pVector.x < self.right() and self.top() < pVector.y < self.bottom():
             return True
         else:
             return False
 
-    def __add__(self, other):
-        assert isinstance(other, YoonRect2D)
-        top = min(self.top(), other.top(), self.bottom(), other.bottom())
-        bottom = max(self.top(), other.top(), self.bottom(), other.bottom())
-        left = min(self.left(), other.left(), self.right(), other.right())
-        right = max(self.left(), other.left(), self.right(), other.right())
+    def __add__(self, pRect):
+        assert isinstance(pRect, YoonRect2D)
+        top = min(self.top(), pRect.top(), self.bottom(), pRect.bottom())
+        bottom = max(self.top(), pRect.top(), self.bottom(), pRect.bottom())
+        left = min(self.left(), pRect.left(), self.right(), pRect.right())
+        right = max(self.left(), pRect.left(), self.right(), pRect.right())
         return YoonRect2D(x=(left + right) / 2, y=(top + bottom) / 2, width=right - left, height=bottom - top)
 
-    def __mul__(self, number: (int, float)):
-        assert isinstance(number, (int, float))
-        return YoonRect2D(pos=self.center_pos.__copy__(), width=number * self.width, height=number * self.height)
+    def __mul__(self, scale: (int, float)):
+        assert isinstance(scale, (int, float))
+        return YoonRect2D(pos=self.center_pos.__copy__(), width=scale * self.width, height=scale * self.height)
 
-    def __eq__(self, other: (int, float)):
-        assert isinstance(other, YoonRect2D)
-        return self.center_pos == other.center_pos and self.width == other.width and self.height == other.height
+    def __eq__(self, pRect: (int, float)):
+        assert isinstance(pRect, YoonRect2D)
+        return self.center_pos == pRect.center_pos and self.width == pRect.width and self.height == pRect.height

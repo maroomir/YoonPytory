@@ -1,4 +1,5 @@
 import yoonpytory
+import yoonimage
 
 
 def process_test_dir():
@@ -26,7 +27,7 @@ def process_test_vector():
     print("VEC 1 = {0}, VEC 2 = {1}, DISTANCE = {2}".format(vector1.to_tuple(), vector2.to_tuple(),
                                                             vector1.distance(vector2)))
     scale_vector = vector1.scale(2, 2)
-    move_vector = yoonpytory.vector2D(10, 10, step=5)
+    move_vector = yoonpytory.vector2D(10, 10, step_x=5, step_y=5)
     print("Scale VEC 1 = " + scale_vector.__str__())
     # Move vector to direction
     for i in range(10):
@@ -35,7 +36,7 @@ def process_test_vector():
 
 
 def process_test_rect():
-    vector = yoonpytory.vector2D(10, 10, step=5)
+    vector = yoonpytory.vector2D(10, 10, step_x=5, step_y=5)
     list_vector = [vector]
     for i_dir in yoonpytory.dir2D.get_square_directions():
         print("INSERT VECTOR = " + vector.__str__())
@@ -51,7 +52,7 @@ def process_test_rect():
 
 def process_test_line():
     # Move vector to direction
-    move_vector = yoonpytory.vector2D(5, 5, step=5)
+    move_vector = yoonpytory.vector2D(5, 5, step_x=5, step_y=5)
     list_vector = []
     for i in range(10):
         print("MOVE {0} = ".format(i) + move_vector.__str__())
@@ -66,8 +67,20 @@ def process_test_line():
     print((line1 + line2).__str__())
 
 
+def process_test_yolo():
+    # Run network
+    net_param = yoonimage.yolonet()
+    net_param.load_modern_net(strWeightFile="./data/yolov3.weights", strConfigFile="./data/yolov3.cfg",
+                              strNamesFile="./data/coco.names")
+    image = yoonimage.yimage(file="./data/input1.bmp")
+    obj_list = yoonimage.detection(image, net_param, pSize=yoonimage.YOLO_SIZE_NORMAL, dScale=yoonimage.YOLO_SCALE_ONE_ZERO_PER_8BIT)
+    result = yoonimage.remove_noise(obj_list)
+    yoonimage.draw_detection_result(result, image, net_param)
+
+
 if __name__ == '__main__':
     process_test_dir()
     process_test_vector()
     process_test_rect()
     process_test_line()
+    process_test_yolo()
