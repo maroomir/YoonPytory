@@ -17,219 +17,219 @@ class eYoonDir2D(Enum):
         return "{0}".format(self.name)
 
     def go(self, strTag: str):
-        dic = {"clock4": self.previous_quadrant(),
-               "anticlock4": self.next_quadrant(),
-               "clock8": self.previous_octant(),
-               "anticlock8": self.next_octant(),
-               "order": self.next_order(),
-               "antiorder": self.previous_order(),
-               "whirlpool": self.next_whirlpool(),
-               "antiwhirlpool": self.previous_whirlpool(),
-               "x": self.reverse_y(),
-               "y": self.reverse_x()}
-        if dic.get(strTag):
-            return dic[strTag]
+        pDic = {"clock4": self.previous_quadrant(),
+                "anticlock4": self.next_quadrant(),
+                "clock8": self.previous_octant(),
+                "anticlock8": self.next_octant(),
+                "order": self.next_order(),
+                "antiorder": self.previous_order(),
+                "whirlpool": self.next_whirlpool(),
+                "antiwhirlpool": self.previous_whirlpool(),
+                "x": self.reverse_y(),
+                "y": self.reverse_x()}
+        if pDic.get(strTag):
+            return pDic[strTag]
         else:
             return self
 
     def back(self, strTag: str):
-        dic = {"clock4": self.next_quadrant(),
-               "anticlock4": self.previous_quadrant(),
-               "clock8": self.next_octant(),
-               "anticlock8": self.previous_octant(),
-               "order": self.previous_order(),
-               "antiorder": self.next_order(),
-               "whirlpool": self.previous_whirlpool(),
-               "antiwhirlpool": self.next_whirlpool(),
-               "x": self.reverse_y(),
-               "y": self.reverse_x()}
-        if dic.get(strTag):
-            return dic[strTag]
+        pDic = {"clock4": self.next_quadrant(),
+                "anticlock4": self.previous_quadrant(),
+                "clock8": self.next_octant(),
+                "anticlock8": self.previous_octant(),
+                "order": self.previous_order(),
+                "antiorder": self.next_order(),
+                "whirlpool": self.previous_whirlpool(),
+                "antiwhirlpool": self.next_whirlpool(),
+                "x": self.reverse_y(),
+                "y": self.reverse_x()}
+        if pDic.get(strTag):
+            return pDic[strTag]
         else:
             return self
 
     def next_quadrant(self):
-        dic = {"TOP": self.LEFT,
-               "LEFT": self.BOTTOM,
-               "BOTTOM": self.RIGHT,
-               "RIGHT": self.TOP,
-               "TOP_RIGHT": self.TOP_LEFT,
-               "TOP_LEFT": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.TOP_RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP": self.LEFT,
+                "LEFT": self.BOTTOM,
+                "BOTTOM": self.RIGHT,
+                "RIGHT": self.TOP,
+                "TOP_RIGHT": self.TOP_LEFT,
+                "TOP_LEFT": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.TOP_RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def previous_quadrant(self):
-        dic = {"TOP": self.RIGHT,
-               "RIGHT": self.BOTTOM,
-               "BOTTOM": self.LEFT,
-               "LEFT": self.TOP,
-               "TOP_RIGHT": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.TOP_LEFT,
-               "TOP_LEFT": self.TOP_RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP": self.RIGHT,
+                "RIGHT": self.BOTTOM,
+                "BOTTOM": self.LEFT,
+                "LEFT": self.TOP,
+                "TOP_RIGHT": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.TOP_LEFT,
+                "TOP_LEFT": self.TOP_RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def next_octant(self):
-        dic = {"RIGHT": self.TOP_RIGHT,
-               "TOP_RIGHT": self.TOP,
-               "TOP": self.TOP_LEFT,
-               "TOP_LEFT": self.LEFT,
-               "LEFT": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"RIGHT": self.TOP_RIGHT,
+                "TOP_RIGHT": self.TOP,
+                "TOP": self.TOP_LEFT,
+                "TOP_LEFT": self.LEFT,
+                "LEFT": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def previous_octant(self):
-        dic = {"RIGHT": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.LEFT,
-               "LEFT": self.TOP_LEFT,
-               "TOP_LEFT": self.TOP,
-               "TOP": self.TOP_RIGHT,
-               "TOP_RIGHT": self.RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"RIGHT": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.LEFT,
+                "LEFT": self.TOP_LEFT,
+                "TOP_LEFT": self.TOP,
+                "TOP": self.TOP_RIGHT,
+                "TOP_RIGHT": self.RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def reverse_x(self):
-        dic = {"TOP_LEFT": self.BOTTOM_LEFT,
-               "TOP": self.BOTTOM,
-               "TOP_RIGHT": self.BOTTOM_RIGHT,
-               "BOTTOM_LEFT": self.TOP_LEFT,
-               "BOTTOM": self.TOP,
-               "BOTTOM_RIGHT": self.TOP_RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP_LEFT": self.BOTTOM_LEFT,
+                "TOP": self.BOTTOM,
+                "TOP_RIGHT": self.BOTTOM_RIGHT,
+                "BOTTOM_LEFT": self.TOP_LEFT,
+                "BOTTOM": self.TOP,
+                "BOTTOM_RIGHT": self.TOP_RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def reverse_y(self):
-        dic = {"TOP_LEFT": self.TOP_RIGHT,
-               "LEFT": self.RIGHT,
-               "BOTTOM_LEFT": self.BOTTOM_RIGHT,
-               "TOP_RIGHT": self.TOP_LEFT,
-               "RIGHT": self.LEFT,
-               "BOTTOM_RIGHT": self.BOTTOM_LEFT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP_LEFT": self.TOP_RIGHT,
+                "LEFT": self.RIGHT,
+                "BOTTOM_LEFT": self.BOTTOM_RIGHT,
+                "TOP_RIGHT": self.TOP_LEFT,
+                "RIGHT": self.LEFT,
+                "BOTTOM_RIGHT": self.BOTTOM_LEFT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def next_order(self):
-        dic = {"TOP_LEFT": self.TOP,
-               "TOP": self.TOP_RIGHT,
-               "TOP_RIGHT": self.LEFT,
-               "LEFT": self.CENTER,
-               "CENTER": self.RIGHT,
-               "RIGHT": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.TOP_LEFT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP_LEFT": self.TOP,
+                "TOP": self.TOP_RIGHT,
+                "TOP_RIGHT": self.LEFT,
+                "LEFT": self.CENTER,
+                "CENTER": self.RIGHT,
+                "RIGHT": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.TOP_LEFT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def previous_order(self):
-        dic = {"BOTTOM_RIGHT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.RIGHT,
-               "RIGHT": self.CENTER,
-               "CENTER": self.LEFT,
-               "LEFT": self.TOP_RIGHT,
-               "TOP_RIGHT": self.TOP,
-               "TOP": self.TOP_LEFT,
-               "TOP_LEFT": self.BOTTOM_RIGHT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"BOTTOM_RIGHT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.RIGHT,
+                "RIGHT": self.CENTER,
+                "CENTER": self.LEFT,
+                "LEFT": self.TOP_RIGHT,
+                "TOP_RIGHT": self.TOP,
+                "TOP": self.TOP_LEFT,
+                "TOP_LEFT": self.BOTTOM_RIGHT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def next_whirlpool(self):
-        dic = {"TOP_LEFT": self.TOP,
-               "TOP": self.TOP_RIGHT,
-               "TOP_RIGHT": self.RIGHT,
-               "RIGHT": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.LEFT,
-               "LEFT": self.CENTER,
-               "CENTER": self.TOP_LEFT}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP_LEFT": self.TOP,
+                "TOP": self.TOP_RIGHT,
+                "TOP_RIGHT": self.RIGHT,
+                "RIGHT": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.LEFT,
+                "LEFT": self.CENTER,
+                "CENTER": self.TOP_LEFT}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def previous_whirlpool(self):
-        dic = {"CENTER": self.LEFT,
-               "LEFT": self.BOTTOM_LEFT,
-               "BOTTOM_LEFT": self.BOTTOM,
-               "BOTTOM": self.BOTTOM_RIGHT,
-               "BOTTOM_RIGHT": self.RIGHT,
-               "RIGHT": self.TOP_RIGHT,
-               "TOP_RIGHT": self.TOP,
-               "TOP": self.TOP_LEFT,
-               "TOP_LEFT": self.CENTER}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"CENTER": self.LEFT,
+                "LEFT": self.BOTTOM_LEFT,
+                "BOTTOM_LEFT": self.BOTTOM,
+                "BOTTOM": self.BOTTOM_RIGHT,
+                "BOTTOM_RIGHT": self.RIGHT,
+                "RIGHT": self.TOP_RIGHT,
+                "TOP_RIGHT": self.TOP,
+                "TOP": self.TOP_LEFT,
+                "TOP_LEFT": self.CENTER}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return self
 
     def to_order_number(self):
-        dic = {"TOP_LEFT": 0,
-               "TOP": 1,
-               "TOP_RIGHT": 2,
-               "LEFT": 3,
-               "CENTER": 4,
-               "RIGHT": 5,
-               "BOTTOM_LEFT": 6,
-               "BOTTOM": 7,
-               "BOTTOM_RIGHT": 8}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP_LEFT": 0,
+                "TOP": 1,
+                "TOP_RIGHT": 2,
+                "LEFT": 3,
+                "CENTER": 4,
+                "RIGHT": 5,
+                "BOTTOM_LEFT": 6,
+                "BOTTOM": 7,
+                "BOTTOM_RIGHT": 8}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return -1
 
     @classmethod
     def from_order_num(cls, nOrder):
-        dic = {0: cls.TOP_LEFT,
-               1: cls.TOP,
-               2: cls.TOP_RIGHT,
-               3: cls.LEFT,
-               4: cls.CENTER,
-               5: cls.RIGHT,
-               6: cls.BOTTOM_LEFT,
-               7: cls.BOTTOM,
-               8: cls.BOTTOM_RIGHT}
-        if dic.get(nOrder):
-            return dic[nOrder]
+        pDic = {0: cls.TOP_LEFT,
+                1: cls.TOP,
+                2: cls.TOP_RIGHT,
+                3: cls.LEFT,
+                4: cls.CENTER,
+                5: cls.RIGHT,
+                6: cls.BOTTOM_LEFT,
+                7: cls.BOTTOM,
+                8: cls.BOTTOM_RIGHT}
+        if pDic.get(nOrder):
+            return pDic[nOrder]
         else:
             return cls.NONE
 
     def to_clock_number(self):
-        dic = {"TOP": 0,
-               "TOP_RIGHT": 1,
-               "RIGHT": 3,
-               "RIGHT_BOTTOM": 5,
-               "BOTTOM": 6,
-               "BOTTOM_LEFT": 7,
-               "LEFT": 9,
-               "TOP_LEFT": 11}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"TOP": 0,
+                "TOP_RIGHT": 1,
+                "RIGHT": 3,
+                "RIGHT_BOTTOM": 5,
+                "BOTTOM": 6,
+                "BOTTOM_LEFT": 7,
+                "LEFT": 9,
+                "TOP_LEFT": 11}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return -1
 
@@ -255,69 +255,69 @@ class eYoonDir2D(Enum):
             raise cls.NONE
 
     def to_quadrant(self):
-        dic = {"CENTER": 0,
-               "RIGHT": 1,
-               "TOP_RIGHT": 1,
-               "TOP": 2,
-               "TOP_LEFT": 2,
-               "LEFT": 3,
-               "BOTTOM_LEFT": 3,
-               "BOTTOM": 4,
-               "BOTTOM_RIGHT": 4}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"CENTER": 0,
+                "RIGHT": 1,
+                "TOP_RIGHT": 1,
+                "TOP": 2,
+                "TOP_LEFT": 2,
+                "LEFT": 3,
+                "BOTTOM_LEFT": 3,
+                "BOTTOM": 4,
+                "BOTTOM_RIGHT": 4}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return -1
 
     @classmethod
     def from_quadrant(cls, nQuad: int):
-        dic = {0: cls.CENTER,
-               1: cls.TOP_RIGHT,
-               2: cls.TOP_LEFT,
-               3: cls.BOTTOM_LEFT,
-               4: cls.BOTTOM_RIGHT, }
-        if dic.get(nQuad):
-            return dic[nQuad]
+        pDic = {0: cls.CENTER,
+                1: cls.TOP_RIGHT,
+                2: cls.TOP_LEFT,
+                3: cls.BOTTOM_LEFT,
+                4: cls.BOTTOM_RIGHT, }
+        if pDic.get(nQuad):
+            return pDic[nQuad]
         else:
             return cls.NONE
 
     def to_tuple(self):
-        dic = {"CENTER": (0, 0),
-               "RIGHT": (1, 0),
-               "TOP_RIGHT": (1, 1),
-               "TOP": (0, 1),
-               "TOP_LEFT": (1, -1),
-               "LEFT": (-1, 0),
-               "BOTTOM_LEFT": (-1, -1),
-               "BOTTOM": (0, -1),
-               "BOTTOM_RIGHT": (-1, 1)}
-        if dic.get(self.name):
-            return dic[self.name]
+        pDic = {"CENTER": (0, 0),
+                "RIGHT": (1, 0),
+                "TOP_RIGHT": (1, 1),
+                "TOP": (0, 1),
+                "TOP_LEFT": (1, -1),
+                "LEFT": (-1, 0),
+                "BOTTOM_LEFT": (-1, -1),
+                "BOTTOM": (0, -1),
+                "BOTTOM_RIGHT": (-1, 1)}
+        if pDic.get(self.name):
+            return pDic[self.name]
         else:
             return 0, 0
 
     @classmethod
     def from_tuple(cls, pPair: tuple):
         assert isinstance(pPair, tuple)
-        x = pPair[0]
-        y = pPair[1]
-        if x == 0 and y == 0:
+        ndX = pPair[0]
+        ndY = pPair[1]
+        if ndX == 0 and ndY == 0:
             return eYoonDir2D.CENTER
-        elif x == 0 and y > 0:
+        elif ndX == 0 and ndY > 0:
             return eYoonDir2D.TOP
-        elif x == 0 and y < 0:
+        elif ndX == 0 and ndY < 0:
             return eYoonDir2D.BOTTOM
-        elif x > 0 and y == 0:
+        elif ndX > 0 and ndY == 0:
             return eYoonDir2D.RIGHT
-        elif x < 0 and y == 0:
+        elif ndX < 0 and ndY == 0:
             return eYoonDir2D.LEFT
-        elif x > 0 and y > 0:
+        elif ndX > 0 and ndY > 0:
             return eYoonDir2D.TOP_RIGHT
-        elif x < 0 < y:
+        elif ndX < 0 < ndY:
             return eYoonDir2D.TOP_LEFT
-        elif x < 0 and y < 0:
+        elif ndX < 0 and ndY < 0:
             return eYoonDir2D.BOTTOM_LEFT
-        elif x > 0 > y:
+        elif ndX > 0 > ndY:
             return eYoonDir2D.BOTTOM_RIGHT
         else:
             return eYoonDir2D.NONE

@@ -25,44 +25,46 @@ class YoloNet:
         self.colors = numpy.random.uniform(0, 255, size=(len(self.classes), 3))
 
 
-def detection(pImage: YoonImage, pNet: YoloNet, pSize: tuple, dScale: float, dScoreTarget=0.5):
+def detection(pImageSource: YoonImage, pNet: YoloNet, pSize: tuple, dScale: float, dScoreTarget=0.5):
     # Initialize input blobs for leaning network
-    arrayBlob = cv2.dnn.blobFromImage(pImage.get_buffer(), scalefactor=dScale, size=pSize, mean=(0, 0, 0),
-                                      swapRB=True, crop=False)
+    pArrayBlob = cv2.dnn.blobFromImage(pImageSource.get_buffer(), scalefactor=dScale, size=pSize, mean=(0, 0, 0),
+                                       swapRB=True, crop=False)
     # Set network input
-    pNet.net.setInput(arrayBlob)
+    pNet.net.setInput(pArrayBlob)
     # Run network
-    listResult = pNet.net.forward(pNet.layers)
+    pListResult = pNet.net.forward(pNet.layers)
     # Analyze network result
-    listObject = []
-    for pResult in listResult:
+    pListObject = []
+    for pResult in pListResult:
         for arrayInfo in pResult:  # Information array : CenterX, CenterY, Width, Height, Scores ...
             scores = arrayInfo[5:]
-            max_id = numpy.argmax(scores)
-            max_score = scores[max_id]
-            if max_score > dScoreTarget:
-                rect = YoonRect2D(x=arrayInfo[0] * pImage.width, y=arrayInfo[1] * pImage.height,
-                                  width=arrayInfo[2] * pImage.width, height=arrayInfo[3] * pImage.height)
-                listObject.append(YoonObject(id=max_id, score=numpy.float64(max_score), object=rect, image=pImage.crop(
-                    rect)))  # score type is float64 because of fixing error in remove_noise
-    return listObject
+            nIDMax = numpy.argmax(scores)
+            dScoreMax = scores[nIDMax]
+            if dScoreMax > dScoreTarget:
+                pRectMax = YoonRect2D(dX=arrayInfo[0] * pImageSource.width, dY=arrayInfo[1] * pImageSource.height,
+                                      dWidth=arrayInfo[2] * pImageSource.width,
+                                      dHeight=arrayInfo[3] * pImageSource.height)
+                # score type is float64 because of fixing error in remove_noise
+                pListObject.append(YoonObject(nID=nIDMax, dScore=numpy.float64(dScoreMax), pObject=pRectMax,
+                                              pImage=pImageSource.crop(pRectMax)))
+    return pListObject
 
 
-def remove_noise(listObject: list):
-    listRect = YoonObject.listing(listObject, "object_to_list")
-    listScore = YoonObject.listing(listObject, "score")
-    results = cv2.dnn.NMSBoxes(listRect, listScore, score_threshold=0.5, nms_threshold=0.4)
-    listResult = []
-    for i in range(len(listObject)):
-        if i in results:
-            listResult.append(listObject[i])
-    return listResult
+def remove_noise(pListObject: list):
+    pListRect = YoonObject.listing(pListObject, "object_to_list")
+    pListScore = YoonObject.listing(pListObject, "score")
+    pArrayResult = cv2.dnn.NMSBoxes(pListRect, pListScore, score_threshold=0.5, nms_threshold=0.4)
+    pListResult = []
+    for i in range(len(pListObject)):
+        if i in pArrayResult:
+            pListResult.append(pListObject[i])
+    return pListResult
 
 
-def draw_detection_result(listObject: list, pImage: YoonImage, pNet: YoloNet):
-    for pObject in listObject:
+def draw_detection_result(pListObject: list, pImage: YoonImage, pNet: YoloNet):
+    for pObject in pListObject:
         if isinstance(pObject, YoonObject):
-            object_id = pObject.label
-            pImage.draw_rectangle(pObject.object, arrayColor=pNet.colors[object_id])
-            pImage.draw_text(pNet.classes[object_id], pObject.object.top_left(), arrayColor=pNet.colors[object_id])
+            nID = pObject.label
+            pImage.draw_rectangle(pObject.object, pArrayColor=pNet.colors[nID])
+            pImage.draw_text(pNet.classes[nID], pObject.object.top_left(), pArrayColor=pNet.colors[nID])
     pImage.show_image()
