@@ -83,9 +83,19 @@ def process_single_layer_perception():
     net = yoonpytory.neuron()
     net.load_source(strFileName='./data/twoGaussians.npz')
     net.load_weight(strFileName='./data/weight.npz')
-    net.train(nCountEpoch=1000, bInitWeight=False, bRunTest=False)
+    net.train(nCountEpoch=3000, bInitWeight=True, bRunTest=False)
     net.process()
     net.save_weight(strFileName='./data/weight.npz')
+
+
+def process_multi_layer_perception():
+    net = yoonpytory.network()
+    net.load_source(strFileName='./data/spirals.npz')
+    net.load_weight(strFileName='./data/weights.npz')
+    net.train(nCountEpoch=5000, nOrder=10, nSizeLayer=100, bInitWeight=False, bRunTest=False)
+    net.process()
+    net.save_weight(strFileName='./data/weights.npz')
+    net.save_result(strFileName='./data/spirals.npz')
 
 
 if __name__ == '__main__':
@@ -95,3 +105,4 @@ if __name__ == '__main__':
     process_test_line()
     process_test_yolo()
     process_single_layer_perception()
+    process_multi_layer_perception()

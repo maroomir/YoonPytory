@@ -35,79 +35,126 @@ class YoonVector2D:
         return YoonVector2D(dic[eDir.__str__()][0] * nStepX, dic[eDir.__str__()][1] * nStepY, nStepX, nStepY)
 
     @classmethod
-    def to_array_xy(cls, pArgs):
-        if not len(pArgs) >= 2:
-            raise Exception("Arguments is not enough")
-        listX, listY = [], []
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            listX.append([pArgs[i].x])
-            listY.append([pArgs[i].y])
-        return numpy.array(listX, listY)
+    def to_array_xy(cls, pList: list, *args):
+        pListX, pListY = [], []
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                pListX.append(args[i].x)
+                pListY.append(args[i].y)
+            return numpy.array(pListX, pListY)
+        else:
+            if not len(pList) >= 2:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                pListX.append([pList[i].x])
+                pListY.append([pList[i].y])
+            return numpy.array(pListX, pListY)
 
     @classmethod
-    def to_array_x(cls, pArgs):
-        if not len(pArgs) >= 2:
-            raise Exception("Arguments is not enough")
-        listX = []
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            listX.append([pArgs[i].x])
-        return numpy.array(listX)
+    def to_array_x(cls, pList: list, *args):
+        pListX = []
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                pListX.append([args[i].x])
+            return numpy.array(pListX)
+        else:
+            if not len(pList) >= 2:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                pListX.append([pList[i].x])
+            return numpy.array(pListX)
 
     @classmethod
-    def to_array_y(cls, pArgs):
-        if not len(pArgs) >= 2:
-            raise Exception("Arguments is not enough")
+    def to_array_y(cls, pList: list, *args):
         listY = []
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            listY.append([pArgs[i].y])
-        return numpy.array(listY)
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                listY.append([args[i].y])
+            return numpy.array(listY)
+        else:
+            if not len(pList) >= 2:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                listY.append([pList[i].y])
+            return numpy.array(listY)
 
     @classmethod
-    def minimum_x(cls, pArgs):
-        if not len(pArgs) > 0:
-            raise Exception("Arguments is not enough")
+    def minimum_x(cls, pList: list, *args):
         minX = sys.maxsize
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            if minX > pArgs[i].x:
-                minX = pArgs[i].x
-        return minX
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                if minX > args[i].x:
+                    minX = args[i].x
+            return minX
+        else:
+            if not len(pList) > 0:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                if minX > pList[i].x:
+                    minX = pList[i].x
+            return minX
 
     @classmethod
-    def maximum_x(cls, pArgs):
-        if not len(pArgs) > 0:
-            raise Exception("Arguments is not enough")
+    def maximum_x(cls, pList: list, *args):
         maxX = -sys.maxsize
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            if maxX < pArgs[i].x:
-                maxX = pArgs[i].x
-        return maxX
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                if maxX < args[i].x:
+                    maxX = args[i].x
+            return maxX
+        else:
+            if not len(pList) > 0:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                if maxX < pList[i].x:
+                    maxX = pList[i].x
+            return maxX
 
     @classmethod
-    def minimum_y(cls, pArgs):
-        if not len(pArgs) > 0:
-            raise Exception("Arguments is not enough")
+    def minimum_y(cls, pList: list, *args):
         minY = sys.maxsize
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            if minY > pArgs[i].y:
-                minY = pArgs[i].y
-        return minY
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                if minY > args[i].y:
+                    minY = args[i].y
+            return minY
+        else:
+            if not len(pList) > 0:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                if minY > pList[i].y:
+                    minY = pList[i].y
+            return minY
 
     @classmethod
-    def maximum_y(cls, pArgs):
-        if not len(pArgs) > 0:
-            raise Exception("Arguments is not enough")
+    def maximum_y(cls, pList: list, *args):
         maxY = -sys.maxsize
-        for i in range(len(pArgs)):
-            assert isinstance(pArgs[i], YoonVector2D)
-            if maxY < pArgs[i].x:
-                maxY = pArgs[i].x
-        return maxY
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], YoonVector2D)
+                if maxY < args[i].x:
+                    maxY = args[i].x
+            return maxY
+        else:
+            if not len(pList) > 0:
+                raise Exception("Arguments is not enough")
+            for i in range(len(pList)):
+                assert isinstance(pList[i], YoonVector2D)
+                if maxY < pList[i].x:
+                    maxY = pList[i].x
+            return maxY
 
     @classmethod
     def zero_vector(cls):
