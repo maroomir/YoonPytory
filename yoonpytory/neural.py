@@ -144,8 +144,8 @@ class YoonNeuron:
         pZMesh = numpy.zeros(pXMesh.shape)
         for iX in range(pXMesh.shape[0]):
             for iY in range(pYMesh.shape[0]):
-                listInput = numpy.array([pXMesh[iX][iY], pYMesh[iX][iY], 1], ndmin=2)
-                pZMesh[iX][iY] = _logistic_regression(listInput, self.weight)
+                pArray = numpy.array([pXMesh[iX][iY], pYMesh[iX][iY], 1], ndmin=2)
+                pZMesh[iX][iY] = _logistic_regression(pArray, self.weight)
         matplotlib.pyplot.contour(listX, listY, pZMesh, (0.49, 0.51))
         matplotlib.pyplot.show()
 

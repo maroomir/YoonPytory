@@ -3,7 +3,7 @@ import numpy
 from yoonpytory.vector import YoonVector2D
 
 
-def _list_square(self, pX: numpy.ndarray, pY: numpy.ndarray):
+def _list_square(pX: numpy.ndarray, pY: numpy.ndarray):
     if pX.size != pY.size:
         raise Exception("Array X size:{0}, Y size:{1} is not equal".format(pX.size, pY.size))
     nCount = pX.size
@@ -11,8 +11,9 @@ def _list_square(self, pX: numpy.ndarray, pY: numpy.ndarray):
     dMeanX, dMeanY = pX.mean(), pY.mean()
     dCrossDeviationYX = numpy.sum(pY * pX) - nCount * dMeanX * dMeanY
     dSquareDeviationX = numpy.sum(pX * pX) - nCount * dMeanX * dMeanX
-    self.slope = dCrossDeviationYX / dSquareDeviationX
-    self.intercept = dMeanY - self.slope * dMeanX
+    dSlope = dCrossDeviationYX / dSquareDeviationX
+    dIntercept = dMeanY - dSlope * dMeanX
+    return dSlope, dIntercept
 
 
 class YoonLine2D:
@@ -53,7 +54,7 @@ class YoonLine2D:
             if pList is not None:
                 pArrayX = YoonVector2D.to_array_x(pList)
                 pArrayY = YoonVector2D.to_array_y(pList)
-                self.slope, self.intercept = __least_square(pArrayX, pArrayY)
+                self.slope, self.intercept = _list_square(pArrayX, pArrayY)
             else:
                 self.slope = dSlope
                 self.intercept = dIntercept
