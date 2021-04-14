@@ -98,10 +98,10 @@ def process_multi_layer_perception():
 
 
 if __name__ == '__main__':
-    #process_test_dir()
-    #process_test_vector()
-    #process_test_rect()
-    #process_test_line()
+    process_test_dir()
+    process_test_vector()
+    process_test_rect()
+    process_test_line()
     #process_test_yolo()
     #process_single_layer_perception()
     process_multi_layer_perception()
