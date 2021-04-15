@@ -1,5 +1,6 @@
 import yoonpytory
 import yoonimage
+import yoonspeech
 
 
 def process_test_dir():
@@ -97,6 +98,13 @@ def process_multi_layer_perception():
     net.show_plot()
     net.save_weight(strFileName='./data/weights.npz')
 
+def process_speech():
+    speech = yoonspeech.speech()
+    speech.load_wave_file(strFileName='./data/2021451143.wav')
+    speech.show_time_signal()
+    speech.show_log_mel_spectrogram()
+    speech.show_mfcc()
+
 
 if __name__ == '__main__':
     process_test_dir()
@@ -104,5 +112,6 @@ if __name__ == '__main__':
     process_test_rect()
     process_test_line()
     process_test_yolo()
-    process_single_layer_perception()
+    #process_single_layer_perception()
     process_multi_layer_perception()
+    process_speech()

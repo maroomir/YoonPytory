@@ -37,7 +37,7 @@ class YoonSpeech:
         return YoonSpeech(pListTimeSignal=self.timeSignals, nSamplingRate=self.samplingRate)
 
     def load_wave_file(self, strFileName: str):
-        self.timeSignals, self.samplingRate = soundfile.read(strFileName)
+        self.timeSignals, self.samplingRate = librosa.load(strFileName)
         print("Load Wave file to Playtime {0:0.2f} seconds, Sampling rate {1} Hz".format(
             len(self.timeSignals) / self.samplingRate, self.samplingRate))
         self.logMelSpectrogram = self._log_mel_spectrogram()
@@ -162,7 +162,7 @@ class YoonSpeech:
         nCountWindowSample = int(dWindowLength * self.samplingRate)
         nCountStepSample = int(dShiftLength * self.samplingRate)
         nCountFrames = int(numpy.floor((len(self.timeSignals) - nCountWindowSample) / float(nCountStepSample)) + 1)
-        pArrayWindow = numpy.hanning(len(nCountWindowSample))
+        pArrayWindow = numpy.hanning(nCountWindowSample)
         pListSourceSection = []
         for iStep in range(0, nCountFrames):
             pListSourceSection.append(
