@@ -8,8 +8,8 @@ class YoonObject:
     label = 0
     score = 0.0
     pixelCount = 0
-    object = None
-    objectImage = None
+    area = None
+    cropImage = None
 
     def __init__(self,
                  nID: int = 0,
@@ -21,25 +21,25 @@ class YoonObject:
         self.score = dScore
         self.pixelCount = nCountPixel
         if pObject is not None:
-            self.object = pObject.__copy__()
+            self.area = pObject.__copy__()
         if pImage is not None:
-            self.objectImage = pImage.__copy__()
+            self.cropImage = pImage.__copy__()
 
     def __copy__(self):
-        return YoonObject(id=self.label, score=self.score, pixel=self.pixelCount, object=self.object,
-                          image=self.objectImage)
+        return YoonObject(id=self.label, score=self.score, pixel=self.pixelCount, object=self.area,
+                          image=self.cropImage)
 
     @staticmethod
-    def listing(pListObject: list, strTag: str):
+    def listing(pList: list, strTag: str):
         pListResult = []
-        for content in pListObject:
-            if isinstance(content, YoonObject):
-                dic = {"id": content.label,
-                       "score": content.score,
-                       "pixel": content.pixelCount,
-                       "object": content.object,
-                       "object_to_list": content.object.to_list(),
-                       "object_to_tuple": content.object.to_tuple(),
-                       "image": content.objectImage}
-                pListResult.append(dic[strTag])
+        for pObject in pList:
+            if isinstance(pObject, YoonObject):
+                pDic = {"id": pObject.label,
+                        "score": pObject.score,
+                        "pixel": pObject.pixelCount,
+                        "area": pObject.area,
+                        "area_to_list": pObject.area.to_list(),
+                        "area_to_tuple": pObject.area.to_tuple(),
+                        "image": pObject.cropImage}
+                pListResult.append(pDic[strTag])
         return pListResult

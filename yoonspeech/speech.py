@@ -8,9 +8,9 @@ from scipy.fftpack import fft
 
 
 class YoonSpeech:
-    timeSignals: list
-    logMelSpectrogram: numpy.ndarray
-    MFCCs: numpy.ndarray
+    __timeSignal: list
+    __frameData: numpy.ndarray
+    dataType: str
     samplingRate: int
     ffTCount: int
     melOrder: int
@@ -19,73 +19,72 @@ class YoonSpeech:
     shiftLength: float
 
     def __str__(self):
-        return "LOG MEL : {0}, MFCC : {1}".format(self.logMelSpectrogram.shape(), self.MFCCs.shape())
+        return "SIGNAL LENGTH : {0}, FRAME SHAPE : {1}".format(len(self.__timeSignal), self.__frameData.shape)
 
     def __init__(self,
-                 strWavFileName: str = None,
+                 strFileName: str = None,
                  pListTimeSignal: list = None,
                  nSamplingRate: int = 48000,
+                 strType: str = "mfcc",
                  nFFTCount: int = 512,
                  nMelOrder: int = 24,
                  nMFCCOrder: int = 13,
                  dWindowLength: float = 0.02,
                  dShiftLength: float = 0.005):
+        self.samplingRate = nSamplingRate
+        self.dataType = strType
         self.ffTCount = nFFTCount
         self.melOrder = nMelOrder
         self.mfccOrder = nMFCCOrder
         self.windowLength = dWindowLength
         self.shiftLength = dShiftLength
-        if strWavFileName is not None:
-            self.load_wave_file(strWavFileName)
+        if strFileName is not None:
+            self.load_sound_file(strFileName)
         elif pListTimeSignal is not None:
-            self.timeSignals = pListTimeSignal
-            self.samplingRate = nSamplingRate
-            self.logMelSpectrogram = self._log_mel_spectrogram()
-            self.MFCCs = self._mel_frequency_cepstrogram_coefficient()
+            self.__timeSignal = pListTimeSignal
+            if self.dataType == "mel":
+                self.__frameData = self.__log_mel_spectrogram()
+            elif self.dataType == "mfcc":
+                self.__frameData = self.__mel_frequency_cepstrogram_coefficient()
+            else:
+                Exception("Transform type is abnormal : ", self.dataType)
         else:
-            self.timeSignals = None
-            self.samplingRate = 0
-            self.logMelSpectrogram = None
-            self.MFCCs = None
+            self.__timeSignal = None
+            self.__frameData = None
 
     def __copy__(self):
-        return YoonSpeech(pListTimeSignal=self.timeSignals, nSamplingRate=self.samplingRate)
+        return YoonSpeech(pListTimeSignal=self.__timeSignal, nSamplingRate=self.samplingRate)
 
-    def load_wave_file(self, strFileName: str):
-        self.timeSignals, self.samplingRate = librosa.load(strFileName)
-        print("Load Wave file to Playtime {0:0.2f} seconds, Sampling rate {1} Hz".format(
-            len(self.timeSignals) / self.samplingRate, self.samplingRate))
-        self.logMelSpectrogram = self._log_mel_spectrogram()
-        self.MFCCs = self._mel_frequency_cepstrogram_coefficient()
+    def load_sound_file(self, strFileName: str):
+        self.__timeSignal, self.samplingRate = librosa.load(strFileName, self.samplingRate)
+        if self.dataType == "mel":
+            self.__frameData = self.__log_mel_spectrogram()
+        elif self.dataType == "mfcc":
+            self.__frameData = self.__mel_frequency_cepstrogram_coefficient()
+        else:
+            Exception("Transform type is abnormal : ", self.dataType)
+        print("Load sound file to Playtime {0:0.2f} seconds, Sampling rate {1} Hz"
+              .format(len(self.__timeSignal) / self.samplingRate, self.samplingRate))
 
-    def save_wave_file(self, strFileName: str):
-        soundfile.write(strFileName, self.timeSignals, self.samplingRate)
+    def save_sound_file(self, strFileName: str):
+        soundfile.write(strFileName, self.__timeSignal, self.samplingRate)
 
-    def load_log_mel_spectrogram(self, strFileName: str):
+    def load_frame_data(self, strFileName: str):
         with open(strFileName, "rb") as pFile:
-            self.logMelSpectrogram = pickle.load(pFile)
-            print("Load Log-Mel Spectrogram : {} components".format(numpy.shape(self.logMelSpectrogram)))
+            self.__frameData = pickle.load(pFile)
+            print("Load {} Data : {} components".format(self.dataType, numpy.shape(self.__frameData)))
 
-    def save_log_mel_spectrogram(self, strFileName: str):
+    def save_frame_data(self, strFileName: str):
         with open(strFileName, "wb") as pFile:
-            pickle.dump(self.logMelSpectrogram, pFile)
-
-    def load_mfcc(self, strFileName: str):
-        with open(strFileName, "rb") as pFile:
-            self.MFCCs = pickle.load(pFile)
-            print("Load MFCC : {} components".format(numpy.shape(self.MFCCs)))
-
-    def save_mfcc(self, strFileName: str):
-        with open(strFileName, "wb") as pFile:
-            pickle.dump(self.MFCCs, pFile)
+            pickle.dump(self.__frameData, pFile)
 
     def resampling(self, nTargetRate: int):
-        pListResampling = librosa.resample(self.timeSignals, self.samplingRate, nTargetRate)
+        pListResampling = librosa.resample(self.__timeSignal, self.samplingRate, nTargetRate)
         return YoonSpeech(pListTimeSignal=pListResampling, nSamplingRate=nTargetRate)
 
     def crop(self, dStartTime: float, dEndTime: float):
         iStart, iEnd = int(dStartTime * self.samplingRate), int(dEndTime * self.samplingRate)
-        return YoonSpeech(pListTimeSignal=self.timeSignals[iStart, iEnd], nSamplingRate=self.samplingRate)
+        return YoonSpeech(pListTimeSignal=self.__timeSignal[iStart, iEnd], nSamplingRate=self.samplingRate)
 
     def show_time_signal(self):
         # Init graph
@@ -96,38 +95,38 @@ class YoonSpeech:
         pGraph.set_ylabel('Amplitude')
         pGraph.grid(True)
         # Set graph per time sample
-        nCountTime = len(self.timeSignals)
+        nCountTime = len(self.__timeSignal)
         listUnitX = numpy.linspace(0, nCountTime / self.samplingRate, nCountTime)
         pGraph.set_xlim(listUnitX.min(), listUnitX.max())
-        pGraph.set_ylim(self.timeSignals.min() * 1.4, self.timeSignals.max() * 1.4)
-        pGraph.plot(listUnitX, self.timeSignals)
+        pGraph.set_ylim(self.__timeSignal.min() * 1.4, self.__timeSignal.max() * 1.4)
+        pGraph.plot(listUnitX, self.__timeSignal)
         # Show graph
         matplotlib.pyplot.show()
 
-    def show_mfcc(self):
-        # Init Graph
-        matplotlib.pyplot.title('MFCC')
-        matplotlib.pyplot.ylabel('The number of Coefficients')
-        matplotlib.pyplot.xlabel('The number of frames')
-        # Set graph per Frequency
-        matplotlib.pyplot.imshow(self.MFCCs[:, 1:].transpose(), cmap='jet', origin='lower', aspect='auto')
-        matplotlib.pyplot.colorbar()
-        # Show graph
-        matplotlib.pyplot.show()
-
-    def show_log_mel_spectrogram(self):
-        # Init Graph
-        matplotlib.pyplot.title('Power Mel Filterbanks Spectogram')
-        matplotlib.pyplot.ylabel('The number of Mel Filterbanks')
-        matplotlib.pyplot.xlabel('The number of frames')
-        # Set graph per Frequency
-        matplotlib.pyplot.imshow(self.logMelSpectrogram.transpose(), cmap='jet', origin='lower', aspect='auto')
-        matplotlib.pyplot.colorbar()
-        # Show graph
-        matplotlib.pyplot.show()
+    def show_frame_data(self):
+        if self.dataType == "mfcc":
+            # Init Graph
+            matplotlib.pyplot.title('MFCC')
+            matplotlib.pyplot.ylabel('The number of Coefficients')
+            matplotlib.pyplot.xlabel('The number of frames')
+            # Set graph per Frequency
+            matplotlib.pyplot.imshow(self.__frameData[:, 1:].transpose(), cmap='jet', origin='lower', aspect='auto')
+            matplotlib.pyplot.colorbar()
+            # Show graph
+            matplotlib.pyplot.show()
+        elif self.dataType == "mel":
+            # Init Graph
+            matplotlib.pyplot.title('Power Mel Filterbanks Spectogram')
+            matplotlib.pyplot.ylabel('The number of Mel Filterbanks')
+            matplotlib.pyplot.xlabel('The number of frames')
+            # Set graph per Frequency
+            matplotlib.pyplot.imshow(self.__frameData.transpose(), cmap='jet', origin='lower', aspect='auto')
+            matplotlib.pyplot.colorbar()
+            # Show graph
+            matplotlib.pyplot.show()
 
     # Compute magnitude and Log-magnitude spectrum
-    def _log_magnitude(self, strFFTType: str = 'fft'):
+    def __log_magnitude(self, strFFTType: str = 'fft'):
         if strFFTType == 'fft':
             pArrayFreq = self.__fft()
             nSizeHalf = int(len(pArrayFreq) / 2)  # Use only Half
@@ -141,21 +140,21 @@ class YoonSpeech:
             print('Wrong Fourier transform type : {}'.format(strFFTType))
             raise StopIteration
 
-    def _log_mel_spectrogram(self):
+    def __log_mel_spectrogram(self):
         pArrayFreqSignal = self.__stft(self.ffTCount, self.windowLength, self.shiftLength)
         pArrayMagnitude = abs(pArrayFreqSignal) ** 2
         pArrayMelFilter = librosa.filters.mel(self.samplingRate, self.ffTCount, self.melOrder)
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
-    def _mel_frequency_cepstrogram_coefficient(self):
-        pArrayLogMelSpectrogram = self._log_mel_spectrogram()
+    def __mel_frequency_cepstrogram_coefficient(self):
+        pArrayLogMelSpectrogram = self.__log_mel_spectrogram()
         pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1,
                                        norm='ortho')  # Discreate cosine transformation
         return pArrayMFCC[:, :self.mfccOrder]
 
     def __fft(self):
-        pArrayWindow = self.timeSignals * numpy.hanning(len(self.timeSignals))
+        pArrayWindow = self.__timeSignal * numpy.hanning(len(self.__timeSignal))
         nSizeFFT = pow(2, int(numpy.log2(len(pArrayWindow))) + 1)  # Pow of 2
         pArrayFrequency = fft(pArrayWindow, nSizeFFT)
         return pArrayFrequency
@@ -164,12 +163,21 @@ class YoonSpeech:
     def __stft(self, nFFTCount: int, dWindowLength: float, dShiftLength: float):
         nCountWindowSample = int(dWindowLength * self.samplingRate)
         nCountStepSample = int(dShiftLength * self.samplingRate)
-        nCountFrames = int(numpy.floor((len(self.timeSignals) - nCountWindowSample) / float(nCountStepSample)) + 1)
+        nCountFrames = int(numpy.floor((len(self.__timeSignal) - nCountWindowSample) / float(nCountStepSample)) + 1)
         pArrayWindow = numpy.hanning(nCountWindowSample)
         pListSourceSection = []
         for iStep in range(0, nCountFrames):
             pListSourceSection.append(
-                pArrayWindow * self.timeSignals[
+                pArrayWindow * self.__timeSignal[
                                iStep * nCountStepSample: iStep * nCountStepSample + nCountWindowSample])
         pFrame = numpy.stack(pListSourceSection)
         return numpy.fft.rfft(pFrame, n=nFFTCount, axis=1)
+
+    @staticmethod
+    def listing(pList: list, strType: str):
+        pListResult = []
+        for pSpeech in pList:
+            pDic = {"time", pSpeech.__timeSignal,
+                    "frame", pSpeech.__frameData}
+            pListResult.append(pDic[strType])
+        return pListResult

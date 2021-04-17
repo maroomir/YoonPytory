@@ -100,18 +100,21 @@ def process_multi_layer_perception():
 
 def process_speech():
     speech = yoonspeech.speech(dWindowLength=0.004, dShiftLength=0.001)
-    speech.load_wave_file(strFileName='./data/speech/2021451143.wav')
+    speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
     speech.show_time_signal()
-    speech.show_log_mel_spectrogram()
-    speech.show_mfcc()
+    speech.show_frame_data()
 
+def process_speech_recognition():
+    speech_parser = yoonspeech.librispeech_parser(strRootDir='./data/speech_recognation/LibriSpeech/dev-clean')
+    yoonspeech.train(speech_parser)
 
 if __name__ == '__main__':
-    #process_test_dir()
-    #process_test_vector()
-    #process_test_rect()
-    #process_test_line()
-    #process_test_yolo()
+    process_test_dir()
+    process_test_vector()
+    process_test_rect()
+    process_test_line()
+    process_test_yolo()
     #process_single_layer_perception()
     #process_multi_layer_perception()
     process_speech()
+    #process_speech_recognition()

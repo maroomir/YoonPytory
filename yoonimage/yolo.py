@@ -51,7 +51,7 @@ def detection(pImageSource: YoonImage, pNet: YoloNet, pSize: tuple, dScale: floa
 
 
 def remove_noise(pListObject: list):
-    pListRect = YoonObject.listing(pListObject, "object_to_list")
+    pListRect = YoonObject.listing(pListObject, "area_to_list")
     pListScore = YoonObject.listing(pListObject, "score")
     pArrayResult = cv2.dnn.NMSBoxes(pListRect, pListScore, score_threshold=0.5, nms_threshold=0.4)
     pListResult = []
@@ -65,6 +65,6 @@ def draw_detection_result(pListObject: list, pImage: YoonImage, pNet: YoloNet):
     for pObject in pListObject:
         if isinstance(pObject, YoonObject):
             nID = pObject.label
-            pImage.draw_rectangle(pObject.object, pArrayColor=pNet.colors[nID])
-            pImage.draw_text(pNet.classes[nID], pObject.object.top_left(), pArrayColor=pNet.colors[nID])
+            pImage.draw_rectangle(pObject.area, pArrayColor=pNet.colors[nID])
+            pImage.draw_text(pNet.classes[nID], pObject.area.top_left(), pArrayColor=pNet.colors[nID])
     pImage.show_image()

@@ -35,7 +35,7 @@ class YoonVector2D:
         return YoonVector2D(dic[eDir.__str__()][0] * nStepX, dic[eDir.__str__()][1] * nStepY, nStepX, nStepY)
 
     @classmethod
-    def to_array_xy(cls, pList: list, *args):
+    def list_to_array_xy(cls, pList: list, *args):
         pListX, pListY = [], []
         if len(args) > 0:
             for i in range(len(args)):
@@ -53,7 +53,7 @@ class YoonVector2D:
             return numpy.array(pListX, pListY)
 
     @classmethod
-    def to_array_x(cls, pList: list, *args):
+    def list_to_array_x(cls, pList: list, *args):
         pListX = []
         if len(args) > 0:
             for i in range(len(args)):
@@ -69,7 +69,7 @@ class YoonVector2D:
             return numpy.array(pListX)
 
     @classmethod
-    def to_array_y(cls, pList: list, *args):
+    def list_to_array_y(cls, pList: list, *args):
         listY = []
         if len(args) > 0:
             for i in range(len(args)):
@@ -85,7 +85,7 @@ class YoonVector2D:
             return numpy.array(listY)
 
     @classmethod
-    def minimum_x(cls, pList: list, *args):
+    def list_to_minimum_x(cls, pList: list, *args):
         minX = sys.maxsize
         if len(args) > 0:
             for i in range(len(args)):
@@ -103,7 +103,7 @@ class YoonVector2D:
             return minX
 
     @classmethod
-    def maximum_x(cls, pList: list, *args):
+    def list_to_maximum_x(cls, pList: list, *args):
         maxX = -sys.maxsize
         if len(args) > 0:
             for i in range(len(args)):
@@ -121,7 +121,7 @@ class YoonVector2D:
             return maxX
 
     @classmethod
-    def minimum_y(cls, pList: list, *args):
+    def list_to_minimum_y(cls, pList: list, *args):
         minY = sys.maxsize
         if len(args) > 0:
             for i in range(len(args)):
@@ -139,7 +139,7 @@ class YoonVector2D:
             return minY
 
     @classmethod
-    def maximum_y(cls, pList: list, *args):
+    def list_to_maximum_y(cls, pList: list, *args):
         maxY = -sys.maxsize
         if len(args) > 0:
             for i in range(len(args)):
@@ -219,7 +219,7 @@ class YoonVector2D:
         array = numpy.eye(3)
         array[0, 0] = dScaleX
         array[1, 1] = dScaleY
-        result = array.dot(self.to_numpy(3, 1))
+        result = array.dot(self.to_array(3, 1))
         return YoonVector2D(result[0, 0], result[1, 0], self.__stepX, self.__stepY)
 
     def go(self, strTag: str):
@@ -236,10 +236,10 @@ class YoonVector2D:
         array = numpy.eye(3)
         array[0, 2] = dMoveX
         array[1, 2] = dMoveY
-        result = array.dot(self.to_numpy(3, 1))
+        result = array.dot(self.to_array(3, 1))
         return YoonVector2D(result[0, 0], result[1, 0], self.__stepX, self.__stepY)
 
-    def to_numpy(self, nRow: int, nCol: int):
+    def to_array(self, nRow: int, nCol: int):
         return numpy.array([self.x, self.y, 1]).reshape(nRow, nCol)
 
     def to_list(self):

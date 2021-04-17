@@ -32,10 +32,10 @@ class YoonLine2D:
                  *args: YoonVector2D,
                  **kwargs):
         if len(args) > 0:
-            pArrayX = YoonVector2D.to_array_x(args)
-            pArrayY = YoonVector2D.to_array_y(args)
-            dMinX = YoonVector2D.minimum_x(args)
-            dMinY = YoonVector2D.maximum_x(args)
+            pArrayX = YoonVector2D.list_to_array_x(args)
+            pArrayY = YoonVector2D.list_to_array_y(args)
+            dMinX = YoonVector2D.list_to_minimum_x(args)
+            dMinY = YoonVector2D.list_to_minimum_y(args)
             self.slope, self.intercept = _list_square(pArrayX, pArrayY)
             self.startPos = YoonVector2D(dMinX, self.y(dMinX))
             self.endPos = YoonVector2D(dMinY, self.y(dMinY))
@@ -52,8 +52,8 @@ class YoonLine2D:
             self.endPos = YoonVector2D(dMinY, self.y(dMinY))
         else:
             if pList is not None:
-                pArrayX = YoonVector2D.to_array_x(pList)
-                pArrayY = YoonVector2D.to_array_y(pList)
+                pArrayX = YoonVector2D.list_to_array_x(pList)
+                pArrayY = YoonVector2D.list_to_array_y(pList)
                 self.slope, self.intercept = _list_square(pArrayX, pArrayY)
             else:
                 self.slope = dSlope
