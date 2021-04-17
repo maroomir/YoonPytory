@@ -71,9 +71,9 @@ def process_test_line():
 def process_test_yolo():
     # Run network
     net_param = yoonimage.yolonet()
-    net_param.load_modern_net(strWeightFile="./data/yolov3.weights", strConfigFile="./data/yolov3.cfg",
-                              strNamesFile="./data/coco.names")
-    image = yoonimage.yimage(strFileName="./data/input1.bmp")
+    net_param.load_modern_net(strWeightFile="./data/yolo/yolov3.weights", strConfigFile="./data/yolo/yolov3.cfg",
+                              strNamesFile="./data/yolo/coco.names")
+    image = yoonimage.yimage(strFileName="./data/yolo/input1.bmp")
     obj_list = yoonimage.detection(image, net_param, pSize=yoonimage.YOLO_SIZE_NORMAL,
                                    dScale=yoonimage.YOLO_SCALE_ONE_ZERO_PER_8BIT)
     result = yoonimage.remove_noise(obj_list)
@@ -82,36 +82,36 @@ def process_test_yolo():
 
 def process_single_layer_perception():
     net = yoonpytory.neuron()
-    net.load_source(strFileName='./data/twoGaussians.npz')
-    net.load_weight(strFileName='./data/weight.npz')
+    net.load_source(strFileName='./data/slp/twoGaussians.npz')
+    net.load_weight(strFileName='./data/slp/weight.npz')
     net.train(nCountEpoch=2000, bInitWeight=True, bRunTest=False)
     net.process()
-    net.save_weight(strFileName='./data/weight.npz')
+    net.save_weight(strFileName='./data/slp/weight.npz')
 
 
 def process_multi_layer_perception():
     net = yoonpytory.network()
-    net.load_source(strFileName='./data/spirals.npz')
-    net.load_weight(strFileName='./data/weights.npz')
+    net.load_source(strFileName='./data/mlp/spirals.npz')
+    net.load_weight(strFileName='./data/mlp/weights.npz')
     #net.train(nCountEpoch=1000, nSizeLayer=100, nOrder=10, bInitWeight=False, bRunTest=False)
     net.process()
     net.show_plot()
-    net.save_weight(strFileName='./data/weights.npz')
+    net.save_weight(strFileName='./data/mlp/weights.npz')
 
 def process_speech():
-    speech = yoonspeech.speech()
-    speech.load_wave_file(strFileName='./data/2021451143.wav')
+    speech = yoonspeech.speech(dWindowLength=0.004, dShiftLength=0.001)
+    speech.load_wave_file(strFileName='./data/speech/2021451143.wav')
     speech.show_time_signal()
     speech.show_log_mel_spectrogram()
     speech.show_mfcc()
 
 
 if __name__ == '__main__':
-    process_test_dir()
-    process_test_vector()
-    process_test_rect()
-    process_test_line()
-    process_test_yolo()
+    #process_test_dir()
+    #process_test_vector()
+    #process_test_rect()
+    #process_test_line()
+    #process_test_yolo()
     #process_single_layer_perception()
-    process_multi_layer_perception()
+    #process_multi_layer_perception()
     process_speech()

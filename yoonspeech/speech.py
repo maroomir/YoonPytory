@@ -12,6 +12,11 @@ class YoonSpeech:
     logMelSpectrogram: numpy.ndarray
     MFCCs: numpy.ndarray
     samplingRate: int
+    ffTCount: int
+    melOrder: int
+    mfccOrder: int
+    windowLength: float
+    shiftLength: float
 
     def __str__(self):
         return "LOG MEL : {0}, MFCC : {1}".format(self.logMelSpectrogram.shape(), self.MFCCs.shape())
@@ -19,7 +24,17 @@ class YoonSpeech:
     def __init__(self,
                  strWavFileName: str = None,
                  pListTimeSignal: list = None,
-                 nSamplingRate: int = 48000):
+                 nSamplingRate: int = 48000,
+                 nFFTCount: int = 512,
+                 nMelOrder: int = 24,
+                 nMFCCOrder: int = 13,
+                 dWindowLength: float = 0.02,
+                 dShiftLength: float = 0.005):
+        self.ffTCount = nFFTCount
+        self.melOrder = nMelOrder
+        self.mfccOrder = nMFCCOrder
+        self.windowLength = dWindowLength
+        self.shiftLength = dShiftLength
         if strWavFileName is not None:
             self.load_wave_file(strWavFileName)
         elif pListTimeSignal is not None:
@@ -95,7 +110,7 @@ class YoonSpeech:
         matplotlib.pyplot.ylabel('The number of Coefficients')
         matplotlib.pyplot.xlabel('The number of frames')
         # Set graph per Frequency
-        matplotlib.pyplot.imshow(self.MFCCs.transpose(), cmap='jet', origin='lower', aspect='auto')
+        matplotlib.pyplot.imshow(self.MFCCs[:, 1:].transpose(), cmap='jet', origin='lower', aspect='auto')
         matplotlib.pyplot.colorbar()
         # Show graph
         matplotlib.pyplot.show()
@@ -112,44 +127,32 @@ class YoonSpeech:
         matplotlib.pyplot.show()
 
     # Compute magnitude and Log-magnitude spectrum
-    def _log_magnitude(self,
-                       strFFTType: str = 'fft',
-                       nFFTCount: int = 512,
-                       dWindowLength: float = 0.02,
-                       dShiftLength: float = 0.005):
+    def _log_magnitude(self, strFFTType: str = 'fft'):
         if strFFTType == 'fft':
             pArrayFreq = self.__fft()
             nSizeHalf = int(len(pArrayFreq) / 2)  # Use only Half
             pArrayMagnitude = abs(pArrayFreq[0:nSizeHalf])
             return 20 * numpy.log10(pArrayMagnitude)
         elif strFFTType == 'stft':
-            pArrayFreq = self.__stft(nFFTCount, dWindowLength, dShiftLength)
+            pArrayFreq = self.__stft(self.ffTCount, self.windowLength, self.shiftLength)
             pArrayMagnitude = abs(pArrayFreq)
             return 20 * numpy.log10(pArrayMagnitude + 1.0e-10)
         else:
             print('Wrong Fourier transform type : {}'.format(strFFTType))
             raise StopIteration
 
-    def _log_mel_spectrogram(self,
-                             nFFTCount: int = 512,
-                             nMelOrder: int = 24,
-                             dWindowLength: float = 0.02,
-                             dShiftLength: float = 0.005):
-        pArrayFreqSignal = self.__stft(nFFTCount, dWindowLength, dShiftLength)
+    def _log_mel_spectrogram(self):
+        pArrayFreqSignal = self.__stft(self.ffTCount, self.windowLength, self.shiftLength)
         pArrayMagnitude = abs(pArrayFreqSignal) ** 2
-        pArrayMelFilter = librosa.filters.mel(self.samplingRate, nFFTCount, nMelOrder)
+        pArrayMelFilter = librosa.filters.mel(self.samplingRate, self.ffTCount, self.melOrder)
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
-    def _mel_frequency_cepstrogram_coefficient(self,
-                                               nFFTCount: int = 512,
-                                               nMelOrder: int = 24,
-                                               nMFCCOrder: int = 13,
-                                               dWindowLength: float = 0.02,
-                                               dShiftLength: float = 0.005):
-        pArrayLogMelSpectrogram = self._log_mel_spectrogram(nFFTCount, nMelOrder, dWindowLength, dShiftLength)
-        pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1, norm='ortho')  # Discreate cosine transformation
-        return pArrayMFCC[:, :nMFCCOrder]
+    def _mel_frequency_cepstrogram_coefficient(self):
+        pArrayLogMelSpectrogram = self._log_mel_spectrogram()
+        pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1,
+                                       norm='ortho')  # Discreate cosine transformation
+        return pArrayMFCC[:, :self.mfccOrder]
 
     def __fft(self):
         pArrayWindow = self.timeSignals * numpy.hanning(len(self.timeSignals))
@@ -166,6 +169,7 @@ class YoonSpeech:
         pListSourceSection = []
         for iStep in range(0, nCountFrames):
             pListSourceSection.append(
-                pArrayWindow * self.timeSignals[iStep * nCountStepSample: iStep * nCountStepSample + nCountWindowSample])
+                pArrayWindow * self.timeSignals[
+                               iStep * nCountStepSample: iStep * nCountStepSample + nCountWindowSample])
         pFrame = numpy.stack(pListSourceSection)
         return numpy.fft.rfft(pFrame, n=nFFTCount, axis=1)
