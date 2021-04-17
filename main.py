@@ -93,28 +93,37 @@ def process_multi_layer_perception():
     net = yoonpytory.network()
     net.load_source(strFileName='./data/mlp/spirals.npz')
     net.load_weight(strFileName='./data/mlp/weights.npz')
-    #net.train(nCountEpoch=1000, nSizeLayer=100, nOrder=10, bInitWeight=False, bRunTest=False)
+    # net.train(nCountEpoch=1000, nSizeLayer=100, nOrder=10, bInitWeight=False, bRunTest=False)
     net.process()
     net.show_plot()
     net.save_weight(strFileName='./data/mlp/weights.npz')
 
+
 def process_speech():
-    speech = yoonspeech.speech(dWindowLength=0.004, dShiftLength=0.001)
+    speech = yoonspeech.speech()
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
     speech.show_time_signal()
-    speech.show_frame_data()
+    mel_frames = speech.get_log_mel_spectrum(dWindowLength=0.004, dShiftLength=0.001)
+    speech.show_mel_spectrum(mel_frames)
+    mfcc_frames = speech.get_mfcc(dWindowLength=0.004, dShiftLength=0.001)
+    speech.show_mfcc(mfcc_frames)
+    print(speech.__str__())
+
 
 def process_speech_recognition():
-    speech_parser = yoonspeech.librispeech_parser(strRootDir='./data/speech_recognation/LibriSpeech/dev-clean')
+    speech_parser = yoonspeech.librispeech_parser(strRootDir='./data/speech_recognation/LibriSpeech/dev-clean',
+                                                  nCountSample=5)
     yoonspeech.train(speech_parser)
+    print(speech_parser.__str__())
+
 
 if __name__ == '__main__':
-    process_test_dir()
-    process_test_vector()
-    process_test_rect()
-    process_test_line()
-    process_test_yolo()
-    #process_single_layer_perception()
-    #process_multi_layer_perception()
+    # process_test_dir()
+    # process_test_vector()
+    # process_test_rect()
+    # process_test_line()
+    # process_test_yolo()
+    # process_single_layer_perception()
+    # process_multi_layer_perception()
     process_speech()
-    #process_speech_recognition()
+    process_speech_recognition()
