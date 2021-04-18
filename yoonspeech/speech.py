@@ -10,6 +10,11 @@ from sklearn.preprocessing import minmax_scale
 class YoonSpeech:
     __signal: list
     samplingRate: int
+    fftCount: int = 512
+    melOrder: int = 24
+    mfccOrder: int = 13
+    windowLength: float = 0.02
+    shiftLength: float = 0.005
 
     def __str__(self):
         return "SIGNAL LENGTH : {0}, SAMPLING RATE : {1}".format(len(self.__signal), self.samplingRate)
@@ -17,8 +22,19 @@ class YoonSpeech:
     def __init__(self,
                  strFileName: str = None,
                  pSignal: list = None,
-                 nSamplingRate: int = 48000):
+                 nSamplingRate: int = 48000,
+                 nFFTCount: int = 512,
+                 nMelOrder: int = 24,
+                 nMFCCOrder: int = 13,
+                 dWindowLength: float = 0.02,
+                 dShiftLength: float = 0.005
+                 ):
         self.samplingRate = nSamplingRate
+        self.fftCount = nFFTCount
+        self.melOrder = nMelOrder
+        self.mfccOrder = nMFCCOrder
+        self.windowLength = dWindowLength
+        self.shiftLength = dShiftLength
         if strFileName is not None:
             self.load_sound_file(strFileName)
         elif pSignal is not None:
@@ -111,41 +127,29 @@ class YoonSpeech:
 
     # Compute magnitude and Log-magnitude spectrum
     def get_log_magnitude(self,
-                          strFFTType: str = 'fft',
-                          nFFTCount: int = 512,
-                          dWindowLength: float = 0.02,
-                          dShiftLength: float = 0.005):
+                          strFFTType: str = 'fft'):
         if strFFTType == 'fft':
             pArrayFreq = self.__fft()
             nSizeHalf = int(len(pArrayFreq) / 2)  # Use only Half
             pArrayMagnitude = abs(pArrayFreq[0:nSizeHalf])
             return 20 * numpy.log10(pArrayMagnitude)
         elif strFFTType == 'stft':
-            pArrayFreq = self.__stft(nFFTCount, dWindowLength, dShiftLength)
+            pArrayFreq = self.__stft(self.fftCount, self.windowLength, self.shiftLength)
             pArrayMagnitude = abs(pArrayFreq)
             return 20 * numpy.log10(pArrayMagnitude + 1.0e-10)
         else:
             print('Wrong Fourier transform type : {}'.format(strFFTType))
             raise StopIteration
 
-    def get_log_mel_spectrum(self,
-                             nFFTCount: int = 512,
-                             nMelOrder: int = 24,
-                             dWindowLength: float = 0.02,
-                             dShiftLength: float = 0.005):
-        pArrayFreqSignal = self.__stft(nFFTCount, dWindowLength, dShiftLength)
+    def get_log_mel_spectrum(self):
+        pArrayFreqSignal = self.__stft(self.fftCount, self.windowLength, self.shiftLength)
         pArrayMagnitude = abs(pArrayFreqSignal) ** 2
-        pArrayMelFilter = librosa.filters.mel(self.samplingRate, nFFTCount, nMelOrder)
+        pArrayMelFilter = librosa.filters.mel(self.samplingRate, self.fftCount, self.melOrder)
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
-    def get_mfcc(self,
-                 nFFTCount: int = 512,
-                 nMelOrder: int = 24,
-                 nMFCCOrder: int = 13,
-                 dWindowLength: float = 0.02,
-                 dShiftLength: float = 0.005):
-        pArrayLogMelSpectrogram = self.get_log_mel_spectrum(nFFTCount, nMelOrder, dWindowLength, dShiftLength)
+    def get_mfcc(self):
+        pArrayLogMelSpectrogram = self.get_log_mel_spectrum()
         pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1,
                                        norm='ortho')  # Discreate cosine transformation
-        return pArrayMFCC[:, :nMFCCOrder]
+        return pArrayMFCC[:, :self.melOrder]

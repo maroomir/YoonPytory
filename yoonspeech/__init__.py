@@ -1,3 +1,3 @@
 from yoonspeech.speech import YoonSpeech as speech
-from yoonspeech.gmm import LibriSpeechParser as librispeech_parser
-from yoonspeech.gmm import *
+from yoonspeech.parser import LibriSpeechParser as risp_parser
+from yoonspeech.speaker_recognition import *
