@@ -155,6 +155,16 @@ class YoonSpeech:
             print('Wrong Fourier transform type : {}'.format(strFFTType))
             raise StopIteration
 
+    def get_feature(self, strFeatureType: str):
+        if strFeatureType == "mel":
+            return self.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
+        elif strFeatureType == "mfcc":
+            return self.scaling(-0.9999, 0.9999).get_mfcc()
+        elif strFeatureType == "deltas":
+            return self.get_mfcc_deltas(bContext=True, nLengthContext=10)
+        else:
+            Exception("Feature type is not correct")
+
     def get_log_mel_spectrum(self):
         pArrayFreqSignal = self.__stft(self.fftCount, self.windowLength, self.shiftLength)
         pArrayMagnitude = abs(pArrayFreqSignal) ** 2
@@ -162,13 +172,14 @@ class YoonSpeech:
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
-    def get_log_mel_feature(self,
-                            bContext: bool = False,
-                            nLengthContext: int = 10):
+    def get_log_mel_deltas(self,
+                           bContext: bool = False,
+                           nLengthContext: int = 10):
         # Perform a short-time Fourier Transform
         nShiftCount = int(self.shiftLength * self.samplingRate)
         nWindowCount = int(self.windowLength * self.samplingRate)
-        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount, win_length=nWindowCount)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount,
+                                             win_length=nWindowCount)
         pArrayFeature = abs(pArrayFreqSignal).transpose()
         # Estimate either log mep-spectrum
         pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.melOrder)
@@ -188,13 +199,14 @@ class YoonSpeech:
                                        norm='ortho')  # Discreate cosine transformation
         return pArrayMFCC[:, :self.melOrder]
 
-    def get_mfcc_feature(self,
-                         bContext: bool = False,
-                         nLengthContext: int = 10):
+    def get_mfcc_deltas(self,
+                        bContext: bool = False,
+                        nLengthContext: int = 10):
         # Perform a short-time Fourier Transform
         nShiftCount = int(self.shiftLength * self.samplingRate)
         nWindowCount = int(self.windowLength * self.samplingRate)
-        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount, win_length=nWindowCount)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount,
+                                             win_length=nWindowCount)
         pArrayFeature = abs(pArrayFreqSignal).transpose()
         # Estimate either log mep-spectrum
         pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.melOrder)

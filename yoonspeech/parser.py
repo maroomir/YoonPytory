@@ -79,26 +79,13 @@ class LibriSpeechParser(YoonParser):
             nID = splitext(basename(strFileName))[0].split('-')[0]
             pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, dWindowLength=dWindowLength,
                                  dShiftLength=dShiftLength)
-            pFeature = self.__get_feature(pSpeech, strFeatureType)
+            pFeature = pSpeech.get_feature(strFeatureType)
             self._trainLabels.append(nID)
             self._trainData.append(pFeature)
         for strFileName in pListTest:
             nID = splitext(basename(strFileName))[0].split('-')[0]
             pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, dWindowLength=dWindowLength,
                                  dShiftLength=dShiftLength)
-            pFeature = self.__get_feature(pSpeech, strFeatureType)
+            pFeature = pSpeech.get_feature(strFeatureType)
             self._testLabels.append(nID)
             self._testData.append(pFeature)
-
-    @staticmethod
-    def __get_feature(pSpeech: YoonSpeech, strFeatureType: str):
-        if strFeatureType == "mel":
-            return pSpeech.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
-        elif strFeatureType == "mfcc":
-            return pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
-        elif strFeatureType == "mel_deltas":
-            return pSpeech.get_log_mel_feature(bContext=True, nLengthContext=10)
-        elif strFeatureType == "mfcc_deltas":
-            return pSpeech.get_mfcc_feature(bContext=True, nLengthContext=10)
-        else:
-            Exception("Feature type is not correct")
