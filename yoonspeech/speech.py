@@ -1,3 +1,4 @@
+import sys
 import librosa
 import matplotlib.pyplot
 import numpy
@@ -125,6 +126,19 @@ class YoonSpeech:
         pFrame = numpy.stack(pListSourceSection)
         return numpy.fft.rfft(pFrame, n=nFFTCount, axis=1)
 
+    # Combine features depending on the context window setup
+    @staticmethod
+    def __context_window(pFeature: numpy.ndarray, nSizeContext: int):
+        if nSizeContext < 2:
+            Exception("Context window length is too short")
+        nLeft = int(nSizeContext / 2)
+        nRight = nSizeContext - nLeft
+        pListResult = []
+        for i in range(nLeft, len(pFeature) - nRight):
+            pArray = numpy.concatenate((pFeature[i - nLeft: i + nRight]), axis=-1)
+            pListResult.append(pArray)
+        return numpy.vstack(pListResult)
+
     # Compute magnitude and Log-magnitude spectrum
     def get_log_magnitude(self,
                           strFFTType: str = 'fft'):
@@ -148,8 +162,49 @@ class YoonSpeech:
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
+    def get_log_mel_feature(self,
+                            bContext: bool = False,
+                            nLengthContext: int = 10):
+        # Perform a short-time Fourier Transform
+        nShiftCount = int(self.shiftLength * self.samplingRate)
+        nWindowCount = int(self.windowLength * self.samplingRate)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount, win_length=nWindowCount)
+        pArrayFeature = abs(pArrayFreqSignal).transpose()
+        # Estimate either log mep-spectrum
+        pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.melOrder)
+        pPowerFeature = pArrayFeature ** 2
+        pArrayFeature = numpy.matmul(pPowerFeature, pArrayMelFilter.transpose())
+        pArrayFeature = 10 * numpy.log10(pArrayFeature + numpy.array(sys.float_info.epsilon))  # feature + Epsilon
+        pArrayDelta1 = librosa.feature.delta(pArrayFeature)
+        pArrayDelta2 = librosa.feature.delta(pArrayFeature, order=2)
+        pArrayResult = numpy.concatenate(pArrayFeature, pArrayDelta1, pArrayDelta2)
+        if bContext:
+            pArrayResult = self.__context_window(pArrayResult, nLengthContext)
+        return pArrayResult
+
     def get_mfcc(self):
         pArrayLogMelSpectrogram = self.get_log_mel_spectrum()
         pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1,
                                        norm='ortho')  # Discreate cosine transformation
         return pArrayMFCC[:, :self.melOrder]
+
+    def get_mfcc_feature(self,
+                         bContext: bool = False,
+                         nLengthContext: int = 10):
+        # Perform a short-time Fourier Transform
+        nShiftCount = int(self.shiftLength * self.samplingRate)
+        nWindowCount = int(self.windowLength * self.samplingRate)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount, win_length=nWindowCount)
+        pArrayFeature = abs(pArrayFreqSignal).transpose()
+        # Estimate either log mep-spectrum
+        pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.melOrder)
+        pPowerFeature = pArrayFeature ** 2
+        pArrayFeature = numpy.matmul(pPowerFeature, pArrayMelFilter.transpose())
+        pArrayFeature = 10 * numpy.log10(pArrayFeature + numpy.array(sys.float_info.epsilon))  # feature + Epsilon
+        pArrayFeature = scipy.fftpack.dct(pArrayFeature, axis=-1, norm='ortho')
+        pArrayDelta1 = librosa.feature.delta(pArrayFeature)
+        pArrayDelta2 = librosa.feature.delta(pArrayFeature)
+        pArrayResult = numpy.concatenate((pArrayFeature, pArrayDelta1, pArrayDelta2), axis=-1)
+        if bContext:
+            pArrayResult = self.__context_window(pArrayResult, nLengthContext)
+        return pArrayResult

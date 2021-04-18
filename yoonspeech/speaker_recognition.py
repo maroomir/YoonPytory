@@ -3,6 +3,7 @@ import pickle
 import sklearn.mixture
 from tqdm import tqdm
 from yoonspeech.parser import YoonParser
+from yoonspeech.parser import LibriSpeechParser
 from yoonspeech.speech import YoonSpeech
 
 
@@ -20,6 +21,7 @@ def gmm_train(pParser: YoonParser, strModelPath: str):
     for i in range(len(pTrainSet)):
         pDicGMM[pTrainSet[i][0]] = sklearn.mixture.GaussianMixture(n_components=nMixture, random_state=48,
                                                                    covariance_type='diag')
+        # The covariance type is "full" matrix if we use "Deltas" data
     for i in tqdm(range(len(pTrainSet))):
         pDicGMM[pTrainSet[i][0]].fit(pTrainSet[i][1])
     # GMM test
@@ -44,7 +46,14 @@ def gmm_train(pParser: YoonParser, strModelPath: str):
         print("Save {} GMM models".format(len(pDicGMM)))
 
 
-def gmm_parser_recognition(pParser: YoonParser, strModelPath: str):
+def gmm_recognition(pData, strModelPath: str, strFeatureType="mfcc"):
+    if isinstance(pData, (YoonParser, LibriSpeechParser)):
+        __gmm_parser_recognition(pData, strModelPath)
+    elif isinstance(pData, YoonSpeech):
+        return __gmm_speech_recognition(pData, strModelPath, strFeatureType)
+
+
+def __gmm_parser_recognition(pParser: YoonParser, strModelPath: str):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
@@ -67,14 +76,19 @@ def gmm_parser_recognition(pParser: YoonParser, strModelPath: str):
     print("Accuracy: {:.2f}".format(iAccuracy / len(pTestSet) * 100.0))
 
 
-def gmm_speech_recognition(pSpeech: YoonSpeech, strModelPath: str):
+def __gmm_speech_recognition(pSpeech: YoonSpeech, strModelPath: str, strFeatureType="mfcc"):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
-    pTestData = pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
+    if strFeatureType == "mel":
+        pTestData = pSpeech.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
+    elif strFeatureType == "mfcc":
+        pTestData = pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
+    else:
+        Exception("Feature type is not correct")
     pDicTestScore = {}
     for iSpeaker in pDicGMM.keys():
         pDicTestScore[iSpeaker] = pDicGMM[iSpeaker].score(pTestData)
-    nLabelEsimated = max(pDicTestScore.keys(), key=(lambda key: pDicTestScore[key]))
-    print("Estimated: {0}, Score : {1:.2f}".format(nLabelEsimated, pDicTestScore[nLabelEsimated]))
-    return nLabelEsimated
+    nLabelEstimated = max(pDicTestScore.keys(), key=(lambda key: pDicTestScore[key]))
+    print("Estimated: {0}, Score : {1:.2f}".format(nLabelEstimated, pDicTestScore[nLabelEstimated]))
+    return nLabelEstimated

@@ -114,13 +114,16 @@ def process_speech_recognition():
     nSamplingRate = 16000
     dWindowLength = 0.025
     dShiftLength = 0.01
-    parser = yoonspeech.risp_parser(strRootDir='./data/speech_recognition/LibriSpeech/dev-clean',
-                                    nSamplingRate=nSamplingRate, dRatioTrain=0.9,
-                                    dWindowLength=dWindowLength, dShiftLength=dShiftLength)
+    # Train
+    parser = yoonspeech.rispeech_parser(strRootDir='./data/speech_recognition/LibriSpeech/dev-clean',
+                                        nSamplingRate=nSamplingRate, dRatioTrain=0.9,
+                                        dWindowLength=dWindowLength, dShiftLength=dShiftLength,
+                                        strFeatureType="mfcc")
     yoonspeech.gmm_train(parser, strModelPath='./data/speech_recognition/GMM.mdl')
+    # Speaker recognition with gmm
     speech = yoonspeech.speech(nSamplingRate=nSamplingRate, dWindowLength=dWindowLength, dShiftLength=dShiftLength)
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
-    yoonspeech.gmm_speech_recognition(speech, strModelPath='./data/speech_recognition/GMM.mdl')
+    yoonspeech.gmm_recognition(speech, strModelPath='./data/speech_recognition/GMM.mdl', strFeatureType="mfcc")
 
 
 if __name__ == '__main__':

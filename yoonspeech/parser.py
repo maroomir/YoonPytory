@@ -17,6 +17,24 @@ class YoonParser:
     def __str__(self):
         return "TRAIN COUNT : {0}, TEST COUNT : {1}".format(len(self._trainLabels), len(self._testLabels))
 
+    def get_train_count(self):
+        return len(self._trainLabels)
+
+    def get_test_count(self):
+        return len(self._testLabels)
+
+    def get_train_label(self, i):
+        return self._trainLabels[i]
+
+    def get_train_data(self, i):
+        return self._trainData[i]
+
+    def get_test_label(self, i):
+        return self._testLabels[i]
+
+    def get_test_data(self, i):
+        return self._testData[i]
+
     def to_train_dataset(self):
         pArrayLabel = numpy.array(self._trainLabels)
         pArrayData = numpy.array(self._trainData)
@@ -36,7 +54,8 @@ class LibriSpeechParser(YoonParser):
                  nCountSample: int = 1000,
                  dWindowLength: float = 0.025,
                  dShiftLength: float = 0.01,
-                 dRatioTrain=0.8):
+                 strFeatureType: str = "mfcc",
+                 dRatioTrain: float = 0.8):
         pDicFile = collections.defaultdict(list)
         pListTrain = []
         pListTest = []
@@ -58,13 +77,28 @@ class LibriSpeechParser(YoonParser):
         # Scaling(-0.9999, 0.9999) : To protect overload error in float range
         for strFileName in pListTrain:
             nID = splitext(basename(strFileName))[0].split('-')[0]
+            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, dWindowLength=dWindowLength,
+                                 dShiftLength=dShiftLength)
+            pFeature = self.__get_feature(pSpeech, strFeatureType)
             self._trainLabels.append(nID)
-            self._trainData.append(YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
-                                              dWindowLength=dWindowLength, dShiftLength=dShiftLength).
-                                   scaling(-0.9999, 0.9999).get_mfcc())
+            self._trainData.append(pFeature)
         for strFileName in pListTest:
             nID = splitext(basename(strFileName))[0].split('-')[0]
+            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, dWindowLength=dWindowLength,
+                                 dShiftLength=dShiftLength)
+            pFeature = self.__get_feature(pSpeech, strFeatureType)
             self._testLabels.append(nID)
-            self._testData.append(YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
-                                             dWindowLength=dWindowLength, dShiftLength=dShiftLength).
-                                  scaling(-0.9999, 0.9999).get_mfcc())
+            self._testData.append(pFeature)
+
+    @staticmethod
+    def __get_feature(pSpeech: YoonSpeech, strFeatureType: str):
+        if strFeatureType == "mel":
+            return pSpeech.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
+        elif strFeatureType == "mfcc":
+            return pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
+        elif strFeatureType == "mel_deltas":
+            return pSpeech.get_log_mel_feature(bContext=True, nLengthContext=10)
+        elif strFeatureType == "mfcc_deltas":
+            return pSpeech.get_mfcc_feature(bContext=True, nLengthContext=10)
+        else:
+            Exception("Feature type is not correct")
