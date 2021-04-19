@@ -1,6 +1,8 @@
 import yoonpytory
 import yoonimage
 import yoonspeech
+import yoonspeech.speakerRecognition.gmm
+import yoonspeech.speakerRecognition.torch
 
 
 def process_test_dir():
@@ -70,10 +72,10 @@ def process_test_line():
 
 def process_test_yolo():
     # Run network
-    net_param = yoonimage.yolonet()
+    net_param = yoonimage.YoloNet()
     net_param.load_modern_net(strWeightFile="./data/yolo/yolov3.weights", strConfigFile="./data/yolo/yolov3.cfg",
                               strNamesFile="./data/yolo/coco.names")
-    image = yoonimage.yimage(strFileName="./data/yolo/input1.bmp")
+    image = yoonimage.image(strFileName="./data/yolo/input1.bmp")
     obj_list = yoonimage.detection(image, net_param, pSize=yoonimage.YOLO_SIZE_NORMAL,
                                    dScale=yoonimage.YOLO_SCALE_ONE_ZERO_PER_8BIT)
     result = yoonimage.remove_noise(obj_list)
@@ -110,20 +112,34 @@ def process_speech():
     print(speech.__str__())
 
 
-def process_speech_recognition():
-    nSamplingRate = 16000
-    dWindowLength = 0.025
-    dShiftLength = 0.01
+def process_speaker_recognition():
+    sampling_rate = 16000
+    window_length = 0.025
+    shift_length = 0.01
     # Train
-    parser = yoonspeech.rispeech_parser(strRootDir='./data/speech_recognition/LibriSpeech/dev-clean',
-                                        nSamplingRate=nSamplingRate, dRatioTrain=0.9,
-                                        dWindowLength=dWindowLength, dShiftLength=dShiftLength,
-                                        strFeatureType="mfcc")
-    yoonspeech.gmm_train(parser, strModelPath='./data/speech_recognition/GMM.mdl')
+    parser = yoonspeech.LibriSpeechParser(strRootDir='./data/speaker_recognition/LibriSpeech/dev-clean',
+                                          nSamplingRate=sampling_rate, dRatioTrain=0.9,
+                                          dWindowLength=window_length, dShiftLength=shift_length,
+                                          strFeatureType="mfcc")
+    yoonspeech.speakerRecognition.gmm.train(parser, strModelPath='./data/speech_recognition/GMM.mdl')
     # Speaker recognition with gmm
-    speech = yoonspeech.speech(nSamplingRate=nSamplingRate, dWindowLength=dWindowLength, dShiftLength=dShiftLength)
+    speech = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
-    yoonspeech.gmm_recognition(speech, strModelPath='./data/speech_recognition/GMM.mdl', strFeatureType="mfcc")
+    yoonspeech.speakerRecognition.gmm.recognition(speech, strModelPath='./data/speaker_recognition/GMM.mdl',
+                                                  strFeatureType="mfcc")
+
+
+def process_speaker_recognition_with_torch():
+    sampling_rate = 16000
+    window_length = 0.025
+    shift_length = 0.01
+    epoch = 100
+    # Train
+    parser = yoonspeech.LibriSpeechParser(strRootDir='./data/speaker_recognition/LibriSpeech/dev-clean',
+                                          nSamplingRate=sampling_rate, dRatioTrain=0.9,
+                                          dWindowLength=window_length, dShiftLength=shift_length,
+                                          strFeatureType="deltas")
+    yoonspeech.speakerRecognition.torch.train(epoch, parser, './data/speaker_recognition/model_opt.pth')
 
 
 if __name__ == '__main__':
@@ -135,4 +151,5 @@ if __name__ == '__main__':
     # process_single_layer_perception()
     # process_multi_layer_perception()
     # process_speech()
-    process_speech_recognition()
+    # process_speaker_recognition()
+    process_speaker_recognition_with_torch()
