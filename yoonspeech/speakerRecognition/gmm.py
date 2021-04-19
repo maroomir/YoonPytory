@@ -2,13 +2,13 @@ import numpy
 import pickle
 import sklearn.mixture
 from tqdm import tqdm
-from yoonspeech.parser import YoonParser
-from yoonspeech.parser import LibriSpeechParser
+from yoonspeech.speakerRecognition.parser import YoonParser
+from yoonspeech.speakerRecognition.parser import LibriSpeechParser
 from yoonspeech.speech import YoonSpeech
 
 
 # Gaussian Mixture Modeling
-def gmm_train(pParser: YoonParser, strModelPath: str):
+def train(pParser: YoonParser, strModelPath: str):
     # Make dataset
     pTrainSet = pParser.to_train_dataset()
     pTestSet = pParser.to_test_dataset()
@@ -46,14 +46,7 @@ def gmm_train(pParser: YoonParser, strModelPath: str):
         print("Save {} GMM models".format(len(pDicGMM)))
 
 
-def gmm_recognition(pData, strModelPath: str, strFeatureType="mfcc"):
-    if isinstance(pData, (YoonParser, LibriSpeechParser)):
-        __gmm_parser_recognition(pData, strModelPath)
-    elif isinstance(pData, YoonSpeech):
-        return __gmm_speech_recognition(pData, strModelPath, strFeatureType)
-
-
-def __gmm_parser_recognition(pParser: YoonParser, strModelPath: str):
+def test(pParser: YoonParser, strModelPath: str):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
@@ -76,7 +69,7 @@ def __gmm_parser_recognition(pParser: YoonParser, strModelPath: str):
     print("Accuracy: {:.2f}".format(iAccuracy / len(pTestSet) * 100.0))
 
 
-def __gmm_speech_recognition(pSpeech: YoonSpeech, strModelPath: str, strFeatureType="mfcc"):
+def recognition(pSpeech: YoonSpeech, strModelPath: str, strFeatureType="mfcc"):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
