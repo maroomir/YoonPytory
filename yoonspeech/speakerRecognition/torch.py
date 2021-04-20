@@ -178,7 +178,7 @@ def __draw_tSNE(pTensorTSNE,
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitStart = False):
+def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -221,7 +221,7 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitStart
         if dLoss < dMinLoss:
             dMinLoss = dLoss
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                       strModelPath)
+                       './model_opt.pth')
             nCountDecrease = 0
         else:
             nCountDecrease += 1
