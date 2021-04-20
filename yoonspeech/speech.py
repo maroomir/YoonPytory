@@ -159,6 +159,7 @@ class YoonSpeech:
             raise StopIteration
 
     def get_feature(self, strFeatureType: str):
+        # Scaling(-0.9999, 0.9999) : To protect overload error in float range
         if strFeatureType == "mel":
             return self.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
         elif strFeatureType == "mfcc":

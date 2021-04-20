@@ -9,46 +9,32 @@ from yoonspeech.speech import YoonSpeech
 
 
 class YoonParser:
-    # Speech setting
-    fftCount: int
-    samplingRate: int
-    windowLength: float
-    shiftLength: float
-    featureType: str
-    melOrder: int
-    mfccOrder: int
-    contextSize: int
-    # Data for label
+    # In progressive : Remain only one Label / Name / Data list
+    speakersCount: int
     _trainLabels: list = []
     _trainNames: list = []
     _trainData: list = []
-    _testLabels: list = []
-    _testNames: list = []
-    _testData: list = []
+    _testLabels: list = [] # Deleted soon
+    _testNames: list = [] # Deleted soon
+    _testData: list = [] # Deleted soon
 
     def __str__(self):
         return "TRAIN COUNT : {0}, TEST COUNT : {1}".format(len(self._trainLabels), len(self._testLabels))
 
-    def get_train_count(self):
+    def get_train_length(self):
         return len(self._trainLabels)
 
-    def get_test_count(self):
+    def get_test_length(self):
         return len(self._testLabels)
 
     def get_train_label(self, i):
         return self._trainLabels[i]
-
-    def get_train_name(self, i):
-        return self._trainNames[i]
 
     def get_train_data(self, i):
         return self._trainData[i]
 
     def get_test_label(self, i):
         return self._testLabels[i]
-
-    def get_test_name(self, i):
-        return self._testNames[i]
 
     def get_test_data(self, i):
         return self._testData[i]
@@ -59,7 +45,7 @@ class YoonParser:
         elif self.featureType == "mel":
             return self.melOrder
         elif self.featureType == "deltas":
-            return self.mfccOrder * 3 * self.contextSize    # MFCC * delta * delta-delta
+            return self.mfccOrder * 3 * self.contextSize  # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 
@@ -75,6 +61,14 @@ class YoonParser:
 
 
 class LibriSpeechParser(YoonParser):
+    fftCount: int
+    samplingRate: int
+    windowLength: float
+    shiftLength: float
+    featureType: str
+    melOrder: int
+    mfccOrder: int
+    contextSize: int
     def __init__(self,
                  strRootDir: str,
                  strFileType: str = '.flac',
@@ -114,38 +108,30 @@ class LibriSpeechParser(YoonParser):
         for i, pListFileName in pDicFile.items():
             pListTrain.extend(pListFileName[:int(len(pListFileName) * dRatioTrain)])
             pListTest.extend(pListFileName[int(len(pListFileName) * dRatioTrain):])
-        # Labeling speakers
-        pListSpeakerTrain = []
-        pListSpeakerTest = []
-        for i in range(len(pListTrain)):
-            strKey = os.path.splitext(os.path.basename(pListTrain[i]))[0].split('-')[0]
-            pListSpeakerTrain.append(strKey)
-        for i in range(len(pListTest)):
-            strKey = os.path.splitext(os.path.basename(pListTest[i]))[0].split('-')[0]
-            pListSpeakerTest.append(strKey)
-        pDicLabelTrain = {}
-        pDicLabelTest = {}
-        for i in range(len(pListSpeakerTrain)):
-            pDicLabelTrain[pListSpeakerTrain[i]] = i  # 'Speaker_No' : i
-        for i in range(len(pListSpeakerTest)):
-            pDicLabelTest[pListSpeakerTest[i]] = i  # 'Speaker_No' : i
+        # Labeling speakers for PyTorch Training
+        pDicLabel = {}
+        pListSpeakers = list(pDicFile.keys())
+        self.speakersCount = len(pListSpeakers)
+        for i in range(self.speakersCount):
+            pDicLabel[pListSpeakers[i]] = i
         # Transform data dictionary
-        # Scaling(-0.9999, 0.9999) : To protect overload error in float range
         for strFileName in pListTrain:
             strID = splitext(basename(strFileName))[0].split('-')[0]
-            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=self.samplingRate, nContextSize=self.contextSize,
+            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=self.samplingRate,
+                                 nContextSize=self.contextSize,
                                  nFFTCount=self.fftCount, nMelOrder=self.melOrder, nMFCCOrder=self.mfccOrder,
                                  dWindowLength=self.windowLength, dShiftLength=self.shiftLength)
             pFeature = pSpeech.get_feature(self.featureType)
+            self._trainLabels.append(int(pDicLabel[strID]))  # The ID is Integer for blocking Error in Collator
             self._trainNames.append(strID)
-            self._trainLabels.append(int(pDicLabelTrain[strID]))  # The ID is Integer for blocking Error in Collator
             self._trainData.append(pFeature)
         for strFileName in pListTest:
             strID = splitext(basename(strFileName))[0].split('-')[0]
-            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=self.samplingRate, nContextSize=self.contextSize,
+            pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=self.samplingRate,
+                                 nContextSize=self.contextSize,
                                  nFFTCount=self.fftCount, nMelOrder=self.melOrder, nMFCCOrder=self.mfccOrder,
                                  dWindowLength=self.windowLength, dShiftLength=self.shiftLength)
             pFeature = pSpeech.get_feature(self.featureType)
-            self._testNames.append(int(strID))
-            self._testLabels.append(int(pDicLabelTest[strID]))  # The ID is Integer for blocking Error in Collator
+            self._testLabels.append(int(pDicLabel[strID]))  # The ID is Integer for blocking Error in Collator
+            self._testNames.append(strID)
             self._testData.append(pFeature)

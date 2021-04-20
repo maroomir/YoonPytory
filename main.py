@@ -121,26 +121,32 @@ def process_speaker_recognition():
                                           nSamplingRate=sampling_rate, dRatioTrain=0.9,
                                           dWindowLength=window_length, dShiftLength=shift_length,
                                           strFeatureType="mfcc")
-    yoonspeech.speakerRecognition.gmm.train(parser, strModelPath='./data/speech_recognition/GMM.mdl')
+    yoonspeech.speakerRecognition.gmm.train(parser, strModelPath='./data/speaker_recognition/GMM.mdl')
     # Speaker recognition with gmm
     speech = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
     yoonspeech.speakerRecognition.gmm.recognition(speech, strModelPath='./data/speaker_recognition/GMM.mdl',
                                                   strFeatureType="mfcc")
+    speech_female = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
+    speech_female.load_sound_file(strFileName='./data/speech/yeseul.wav')
+    yoonspeech.speakerRecognition.gmm.recognition(speech_female, strModelPath='./data/speaker_recognition/GMM.mdl',
+                                                  strFeatureType="mfcc")
+
 
 
 def process_speaker_recognition_with_torch():
     sampling_rate = 16000
     window_length = 0.025
     shift_length = 0.01
-    epoch = 100
+    epoch = 10
     # Train
     parser = yoonspeech.LibriSpeechParser(strRootDir='./data/speaker_recognition/LibriSpeech/dev-clean',
                                           nSamplingRate=sampling_rate, dRatioTrain=0.9,
                                           dWindowLength=window_length, dShiftLength=shift_length,
                                           strFeatureType="deltas")
-    # yoonspeech.speakerRecognition.torch.train(epoch, parser, './data/speaker_recognition/model_opt.pth')
+    yoonspeech.speakerRecognition.torch.train(epoch, parser, './data/speaker_recognition/model_opt.pth')
     yoonspeech.speakerRecognition.torch.test(parser, './data/speaker_recognition/model_opt.pth')
+    # In progressive : Make torch.recognition
 
 
 if __name__ == '__main__':
@@ -152,5 +158,5 @@ if __name__ == '__main__':
     # process_single_layer_perception()
     # process_multi_layer_perception()
     # process_speech()
-    # process_speaker_recognition()
-    process_speaker_recognition_with_torch()
+    process_speaker_recognition()
+    #process_speaker_recognition_with_torch()

@@ -22,11 +22,11 @@ class SpeakerDataset(Dataset):
         self.parser = pParser
         self.type = strType
 
-    def __len__(self):
+    def __len__(self): # Return Dataset length to decision data-loader size
         if self.type == "train":
-            return self.parser.get_train_count()
+            return self.parser.get_train_length()
         elif self.type == "test":
-            return self.parser.get_test_count()
+            return self.parser.get_test_length()
         else:
             Exception("Speaker Dataset type is mismatching")
 
@@ -49,15 +49,9 @@ class DVector(Module):
                  strType: str = "train"):
         super(DVector, self).__init__()
         # Set the number of speakers to classify
-        if strType == "train":
-            nCountSpeaker = pParser.get_train_count()
-        elif strType == "test":
-            nCountSpeaker = pParser.get_test_count()
-        else:
-            Exception("DVector type is mismatching")
         nDimInput = pParser.get_data_dimension()
         nDimOutput = pParser.fftCount
-        self.speakersCount = nCountSpeaker
+        self.speakersCount = pParser.speakersCount
         # Set 4 layers of feed-forward network (FFN) (+Activation)
         self.network = torch.nn.Sequential(torch.nn.Linear(nDimInput, nDimOutput),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
@@ -178,7 +172,7 @@ def __draw_tSNE(pTensorTSNE,
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None):
+def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitEpoch=False):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -191,7 +185,7 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None):
     pTrainLoader = DataLoader(pTrainSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
                               num_workers=0, pin_memory=True)
     pTestSet = SpeakerDataset(pParser, "test")
-    pTestLoader = DataLoader(pTestSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
+    pTestLoader = DataLoader(pTestSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                              num_workers=0, pin_memory=True)
     # Define a network model
     pModel = DVector(pParser, "train").to(pDevice)
@@ -202,7 +196,7 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None):
     # Load pre-trained model
     nStart = 0
     print("Directory of the pre-trained model: {}".format(strModelPath))
-    if strModelPath is not None and os.path.exists(strModelPath):
+    if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
         pTensorModelData = torch.load(strModelPath)
         nStart = pTensorModelData['epoch']
         pModel.load_state_dict(pTensorModelData['model'])
@@ -221,7 +215,7 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None):
         if dLoss < dMinLoss:
             dMinLoss = dLoss
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                       './model_opt.pth')
+                       strModelPath)
             nCountDecrease = 0
         else:
             nCountDecrease += 1
@@ -242,14 +236,14 @@ def test(pParser: YoonParser, strModelPath: str = None):
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Load DVector model
-    pModel = DVector(pParser, "train").to(pDevice) # Check train data
+    pModel = DVector(pParser, "test").to(pDevice)  # Check train data
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])
     print("Successfully load the Model in path")
     # Define a data path for plot for test
     pDataSet = SpeakerDataset(pParser, "test")
-    pDataLoader = DataLoader(pDataSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)
     print(", Length of data = ", len(pBar))
