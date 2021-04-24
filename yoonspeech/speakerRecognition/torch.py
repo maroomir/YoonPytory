@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn
 import numpy
-import matplotlib
+import matplotlib.pyplot
 from tqdm import tqdm
 from torch import tensor
 from torch.utils.data import Dataset
@@ -11,47 +11,32 @@ from torch.optim import Adam
 from torch.nn import Module
 from torch.nn import CrossEntropyLoss
 from sklearn.manifold import TSNE
-from yoonspeech.speakerRecognition.parser import YoonParser
+from yoonspeech.data import YoonDataset
 
 
 # Define a SpeakerDataset class
 class SpeakerDataset(Dataset):
     def __init__(self,
-                 pParser: YoonParser,
-                 strType: str = "train"):
-        self.parser = pParser
-        self.type = strType
+                 pDataset: YoonDataset):
+        self.data = pDataset
 
     def __len__(self): # Return Dataset length to decision data-loader size
-        if self.type == "train":
-            return self.parser.get_train_length()
-        elif self.type == "test":
-            return self.parser.get_test_length()
-        else:
-            Exception("Speaker Dataset type is mismatching")
+        return self.data.__len__()
 
-    def __getitem__(self, item):  # obtain label and file name
-        if self.type == "train":
-            nLabel = self.parser.get_train_label(item)
-            pArrayFeature = self.parser.get_train_data(item)
-            return nLabel, pArrayFeature
-        elif self.type == "test":
-            nLabel = self.parser.get_test_label(item)
-            pArrayFeature = self.parser.get_test_data(item)
-            return nLabel, pArrayFeature
-        else:
-            Exception("Speaker Dataset type is mismatching")
+    def __getitem__(self, item: int):  # obtain label and file name
+        nLabel = self.data[item].label
+        pArrayFeature = self.data[item].buffer
+        return nLabel, pArrayFeature
 
 
 class DVector(Module):
     def __init__(self,
-                 pParser: YoonParser,
-                 strType: str = "train"):
+                 pDataset: YoonDataset):
         super(DVector, self).__init__()
         # Set the number of speakers to classify
-        nDimInput = pParser.get_data_dimension()
-        nDimOutput = pParser.fftCount
-        self.speakersCount = pParser.speakersCount
+        self.speakersCount = pDataset.classificationCount
+        nDimInput = pDataset[0].get_dimension()
+        nDimOutput = pDataset[0].speech.fftCount  # Scale of FFT
         # Set 4 layers of feed-forward network (FFN) (+Activation)
         self.network = torch.nn.Sequential(torch.nn.Linear(nDimInput, nDimOutput),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
@@ -172,7 +157,7 @@ def __draw_tSNE(pTensorTSNE,
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitEpoch=False):
+def train(nEpoch: int, pTrainData: YoonDataset, pTestData: YoonDataset, strModelPath: str = None, bInitEpoch=False):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -181,14 +166,14 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitEpoch
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = SpeakerDataset(pParser, "train")
+    pTrainSet = SpeakerDataset(pTrainData)
     pTrainLoader = DataLoader(pTrainSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
                               num_workers=0, pin_memory=True)
-    pTestSet = SpeakerDataset(pParser, "test")
+    pTestSet = SpeakerDataset(pTestData)
     pTestLoader = DataLoader(pTestSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                              num_workers=0, pin_memory=True)
     # Define a network model
-    pModel = DVector(pParser, "train").to(pDevice)
+    pModel = DVector(pTrainData).to(pDevice)
     # Set the optimizer with adam
     pOptimizer = torch.optim.Adam(pModel.parameters(), lr=dLearningRate)
     # Set the training criterion
@@ -228,7 +213,7 @@ def train(nEpoch: int, pParser: YoonParser, strModelPath: str = None, bInitEpoch
                 nCountDecrease = 0
 
 
-def test(pParser: YoonParser, strModelPath: str = None):
+def test(pTestData: YoonDataset, strModelPath: str = None):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -236,13 +221,13 @@ def test(pParser: YoonParser, strModelPath: str = None):
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Load DVector model
-    pModel = DVector(pParser, "test").to(pDevice)  # Check train data
+    pModel = DVector(pTestData).to(pDevice)  # Check train data
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])
     print("Successfully load the Model in path")
     # Define a data path for plot for test
-    pDataSet = SpeakerDataset(pParser, "test")
+    pDataSet = SpeakerDataset(pTestData)
     pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)

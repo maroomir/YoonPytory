@@ -49,6 +49,9 @@ class YoonSpeech:
     def __copy__(self):
         return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.samplingRate)
 
+    def get_signal(self):
+        return self.__signal
+
     def load_sound_file(self, strFileName: str):
         self.__signal, self.samplingRate = librosa.load(strFileName, self.samplingRate)
 
@@ -159,13 +162,28 @@ class YoonSpeech:
             raise StopIteration
 
     def get_feature(self, strFeatureType: str):
+        if strFeatureType == "org":
+            return self.__signal.copy()
         # Scaling(-0.9999, 0.9999) : To protect overload error in float range
-        if strFeatureType == "mel":
+        elif strFeatureType == "mel":
             return self.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
         elif strFeatureType == "mfcc":
             return self.scaling(-0.9999, 0.9999).get_mfcc()
         elif strFeatureType == "deltas":
             return self.get_mfcc_deltas(bContext=True)
+        else:
+            Exception("Feature type is not correct")
+
+    def get_dimension(self, strFeatureType: str):
+        if strFeatureType == "org":
+            return 0
+        # Dimension to convert dataset
+        elif strFeatureType == "mfcc":
+            return self.mfccOrder
+        elif strFeatureType == "mel":
+            return self.melOrder
+        elif strFeatureType == "deltas":
+            return self.mfccOrder * 3 * self.contextSize  # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 

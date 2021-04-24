@@ -1,7 +1,7 @@
 import cv2
 import numpy
 from yoonimage.image import YoonImage
-from yoonimage.object import YoonObject
+from yoonimage.data import YoonObject, YoonDataset
 from yoonpytory.rect import YoonRect2D
 
 
@@ -45,26 +45,27 @@ def detection(pImageSource: YoonImage, pNet: YoloNet, pSize: tuple, dScale: floa
                                       dWidth=arrayInfo[2] * pImageSource.width,
                                       dHeight=arrayInfo[3] * pImageSource.height)
                 # score type is float64 because of fixing error in remove_noise
-                pListObject.append(YoonObject(nID=nIDMax, dScore=numpy.float64(dScoreMax), pObject=pRectMax,
+                pListObject.append(YoonObject(nID=nIDMax, dScore=numpy.float64(dScoreMax), pRegion=pRectMax,
                                               pImage=pImageSource.crop(pRectMax)))
-    return pListObject
+    return YoonDataset(pList=pListObject).__copy__()
 
 
-def remove_noise(pListObject: list):
-    pListRect = YoonObject.listing(pListObject, "area_to_list")
-    pListScore = YoonObject.listing(pListObject, "score")
+def remove_noise(pData: YoonDataset):
+    pListRect = pData.to_region_points()
+    pListScore = pData.scores
     pArrayResult = cv2.dnn.NMSBoxes(pListRect, pListScore, score_threshold=0.5, nms_threshold=0.4)
-    pListResult = []
-    for i in range(len(pListObject)):
-        if i in pArrayResult:
-            pListResult.append(pListObject[i])
-    return pListResult
+    pResultData = YoonDataset()
+    pResultData.clear()
+    for i in range(pData.__len__()):
+        if i in pArrayResult[1:]:
+            pResultData.append(pData[i])
+    return pResultData.__copy__()
 
 
-def draw_detection_result(pListObject: list, pImage: YoonImage, pNet: YoloNet):
-    for pObject in pListObject:
-        if isinstance(pObject, YoonObject):
-            nID = pObject.label
-            pImage.draw_rectangle(pObject.area, pArrayColor=pNet.colors[nID])
-            pImage.draw_text(pNet.classes[nID], pObject.area.top_left(), pArrayColor=pNet.colors[nID])
+def draw_detection_result(pResultData: YoonDataset, pImage: YoonImage, pNet: YoloNet):
+    for i in range(pResultData.__len__()):
+        if pResultData.regions[i] is not None:
+            nID = pResultData.labels[i]
+            pImage.draw_rectangle(pResultData.regions[i], pArrayColor=pNet.colors[nID])
+            pImage.draw_text(pNet.classes[nID], pResultData.regions[i].top_left(), pArrayColor=pNet.colors[nID])
     pImage.show_image()

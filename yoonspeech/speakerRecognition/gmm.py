@@ -2,16 +2,15 @@ import numpy
 import pickle
 import sklearn.mixture
 from tqdm import tqdm
-from yoonspeech.speakerRecognition.parser import YoonParser
-from yoonspeech.speakerRecognition.parser import LibriSpeechParser
 from yoonspeech.speech import YoonSpeech
+from yoonspeech.data import YoonDataset
 
 
 # Gaussian Mixture Modeling
-def train(pParser: YoonParser, strModelPath: str):
+def train(pTrainData: YoonDataset, pTestData: YoonDataset, strModelPath: str):
     # Make dataset
-    pTrainSet = pParser.to_train_dataset()
-    pTestSet = pParser.to_test_dataset()
+    pTrainSet = pTrainData.to_dataset()
+    pTestSet = pTestData.to_dataset()
     # Shuffle dataset
     numpy.random.shuffle(pTrainSet)
     numpy.random.shuffle(pTestSet)
@@ -46,11 +45,11 @@ def train(pParser: YoonParser, strModelPath: str):
         print("Save {} GMM models".format(len(pDicGMM)))
 
 
-def test(pParser: YoonParser, strModelPath: str):
+def test(pTestData: YoonDataset, strModelPath: str):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
-    pTestSet = pParser.to_test_dataset()
+    pTestSet = pTestData.to_dataset()
     # GMM test
     iAccuracy = 0
     for i, (nLabel, pData) in enumerate(pTestSet):
@@ -74,14 +73,14 @@ def recognition(pSpeech: YoonSpeech, strModelPath: str, strFeatureType="mfcc"):
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
     if strFeatureType == "mel":
-        pTestData = pSpeech.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
+        pTestBuffer = pSpeech.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
     elif strFeatureType == "mfcc":
-        pTestData = pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
+        pTestBuffer = pSpeech.scaling(-0.9999, 0.9999).get_mfcc()
     else:
         Exception("Feature type is not correct")
     pDicTestScore = {}
     for iSpeaker in pDicGMM.keys():
-        pDicTestScore[iSpeaker] = pDicGMM[iSpeaker].score(pTestData)
+        pDicTestScore[iSpeaker] = pDicGMM[iSpeaker].score(pTestBuffer)
     nLabelEstimated = max(pDicTestScore.keys(), key=(lambda key: pDicTestScore[key]))
     print("Estimated: {0}, Score : {1:.2f}".format(nLabelEstimated, pDicTestScore[nLabelEstimated]))
     return nLabelEstimated
