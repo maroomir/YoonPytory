@@ -39,6 +39,8 @@ def parse_librispeech_trainer(strRootDir: str,
     for i, pListFileName in pDicFile.items():
         pListTrainFile.extend(pListFileName[:int(len(pListFileName) * dRatioTrain)])
         pListTestFile.extend(pListFileName[int(len(pListFileName) * dRatioTrain):])
+    print(pListTrainFile.__len__())
+    print(pListTestFile.__len__())
     # Labeling speakers for PyTorch Training
     pDicLabel = {}
     pListSpeakers = list(pDicFile.keys())
@@ -46,25 +48,26 @@ def parse_librispeech_trainer(strRootDir: str,
     for i in range(nSpeakersCount):
         pDicLabel[pListSpeakers[i]] = i
     # Transform data dictionary
-    pDataTrain = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount)
-    pDataTest = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount)
+    pDataTrain = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount).__copy__()
+    pDataTest = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount).__copy__()
     for strFileName in pListTrainFile:
         strID = splitext(basename(strFileName))[0].split('-')[0]
         pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
                              nContextSize=nContextSize,
                              nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
-                             dWindowLength=dWindowLength, dShiftLength=dShiftLength)
-        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType)
+                             dWindowLength=dWindowLength, dShiftLength=dShiftLength).__copy__()
+        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType).__copy__()
         pDataTrain.append(pObject)
     for strFileName in pListTestFile:
         strID = splitext(basename(strFileName))[0].split('-')[0]
         pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
                              nContextSize=nContextSize,
                              nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
-                             dWindowLength=dWindowLength, dShiftLength=dShiftLength)
-        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType)
-        pDataTest.append(pObject)
-    return pDataTrain.__copy__(), pDataTest.__copy__()
+                             dWindowLength=dWindowLength, dShiftLength=dShiftLength).__copy__()
+        pDataTest.append(YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType))
+    print("Length of Train = {}".format(pDataTrain.__len__()))
+    print("Length of Test = {}".format(pDataTest.__len__()))
+    return pDataTrain, pDataTest
 
 
 def parse_librispeech_tester(strRootDir: str,
@@ -100,13 +103,13 @@ def parse_librispeech_tester(strRootDir: str,
     for i in range(nSpeakersCount):
         pDicLabel[pListSpeakers[i]] = i
     # Transform data dictionary
-    pDataTest = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount)
+    pDataTest = YoonDataset(strType=strFeatureType, nCount=nSpeakersCount).__copy__()
     for strFileName in pListTestFile:
         strID = splitext(basename(strFileName))[0].split('-')[0]
         pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
                              nContextSize=nContextSize,
                              nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
-                             dWindowLength=dWindowLength, dShiftLength=dShiftLength)
-        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType)
+                             dWindowLength=dWindowLength, dShiftLength=dShiftLength).__copy__()
+        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech, strType=strFeatureType).__copy__()
         pDataTest.append(pObject)
-    return pDataTest.__copy__()
+    return pDataTest

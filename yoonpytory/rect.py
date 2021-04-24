@@ -86,7 +86,7 @@ class YoonRect2D:
                 if pPos is not None:
                     self.centerPos = pPos.__copy__()
                 else:
-                    self.centerPos = YoonVector2D(dX, dY)
+                    self.centerPos = YoonVector2D(dX, dY).__copy__()
                 self.width = dWidth
                 self.height = dHeight
 

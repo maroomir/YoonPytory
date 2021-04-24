@@ -43,23 +43,23 @@ def detection(pImageSource: YoonImage, pNet: YoloNet, pSize: tuple, dScale: floa
             if dScoreMax > dScoreTarget:
                 pRectMax = YoonRect2D(dX=arrayInfo[0] * pImageSource.width, dY=arrayInfo[1] * pImageSource.height,
                                       dWidth=arrayInfo[2] * pImageSource.width,
-                                      dHeight=arrayInfo[3] * pImageSource.height)
+                                      dHeight=arrayInfo[3] * pImageSource.height).__copy__()
                 # score type is float64 because of fixing error in remove_noise
-                pListObject.append(YoonObject(nID=nIDMax, dScore=numpy.float64(dScoreMax), pRegion=pRectMax,
+                pListObject.append(YoonObject(nID=nIDMax, dScore=numpy.float64(dScoreMax).__copy__(), pRegion=pRectMax,
                                               pImage=pImageSource.crop(pRectMax)))
-    return YoonDataset(pList=pListObject).__copy__()
+    return YoonDataset(pList=pListObject)
 
 
 def remove_noise(pData: YoonDataset):
     pListRect = pData.to_region_points()
     pListScore = pData.scores
     pArrayResult = cv2.dnn.NMSBoxes(pListRect, pListScore, score_threshold=0.5, nms_threshold=0.4)
-    pResultData = YoonDataset()
+    pResultData = YoonDataset().__copy__()
     pResultData.clear()
     for i in range(pData.__len__()):
         if i in pArrayResult[1:]:
             pResultData.append(pData[i])
-    return pResultData.__copy__()
+    return pResultData
 
 
 def draw_detection_result(pResultData: YoonDataset, pImage: YoonImage, pNet: YoloNet):

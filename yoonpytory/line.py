@@ -19,8 +19,8 @@ def _list_square(pX: numpy.ndarray, pY: numpy.ndarray):
 class YoonLine2D:
     slope: (int, float)
     intercept: (int, float)
-    startPos = YoonVector2D(0, 0)
-    endPos = YoonVector2D(0, 0)
+    startPos = YoonVector2D(0, 0).__copy__()
+    endPos = YoonVector2D(0, 0).__copy__()
 
     def __str__(self):
         return "SLOPE : {0}, INTERCEPT : {1}".format(self.slope, self.intercept)
@@ -37,8 +37,8 @@ class YoonLine2D:
             dMinX = YoonVector2D.list_to_minimum_x(args)
             dMinY = YoonVector2D.list_to_minimum_y(args)
             self.slope, self.intercept = _list_square(pArrayX, pArrayY)
-            self.startPos = YoonVector2D(dMinX, self.y(dMinX))
-            self.endPos = YoonVector2D(dMinY, self.y(dMinY))
+            self.startPos = YoonVector2D(dMinX, self.y(dMinX)).__copy__()
+            self.endPos = YoonVector2D(dMinY, self.y(dMinY)).__copy__()
         elif kwargs.get("x1") and kwargs.get("x2") and kwargs.get("y1") and kwargs.get("y2"):
             assert isinstance(kwargs["x1"], (int, float))
             assert isinstance(kwargs["x2"], (int, float))
@@ -48,8 +48,8 @@ class YoonLine2D:
             self.intercept = kwargs["y1"] - self.slope * kwargs["x1"]
             dMinX = kwargs["x1"] if kwargs["x1"] < kwargs["x2"] else kwargs["x2"]
             dMinY = kwargs["x1"] if kwargs["x1"] > kwargs["x2"] else kwargs["x2"]
-            self.startPos = YoonVector2D(dMinX, self.y(dMinX))
-            self.endPos = YoonVector2D(dMinY, self.y(dMinY))
+            self.startPos = YoonVector2D(dMinX, self.y(dMinX)).__copy__()
+            self.endPos = YoonVector2D(dMinY, self.y(dMinY)).__copy__()
         else:
             if pList is not None:
                 pArrayX = YoonVector2D.list_to_array_x(pList)

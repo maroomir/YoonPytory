@@ -3,7 +3,7 @@ import numpy
 from yoonspeech.speech import YoonSpeech
 
 
-class YoonObject:
+class YoonObject(object):
     label = 0
     name = ""
     speech: YoonSpeech = None
@@ -35,7 +35,7 @@ class YoonObject:
             Exception("Speech object is null")
 
 
-class YoonDataset:
+class YoonDataset(object):
     classificationCount: int = 0
     labels: list = []
     names: list = []
