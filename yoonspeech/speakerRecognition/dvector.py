@@ -68,7 +68,7 @@ class DVector(Module):
 def collate_tensor(pListTensor):
     pListInput = []
     pListTarget = []
-    nLengthMin = min([len(pTuple[1]) for pTuple in pListTensor]) - 1
+    nLengthMin = min([len(pTuple[0]) for pTuple in pListTensor]) - 1
     for pInputData, nTargetLabel in pListTensor:
         nStart = numpy.random.randint(len(pInputData) - nLengthMin)
         pListInput.append(torch.tensor(pInputData[nStart:nStart + nLengthMin]).unsqueeze(0))
