@@ -8,7 +8,7 @@ class YoonObject(object):
     name = ""
     speech: YoonSpeech = None
     buffer: numpy.ndarray = None
-    __bufferType: str = "mfcc"
+    __buffer_type: str = "mfcc"
 
     def __init__(self,
                  nID: int = 0,
@@ -18,7 +18,7 @@ class YoonObject(object):
                  strType: str = "mfcc"):
         self.label = nID
         self.name = strName
-        self.__bufferType = strType
+        self.__buffer_type = strType
         if pSpeech is not None:
             self.speech = pSpeech.__copy__()
             self.buffer = pSpeech.get_feature(strFeatureType=strType)
@@ -30,18 +30,18 @@ class YoonObject(object):
 
     def get_dimension(self):
         if self.speech is not None:
-            return self.speech.get_dimension(self.__bufferType)
+            return self.speech.get_dimension(self.__buffer_type)
         else:
             Exception("Speech object is null")
 
 
 class YoonDataset(object):
-    classificationCount: int = 0
+    class_count: int = 0
     labels: list = []
     names: list = []
     speechs: list = []
     buffers: list = []
-    __bufferType: str = "mfcc"
+    __buffer_type: str = "mfcc"
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())
@@ -54,8 +54,8 @@ class YoonDataset(object):
                  pList: list = None,
                  strType: str = "mfcc",
                  *args: (YoonObject, YoonSpeech)):
-        self.classificationCount = nCount
-        self.__bufferType = strType
+        self.class_count = nCount
+        self.__buffer_type = strType
         if len(args) > 0:
             iCount = 0
             for pItem in args:
@@ -85,12 +85,12 @@ class YoonDataset(object):
                     iCount += 1
 
     def __copy__(self):
-        pResult = YoonDataset(self.classificationCount)
+        pResult = YoonDataset(self.class_count)
         pResult.labels = self.labels.copy()
         pResult.names = self.names.copy()
         pResult.speechs = self.speechs.copy()
         pResult.buffers = self.buffers.copy()
-        pResult.__bufferType = self.__bufferType
+        pResult.__buffer_type = self.__buffer_type
         return pResult
 
     def __getitem__(self, item: int):
@@ -107,7 +107,7 @@ class YoonDataset(object):
         if 0 <= item < len(self.buffers):
             pBuffer = self.buffers[item]
         return YoonObject(nID=nLabel, strName=strName, pSpeech=pSpeech, pBuffer=pBuffer,
-                          strType=self.__bufferType)
+                          strType=self.__buffer_type)
 
     def __setitem__(self, key: int, value: YoonObject):
         if 0 <= key < len(self.labels):
@@ -131,7 +131,7 @@ class YoonDataset(object):
         self.speechs.append(pObject.speech.__copy__())
         self.buffers.append(pObject.buffer.copy())
 
-    def to_dataset(self):
-        pArrayNames = numpy.array(self.names)
-        pArrayData = numpy.array(self.buffers)
-        return numpy.array(list(zip(pArrayNames, pArrayData)))
+    def to_gmm_set(self):
+        pArrayTarget = numpy.array(self.names)
+        pArrayInput = numpy.array(self.buffers)
+        return numpy.array(list(zip(pArrayInput, pArrayTarget)))

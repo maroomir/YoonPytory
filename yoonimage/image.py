@@ -9,7 +9,7 @@ class YoonImage:
     width: int
     height: int
     bpp: int
-    __buffer: numpy.ndarray
+    __buffer: numpy.ndarray  # height, width, bpp(channel)
 
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.bpp)
@@ -42,11 +42,26 @@ class YoonImage:
     def get_buffer(self):
         return self.__buffer
 
+    def get_tensor(self):
+        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32)  # Channel, Y, X
+
     def __copy__(self):
         return YoonImage(pBuffer=self.__buffer)
 
     def copy_buffer(self):
         return self.__buffer.copy()
+
+    def copy_tensor(self):
+        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32)  # Channel, Y, X
+
+    def normalization(self, dMean=0.5, dStd=0.5):
+        return YoonImage(pBuffer=self.__buffer - dMean / dStd)
+
+    def flip_horizontal(self):
+        return YoonImage(pBuffer=numpy.flipud(self.__buffer))
+
+    def flip_vertical(self):
+        return YoonImage(pBuffer=numpy.fliplr(self.__buffer))
 
     def crop(self, pRect: YoonRect2D):
         assert isinstance(pRect, YoonRect2D)

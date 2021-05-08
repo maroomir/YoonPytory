@@ -2,7 +2,7 @@ import yoonpytory
 import yoonimage
 import yoonspeech
 import yoonspeech.speakerRecognition.gmm
-import yoonspeech.speakerRecognition.torch
+import yoonspeech.speakerRecognition.dvector
 
 
 def process_test_dir():
@@ -146,10 +146,10 @@ def process_speaker_recognition_with_torch():
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="deltas")
-    yoonspeech.speakerRecognition.torch.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
-                                              strModelPath='./data/speaker_recognition/model_opt.pth',
-                                              bInitEpoch=True)
-    yoonspeech.speakerRecognition.torch.test(pTestData, './data/speaker_recognition/model_opt.pth')
+    yoonspeech.speakerRecognition.dgmm.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
+                                             strModelPath='./data/speaker_recognition/model_opt.pth',
+                                             bInitEpoch=True)
+    yoonspeech.speakerRecognition.dgmm.test(pTestData, './data/speaker_recognition/model_opt.pth')
     # In progressive : Make torch.recognition
 
 
@@ -162,5 +162,5 @@ if __name__ == '__main__':
     # process_single_layer_perception()
     # process_multi_layer_perception()
     # process_speech()
-    # process_speaker_recognition()
+    process_speaker_recognition()
     process_speaker_recognition_with_torch()

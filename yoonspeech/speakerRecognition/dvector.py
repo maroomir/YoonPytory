@@ -24,9 +24,9 @@ class SpeakerDataset(Dataset):
         return self.data.__len__()
 
     def __getitem__(self, item: int):  # obtain label and file name
-        nLabel = self.data[item].label
-        pArrayFeature = self.data[item].buffer
-        return nLabel, pArrayFeature
+        nTarget = self.data[item].label
+        pArrayInput = self.data[item].buffer
+        return pArrayInput, nTarget
 
 
 class DVector(Module):
@@ -34,20 +34,19 @@ class DVector(Module):
                  pDataset: YoonDataset):
         super(DVector, self).__init__()
         # Set the number of speakers to classify
-        self.speakersCount = pDataset.classificationCount
         nDimInput = pDataset[0].get_dimension()
-        nDimOutput = pDataset[0].speech.fftCount  # Scale of FFT
+        nDimOutput = pDataset.class_count
         # Set 4 layers of feed-forward network (FFN) (+Activation)
-        self.network = torch.nn.Sequential(torch.nn.Linear(nDimInput, nDimOutput),
+        self.network = torch.nn.Sequential(torch.nn.Linear(nDimInput, 512),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
-                                           torch.nn.Linear(nDimOutput, nDimOutput),
+                                           torch.nn.Linear(512, 512),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
-                                           torch.nn.Linear(nDimOutput, nDimOutput),
+                                           torch.nn.Linear(512, 512),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
-                                           torch.nn.Linear(nDimOutput, nDimOutput),
+                                           torch.nn.Linear(512, 512),
                                            torch.nn.LeakyReLU(negative_slope=0.2))
         # Set a classification layer
-        self.classificationLayer = torch.nn.Linear(nDimOutput, self.speakersCount)
+        self.classification_layer = torch.nn.Linear(512, nDimOutput)
 
     def forward(self, pTensorX: tensor, bExtract=False):  # override
         # Normalize input features (zero mean and unit variance).
@@ -61,22 +60,22 @@ class DVector(Module):
         pTensorResult = pTensorResult.mean(dim=1)
         # Perform a classification task in the training process
         if bExtract:
-            pTensorResult = self.classificationLayer(pTensorResult)
+            pTensorResult = self.classification_layer(pTensorResult)
         return pTensorResult
 
 
 # Define a collate function for the data loader
 def collate_tensor(pListTensor):
-    pListData = []
-    pListLabel = []
+    pListInput = []
+    pListTarget = []
     nLengthMin = min([len(pTuple[1]) for pTuple in pListTensor]) - 1
-    for nLabel, pArrayData in pListTensor:
-        nStart = numpy.random.randint(len(pArrayData) - nLengthMin)
-        pListData.append(torch.tensor(pArrayData[nStart:nStart + nLengthMin]).unsqueeze(0))
-        pListLabel.append(torch.tensor(nLabel))
-    pListData = torch.cat(pListData, 0)
-    pListLabel = torch.LongTensor(pListLabel)
-    return pListLabel, pListData
+    for pInputData, nTargetLabel in pListTensor:
+        nStart = numpy.random.randint(len(pInputData) - nLengthMin)
+        pListInput.append(torch.tensor(pInputData[nStart:nStart + nLengthMin]).unsqueeze(0))
+        pListTarget.append(torch.tensor(nTargetLabel))
+    pListInput = torch.cat(pListInput, 0)
+    pListTarget = torch.LongTensor(pListTarget)
+    return pListInput, pListTarget
 
 
 # Define a train function
@@ -94,18 +93,18 @@ def __process_train(nEpoch: int, pModel: DVector, pDataLoader: DataLoader, pCrit
     nLengthSample = 0
     nTotalLoss = 0
     nTotalAcc = 0
-    for i, (pTensorLabel, pTensorData) in pBar:
+    for i, (pTensorInputData, pTensorTargetLabel) in pBar:
         # Move data and label to device
-        pTensorData = pTensorData.type(torch.FloatTensor).to(pDevice)
-        pTensorLabel = pTensorLabel.to(pDevice)
+        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
+        pTensorTargetLabel = pTensorTargetLabel.to(pDevice)
         # Pass the input data through the defined network architecture
-        pPrediction = pModel(pTensorData, bExtract=True)  # Module
+        pPredictedLabel = pModel(pTensorInputData, bExtract=True)  # Module
         # Compute a loss function
-        pLoss = pCriterion(pPrediction, pTensorLabel)
-        nTotalLoss += pLoss.item() * len(pTensorLabel)
+        pLoss = pCriterion(pPredictedLabel, pTensorTargetLabel)
+        nTotalLoss += pLoss.item() * len(pTensorTargetLabel)
         # Compute speaker recognition accuracy
-        nAcc = torch.sum(torch.eq(torch.argmax(pPrediction, -1), pTensorLabel)).item()
-        nLengthSample += len(pTensorLabel)
+        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTargetLabel)).item()
+        nLengthSample += len(pTensorTargetLabel)
         nTotalAcc += nAcc
         # Perform backpropagation to update network parameters
         pOptimizer.zero_grad()
@@ -130,18 +129,18 @@ def __process_test(pModel: DVector, pDataLoader: DataLoader, pCriterion: CrossEn
     nLengthSample = 0
     nTotalLoss = 0
     nTotalAcc = 0
-    for i, (pTensorLabel, pTensorData) in pBar:
+    for i, (pTensorInputData, pTensorTargetLabel) in pBar:
         # Move data and label to device
-        pTensorData = pTensorData.type(torch.FloatTensor).to(pDevice)
-        pTensorLabel = pTensorLabel.to(pDevice)
+        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
+        pTensorTargetLabel = pTensorTargetLabel.to(pDevice)
         # Pass the input data through the defined network architecture
-        pPrediction = pModel(pTensorData, bExtract=True)  # Module
+        pPredictedLabel = pModel(pTensorInputData, bExtract=True)  # Module
         # Compute a loss function
-        pLoss = pCriterion(pPrediction, pTensorLabel)
-        nTotalLoss += pLoss.item() * len(pTensorLabel)
+        pLoss = pCriterion(pPredictedLabel, pTensorTargetLabel)
+        nTotalLoss += pLoss.item() * len(pTensorTargetLabel)
         # Compute speaker recognition accuracy
-        nAcc = torch.sum(torch.eq(torch.argmax(pPrediction, -1), pTensorLabel)).item()
-        nLengthSample += len(pTensorLabel)
+        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTargetLabel)).item()
+        nLengthSample += len(pTensorTargetLabel)
         nTotalAcc += nAcc
     return nTotalLoss / nLengthSample
 
@@ -232,19 +231,19 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)
     print(", Length of data = ", len(pBar))
-    pListData = []
-    pListLabel = []
-    for i, (pTensorLabel, pTensorData) in enumerate(pBar):
-        pTensorData = pTensorData.type(torch.FloatTensor).to(pDevice)
-        pOutput = pModel(pTensorData, bExtract=False)
-        pListData.append(pOutput.detach().cpu().numpy())
-        pListLabel.append(pTensorLabel.detach().cpu().numpy()[0])
+    pListPredict = []
+    pListTarget = []
+    for i, (pTensorInputData, pTensorTargetLabel) in enumerate(pBar):
+        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
+        pTensorOutput = pModel(pTensorInputData, bExtract=False)
+        pListPredict.append(pTensorOutput.detach().cpu().numpy())
+        pListTarget.append(pTensorTargetLabel.detach().cpu().numpy()[0])
     # Prepare embeddings for plot
-    pArrayData = numpy.concatenate(pListData)
-    pArrayLabel = numpy.array(pListLabel)
+    pArrayOutput = numpy.concatenate(pListPredict)
+    pArrayTarget = numpy.array(pListTarget)
     # Obtain embedding for the t-SNE plot
     pTSNE = TSNE(n_components=2)
-    pArrayData = pArrayData.reshape(len(pArrayData), -1)
-    pArrayTSNE = pTSNE.fit_transform(pArrayData)
+    pArrayOutput = pArrayOutput.reshape(len(pArrayOutput), -1)
+    pArrayTSNE = pTSNE.fit_transform(pArrayOutput)
     # Draw plot
-    __draw_tSNE(pArrayTSNE, pArrayLabel)
+    __draw_tSNE(pArrayTSNE, pArrayTarget)
