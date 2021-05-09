@@ -39,7 +39,7 @@ class YoonDataset:
     scores: list = []
     pixelCounts: list = []
     regions: list = []
-    buffers: list = []
+    images: list = []
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())
@@ -59,10 +59,10 @@ class YoonDataset:
                     self.scores.append(pItem.score)
                     self.pixelCounts.append(pItem.pixelCount)
                     self.regions.append(pItem.region.__copy__())
-                    self.buffers.append(pItem.image.get_buffer().copy())
+                    self.images.append(pItem.image.__copy__())
                 elif isinstance(pItem, YoonImage):
                     self.labels.append(iCount)
-                    self.buffers.append(pItem.get_buffer().copy())
+                    self.images.append(pItem.__copy__())
                 else:
                     self.labels.append(iCount)
                     self.regions.append(pItem.__copy__())
@@ -77,10 +77,10 @@ class YoonDataset:
                         self.scores.append(pItem.score)
                         self.pixelCounts.append(pItem.pixelCount)
                         self.regions.append(pItem.region.__copy__())
-                        self.buffers.append(pItem.image.get_buffer().copy())
+                        self.images.append(pItem.image.__copy__())
                     elif isinstance(pItem, YoonImage):
                         self.labels.append(iCount)
-                        self.buffers.append(pItem.get_buffer().copy())
+                        self.images.append(pItem.__copy__())
                     elif isinstance(pItem, (YoonRect2D, YoonLine2D, YoonVector2D)):
                         self.labels.append(iCount)
                         self.regions.append(pItem.__copy__())
@@ -93,7 +93,7 @@ class YoonDataset:
         pResult.scores = self.scores.copy()
         pResult.pixelCounts = self.pixelCounts.copy()
         pResult.regions = self.regions.copy()
-        pResult.buffers = self.buffers.copy()
+        pResult.images = self.images.copy()
         return pResult
 
     def __getitem__(self, item: int):
@@ -113,8 +113,8 @@ class YoonDataset:
             nPixelCount = self.pixelCounts[item]
         if 0 <= item < len(self.regions):
             pRegion = self.regions[item]
-        if 0 <= item < len(self.buffers):
-            pImage = YoonImage(pBuffer=self.buffers[item])
+        if 0 <= item < len(self.images):
+            pImage = self.images[item]
         return YoonObject(nID=nLabel, strName=strName, dScore=dScore, nCountPixel=nPixelCount,
                           pRegion=pRegion, pImage=pImage)
 
@@ -128,9 +128,9 @@ class YoonDataset:
         if 0 <= key < len(self.pixelCounts):
             self.pixelCounts[key] = value.pixelCount
         if 0 <= key < len(self.regions):
-            self.regions[key] = value.region
-        if 0 <= key < len(self.buffers):
-            self.buffers[key] = value.image.get_buffer()
+            self.regions[key] = value.region.__copy__()
+        if 0 <= key < len(self.images):
+            self.images[key] = value.image.__copy__()
 
     def clear(self):
         self.labels.clear()
@@ -138,7 +138,7 @@ class YoonDataset:
         self.scores.clear()
         self.pixelCounts.clear()
         self.regions.clear()
-        self.buffers.clear()
+        self.images.clear()
 
     def append(self, pObject: YoonObject):
         self.labels.append(pObject.label)
@@ -146,7 +146,26 @@ class YoonDataset:
         self.scores.append(pObject.score)
         self.pixelCounts.append(pObject.pixelCount)
         self.regions.append(pObject.region.__copy__())
-        self.buffers.append(pObject.image.get_buffer().copy())
+        self.images.append(pObject.image.__copy__())
+
+    def min_size(self):
+        nHeight = min([pImage.height for pImage in self.images])
+        nWidth = min([pImage.width for pImage in self.images])
+        return nWidth, nHeight
+
+    def max_size(self):
+        nHeight = max([pImage.height for pImage in self.images])
+        nWidth = max([pImage.width for pImage in self.images])
+        return nWidth, nHeight
+
+    def size_identification(self, nWidth: int = 640, nHeight: int = 480, strOption=None):
+        if strOption == "min":
+            nWidth, nHeight = self.min_size()
+        elif strOption == "max":
+            nWidth, nHeight = self.max_size()
+        for pImage in self.images:
+            if isinstance(pImage, YoonImage):
+                pImage.resize(nWidth, nHeight)
 
     def to_region_points(self):
         pListResult = []

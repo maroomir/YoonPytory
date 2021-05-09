@@ -69,7 +69,7 @@ class DVector(Module):
 def collate_tensor(pListTensor):
     pListInput = []
     pListTarget = []
-    nLengthMin = min([len(pTuple[0]) for pTuple in pListTensor]) - 1
+    nLengthMin = min([len(pData) for pData, nLabel in pListTensor]) - 1
     for pInputData, nTargetLabel in pListTensor:
         nStart = numpy.random.randint(len(pInputData) - nLengthMin)
         # Change the tensor shape (Frame, Deltas) to (CH, Frame, Deltas)

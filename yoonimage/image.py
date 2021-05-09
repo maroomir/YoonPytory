@@ -69,8 +69,14 @@ class YoonImage:
                         int(pRect.left()): int(pRect.right())].copy()
         return YoonImage(pBuffer=pResultBuffer)
 
-    def resize(self, dScaleX: (int, float), dScaleY: (int, float)):
+    def scale(self, dScaleX: (int, float), dScaleY: (int, float)):
         pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY)
+        return YoonImage(pBuffer=pResultBuffer)
+
+    def resize(self, nWidth: int, nHeight: int):
+        if nWidth == self.width and nHeight == self.height:
+            return self.__copy__()
+        pResultBuffer = cv2.resize(self.__buffer, dsize=(nWidth, nHeight))
         return YoonImage(pBuffer=pResultBuffer)
 
     def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):

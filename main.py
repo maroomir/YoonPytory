@@ -146,9 +146,9 @@ def process_speaker_recognition_with_torch():
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="deltas")
-    #yoonspeech.speakerRecognition.dvector.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
-    #                                            strModelPath='./data/speaker_recognition/model_opt.pth',
-    #                                            bInitEpoch=True)
+    yoonspeech.speakerRecognition.dvector.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
+                                                strModelPath='./data/speaker_recognition/model_opt.pth',
+                                                bInitEpoch=True)
     yoonspeech.speakerRecognition.dvector.test(pTestData, './data/speaker_recognition/model_opt.pth')
     # Speaker recognition with d-vector
     class_count = pTestData.class_count
