@@ -146,11 +146,17 @@ def process_speaker_recognition_with_torch():
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="deltas")
-    yoonspeech.speakerRecognition.dvector.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
-                                                strModelPath='./data/speaker_recognition/model_opt.pth',
-                                                bInitEpoch=True)
+    #yoonspeech.speakerRecognition.dvector.train(epoch, pTrainData=pTrainData, pTestData=pTestData,
+    #                                            strModelPath='./data/speaker_recognition/model_opt.pth',
+    #                                            bInitEpoch=True)
     yoonspeech.speakerRecognition.dvector.test(pTestData, './data/speaker_recognition/model_opt.pth')
-    # In progressive : Make torch.recognition
+    # Speaker recognition with d-vector
+    class_count = pTestData.class_count
+    speech = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
+    speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
+    label = yoonspeech.speakerRecognition.dvector.recognition(pSpeech=speech, nCountClass=class_count,
+                                                              strModelPath='./data/speaker_recognition/model_opt.pth')
+    print("The speaker is estimated : " + pTestData.names[label])
 
 
 if __name__ == '__main__':

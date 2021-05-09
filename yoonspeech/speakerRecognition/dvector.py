@@ -12,6 +12,7 @@ from torch.nn import Module
 from torch.nn import CrossEntropyLoss
 from sklearn.manifold import TSNE
 from yoonspeech.data import YoonDataset
+from yoonspeech.speech import YoonSpeech
 
 
 # Define a SpeakerDataset class
@@ -20,7 +21,7 @@ class SpeakerDataset(Dataset):
                  pDataset: YoonDataset):
         self.data = pDataset
 
-    def __len__(self): # Return Dataset length to decision data-loader size
+    def __len__(self):  # Return Dataset length to decision data-loader size
         return self.data.__len__()
 
     def __getitem__(self, item: int):  # obtain label and file name
@@ -50,8 +51,8 @@ class DVector(Module):
 
     def forward(self, pTensorX: tensor, bExtract=False):  # override
         # Normalize input features (zero mean and unit variance).
-        pXMean = torch.mean(pTensorX, -1)
-        pXStd = torch.std(pTensorX, -1)
+        pXMean = torch.mean(pTensorX, -1)  # Mean of One frame (sum / deltas)
+        pXStd = torch.std(pTensorX, -1)    # Std of One frame (sum / deltas)
         pXStd[pXStd < 0.01] = 0.01
         pTensorX = (pTensorX - pXMean[:, :, None]) / pXStd[:, :, None]
         # Pass FFN Layers
@@ -71,6 +72,7 @@ def collate_tensor(pListTensor):
     nLengthMin = min([len(pTuple[0]) for pTuple in pListTensor]) - 1
     for pInputData, nTargetLabel in pListTensor:
         nStart = numpy.random.randint(len(pInputData) - nLengthMin)
+        # Change the tensor shape (Frame, Deltas) to (CH, Frame, Deltas)
         pListInput.append(torch.tensor(pInputData[nStart:nStart + nLengthMin]).unsqueeze(0))
         pListTarget.append(torch.tensor(nTargetLabel))
     pListInput = torch.cat(pListInput, 0)
@@ -231,15 +233,15 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)
     print(", Length of data = ", len(pBar))
-    pListPredict = []
+    pListOutput = []
     pListTarget = []
     for i, (pTensorInputData, pTensorTargetLabel) in enumerate(pBar):
         pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
         pTensorOutput = pModel(pTensorInputData, bExtract=False)
-        pListPredict.append(pTensorOutput.detach().cpu().numpy())
+        pListOutput.append(pTensorOutput.detach().cpu().numpy())
         pListTarget.append(pTensorTargetLabel.detach().cpu().numpy()[0])
     # Prepare embeddings for plot
-    pArrayOutput = numpy.concatenate(pListPredict)
+    pArrayOutput = numpy.concatenate(pListOutput)
     pArrayTarget = numpy.array(pListTarget)
     # Obtain embedding for the t-SNE plot
     pTSNE = TSNE(n_components=2)
@@ -247,3 +249,25 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     pArrayTSNE = pTSNE.fit_transform(pArrayOutput)
     # Draw plot
     __draw_tSNE(pArrayTSNE, pArrayTarget)
+    return pListOutput
+
+
+def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None, strFeatureType: str = "deltas"):
+    # Warp data set
+    pTestData = YoonDataset(nCountClass, strFeatureType, None, pSpeech)
+    # Check if we can use a GPU device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    # Load DVector model
+    pModel = DVector(pTestData).to(device=pDevice)
+    pModel.eval()
+    pFile = torch.load(strModelPath)
+    pModel.load_state_dict(pFile['model'])
+    # Recognition model
+    pTensorInput = torch.from_numpy(pTestData[0].buffer).to(pDevice).unsqueeze(0)
+    pArrayOutput = pModel(pTensorInput, bExtract=True).detach().cpu().numpy()
+    nLabelEstimated = numpy.argmax(pArrayOutput)  # Index of maximum of output layer
+    print("Estimated: {0}, Score : {1:.2f}".format(nLabelEstimated, numpy.max(pArrayOutput)))
+    return nLabelEstimated

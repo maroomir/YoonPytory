@@ -51,8 +51,8 @@ class YoonDataset(object):
 
     def __init__(self,
                  nCount: int,
-                 pList: list = None,
                  strType: str = "mfcc",
+                 pList: list = None,
                  *args: (YoonObject, YoonSpeech)):
         self.class_count = nCount
         self.__buffer_type = strType
