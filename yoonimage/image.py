@@ -15,10 +15,9 @@ class YoonImage:
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
 
     @staticmethod
-    def from_tensor(pTensor: numpy.ndarray):
+    def from_tensor(pTensor: numpy.ndarray, bNormalized: bool = True):
         # Change the transform and de-normalization
-        pResultBuffer = pTensor.transpose((1, 2, 0)) * 255.0
-        return YoonImage(pBuffer=pResultBuffer.astype(numpy.int))
+        return YoonImage(pBuffer=pTensor.transpose((1, 2, 0)) * (255 if bNormalized is True else 1).astype(numpy.int))
 
     def __init__(self,
                  pImage=None,
@@ -48,9 +47,9 @@ class YoonImage:
     def get_buffer(self):
         return self.__buffer
 
-    def get_tensor(self):
+    def get_tensor(self, bNormalize: bool = True):
         # Change the transform to (Channel, Height, Width) and normalization
-        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32) / 255.0
+        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32) / (255.0 if bNormalize is True else 1.0)
 
     def __copy__(self):
         return YoonImage(pBuffer=self.__buffer)
@@ -58,9 +57,9 @@ class YoonImage:
     def copy_buffer(self):
         return self.__buffer.copy()
 
-    def copy_tensor(self):
+    def copy_tensor(self, bNormalize: bool = True):
         # Change the transform to (Channel, Height, Width) and normalization
-        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32) / 255.0
+        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32) / (255.0 if bNormalize is True else 1.0)
 
     def normalization(self, dMean=0, dStd=1):
         return YoonImage(pBuffer=self.__buffer - dMean / dStd)

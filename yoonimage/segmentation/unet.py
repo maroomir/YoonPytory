@@ -181,7 +181,7 @@ def __process_train(nEpoch: int, pModel: UNet, pDataLoader: DataLoader, pCriteri
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
         nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
         # Compute network accuracy
-        nAcc = torch.sum(torch.eq(torch.argmax())) # [FIXING] DO NOT USE
+        nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
         nLengthSample += len(pTensorInput[0])
         nTotalAcc += nAcc
         # Perform backpropagation to update network parameters
@@ -217,4 +217,8 @@ def __process_test(pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLog
         # Compute a loss function
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
         nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
-        # Compute
+        # Compute network accuracy
+        nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
+        nLengthSample += len(pTensorInput[0])
+        nTotalAcc += nAcc
+    return nTotalLoss / nLengthSample
