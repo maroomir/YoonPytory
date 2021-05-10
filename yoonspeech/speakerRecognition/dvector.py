@@ -52,20 +52,20 @@ class DVector(Module):
     def forward(self, pTensorX: tensor, bExtract=False):  # override
         # Normalize input features (zero mean and unit variance).
         pXMean = torch.mean(pTensorX, -1)  # Mean of One frame (sum / deltas)
-        pXStd = torch.std(pTensorX, -1)    # Std of One frame (sum / deltas)
+        pXStd = torch.std(pTensorX, -1)  # Std of One frame (sum / deltas)
         pXStd[pXStd < 0.01] = 0.01
         pTensorX = (pTensorX - pXMean[:, :, None]) / pXStd[:, :, None]
         # Pass FFN Layers
         pTensorResult = self.network(pTensorX)
         # Use a mean pooling approach to obtain a D-Vector
-        pTensorResult = pTensorResult.mean(dim=1)
+        pTensorResult = pTensorResult.mean(dim=1)  # Mean of frames (Batch * CH, Frame, deltas)
         # Perform a classification task in the training process
         if bExtract:
             pTensorResult = self.classification_layer(pTensorResult)
         return pTensorResult
 
 
-# Define a collate function for the data loader
+# Define a collate function for the data loader (Assort for Batch)
 def collate_tensor(pListTensor):
     pListInput = []
     pListTarget = []
@@ -75,7 +75,8 @@ def collate_tensor(pListTensor):
         # Change the tensor shape (Frame, Deltas) to (CH, Frame, Deltas)
         pListInput.append(torch.tensor(pInputData[nStart:nStart + nLengthMin]).unsqueeze(0))
         pListTarget.append(torch.tensor(nTargetLabel))
-    pListInput = torch.cat(pListInput, 0)
+    # Grouping batch
+    pListInput = torch.cat(pListInput, 0)  # (CH, Freme, Deltas) -> (CH * Batch, Frame, Deltas)
     pListTarget = torch.LongTensor(pListTarget)
     return pListInput, pListTarget
 
@@ -93,20 +94,20 @@ def __process_train(nEpoch: int, pModel: DVector, pDataLoader: DataLoader, pCrit
     # Warp the iterable Data Loader with TQDM
     pBar = tqdm(enumerate(pDataLoader))
     nLengthSample = 0
-    nTotalLoss = 0
+    dTotalLoss = 0
     nTotalAcc = 0
-    for i, (pTensorInputData, pTensorTargetLabel) in pBar:
+    for i, (pTensorInput, pTensorTarget) in pBar:
         # Move data and label to device
-        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
-        pTensorTargetLabel = pTensorTargetLabel.to(pDevice)
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorTarget = pTensorTarget.to(pDevice)
         # Pass the input data through the defined network architecture
-        pPredictedLabel = pModel(pTensorInputData, bExtract=True)  # Module
+        pPredictedLabel = pModel(pTensorInput, bExtract=True)  # Module
         # Compute a loss function
-        pLoss = pCriterion(pPredictedLabel, pTensorTargetLabel)
-        nTotalLoss += pLoss.item() * len(pTensorTargetLabel)
+        pLoss = pCriterion(pPredictedLabel, pTensorTarget)
+        dTotalLoss += pLoss.item() * len(pTensorTarget)  # Channel
         # Compute speaker recognition accuracy
-        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTargetLabel)).item()
-        nLengthSample += len(pTensorTargetLabel)
+        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTarget)).item()
+        nLengthSample += len(pTensorTarget)
         nTotalAcc += nAcc
         # Perform backpropagation to update network parameters
         pOptimizer.zero_grad()
@@ -114,7 +115,7 @@ def __process_train(nEpoch: int, pModel: DVector, pDataLoader: DataLoader, pCrit
         pOptimizer.step()
         pBar.set_description('Epoch:{:3d} [{}/{} {:.2f}%] CE Loss: {:.3f} ACC: {:.2f}%'
                              .format(nEpoch, i, len(pDataLoader), 100.0 * (i / len(pDataLoader)),
-                                     nTotalLoss / nLengthSample, (nTotalAcc / nLengthSample) * 100.0))
+                                     dTotalLoss / nLengthSample, (nTotalAcc / nLengthSample) * 100.0))
 
 
 # Define a test function
@@ -131,18 +132,18 @@ def __process_test(pModel: DVector, pDataLoader: DataLoader, pCriterion: CrossEn
     nLengthSample = 0
     nTotalLoss = 0
     nTotalAcc = 0
-    for i, (pTensorInputData, pTensorTargetLabel) in pBar:
+    for i, (pTensorInput, pTensorTarget) in pBar:
         # Move data and label to device
-        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
-        pTensorTargetLabel = pTensorTargetLabel.to(pDevice)
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorTarget = pTensorTarget.to(pDevice)
         # Pass the input data through the defined network architecture
-        pPredictedLabel = pModel(pTensorInputData, bExtract=True)  # Module
+        pPredictedLabel = pModel(pTensorInput, bExtract=True)  # Module
         # Compute a loss function
-        pLoss = pCriterion(pPredictedLabel, pTensorTargetLabel)
-        nTotalLoss += pLoss.item() * len(pTensorTargetLabel)
+        pLoss = pCriterion(pPredictedLabel, pTensorTarget)
+        nTotalLoss += pLoss.item() * len(pTensorTarget)
         # Compute speaker recognition accuracy
-        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTargetLabel)).item()
-        nLengthSample += len(pTensorTargetLabel)
+        nAcc = torch.sum(torch.eq(torch.argmax(pPredictedLabel, -1), pTensorTarget)).item()
+        nLengthSample += len(pTensorTarget)
         nTotalAcc += nAcc
     return nTotalLoss / nLengthSample
 
@@ -268,6 +269,6 @@ def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None,
     # Recognition model
     pTensorInput = torch.from_numpy(pTestData[0].buffer).to(pDevice).unsqueeze(0)
     pArrayOutput = pModel(pTensorInput, bExtract=True).detach().cpu().numpy()
-    nLabelEstimated = numpy.argmax(pArrayOutput)  # Index of maximum of output layer
+    nLabelEstimated = numpy.argmax(pArrayOutput, -1)  # Index of maximum of output layer
     print("Estimated: {0}, Score : {1:.2f}".format(nLabelEstimated, numpy.max(pArrayOutput)))
     return nLabelEstimated

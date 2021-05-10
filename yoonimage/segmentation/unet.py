@@ -1,8 +1,13 @@
 import numpy
 import torch
 import torch.nn
+from tqdm import tqdm
+from torch import tensor
 from torch.nn import Module
+from torch.nn import BCEWithLogitsLoss
+from torch.optim import Adam
 from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from yoonimage.data import YoonDataset
 
 
@@ -17,13 +22,8 @@ class UNetDataset(Dataset):
         return self.targets.__len__()
 
     def __getitem__(self, item):
-        # Rescaling 0-255 to 0-1
-        pArrayTarget = self.targets[item].image\
-            .normalization(dMean=0, dStd=255.0)\
-            .copy_tensor()
-        pArrayInput = self.inputs[item].image.\
-            normalization(dMean=0, dStd=255.0).\
-            copy_tensor()
+        pArrayTarget = self.targets[item].image.copy_tensor()
+        pArrayInput = self.inputs[item].image.copy_tensor()
         return pArrayInput, pArrayTarget
 
 
@@ -114,7 +114,7 @@ class UNet(Module):
     def forward(self, pTensorX):
         # Normalize input features (zero mean and unit variance).
         pXMean = torch.mean(pTensorX, dim=(1, -1))  # Mean of All pixels (sum / (x,y))
-        pXStd = torch.std(pTensorX, dim=(1, -1))    # Std of All pixels (sum / (x,y))
+        pXStd = torch.std(pTensorX, dim=(1, -1))  # Std of All pixels (sum / (x,y))
         pXStd[pXStd < 0.01] = 0.01
         pTensorX = (pTensorX - pXMean[:, None, None]) / pXStd[:, None, None]
         # Down-sampling
@@ -137,8 +137,84 @@ class UNet(Module):
         pTensorResult = self.fc_layer(pDecoder1)
         return pTensorResult
 
-# Define a collate function for the data loader
+
+# Define a collate function for the data loader (Assort for Batch)
 def collate_tensor(pListTensor):
     pListInput = []
     pListTarget = []
-    nLengthMin = min()
+    nHeightMin = min([pData.shape[1] for pData, pTarget in pListTensor]) - 1  # Shape = CH, Y, X
+    nWidthMin = min([pData.shape[-1] for pData, pTarget in pListTarget]) - 1  # Shape = CH, Y, X
+    for pInputData, pTargetData in pListTensor:
+        nStartY = numpy.random.randint(pInputData.shape[1] - nHeightMin)
+        nStartX = numpy.random.randint(pInputData.shape[-1] - nWidthMin)
+        # Change the tensor type
+        pListInput.append(torch.tensor(pInputData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
+        pListTarget.append(torch.tensor(pTargetData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
+    # Grouping batch
+    pListInput = torch.FloatTensor(pListInput)
+    pListTarget = torch.FloatTensor(pListTarget)
+    return pListInput, pListTarget
+
+
+# Define a train function
+def __process_train(nEpoch: int, pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+                    pOptimizer: Adam):
+    # Check if we can use a GPU Device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    # Perform a training using the defined network
+    pModel.train()
+    # Warp the iterable Data Loader with TQDM
+    pBar = tqdm(enumerate(pDataLoader))
+    nLengthSample = 0
+    nTotalLoss = 0
+    nTotalAcc = 0
+    for i, (pTensorInput, pTensorTarget) in pBar:
+        # Move data and label to device
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorTarget = pTensorTarget.type(torch.FloatTensor).to(pDevice)
+        # Pass the input data through the defined network architecture
+        pTensorOutput = pModel(pTensorInput)
+        # Compute a loss function
+        pLoss = pCriterion(pTensorOutput, pTensorTarget)
+        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
+        # Compute network accuracy
+        nAcc = torch.sum(torch.eq(torch.argmax())) # [FIXING] DO NOT USE
+        nLengthSample += len(pTensorInput[0])
+        nTotalAcc += nAcc
+        # Perform backpropagation to update network parameters
+        pOptimizer.zero_grad()
+        pLoss.backward()
+        pOptimizer.step()
+        pBar.set_description('Epoch:{:3d} [{}/{} {:.2f}%] CE Loss: {:.3f} ACC: {:.2f}%'
+                             .format(nEpoch, i, len(pDataLoader), 100.0 * (i / len(pDataLoader)),
+                                     nTotalLoss / nLengthSample, (nTotalAcc / nLengthSample) * 100.0))
+
+
+# Define a test function
+def __process_test(pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+                   pOptimizer: Adam):
+    # Check if we can use a GPU Device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    # Perform an evaluation using the defined network
+    pModel.eval()
+    # Warp the iterable Data Loader with TQDM
+    pBar = tqdm(enumerate(pDataLoader))
+    nLengthSample = 0
+    nTotalLoss = 0
+    nTotalAcc = 0
+    for i, (pTensorInput, pTensorTarget) in pBar:
+        # Move data and label to device
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorTarget = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        # Pass the input data through the defined network architecture
+        pTensorOutput = pModel(pTensorInput)
+        # Compute a loss function
+        pLoss = pCriterion(pTensorOutput, pTensorTarget)
+        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
+        # Compute

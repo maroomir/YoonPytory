@@ -8,11 +8,17 @@ from yoonpytory.vector import YoonVector2D
 class YoonImage:
     width: int
     height: int
-    bpp: int
-    __buffer: numpy.ndarray  # height, width, bpp(channel)
+    channel: int
+    __buffer: numpy.ndarray  # height, width, channel(bpp)
 
     def __str__(self):
-        return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.bpp)
+        return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
+
+    @staticmethod
+    def from_tensor(pTensor: numpy.ndarray):
+        # Change the transform and de-normalization
+        pResultBuffer = pTensor.transpose((1, 2, 0)) * 255.0
+        return YoonImage(pBuffer=pResultBuffer.astype(numpy.int))
 
     def __init__(self,
                  pImage=None,
@@ -26,24 +32,25 @@ class YoonImage:
             self.__buffer = pImage.copy_buffer()
             self.width = pImage.width
             self.height = pImage.height
-            self.bpp = pImage.bpp
+            self.channel = pImage.channel
         elif pBuffer is not None:
             self.__buffer = pBuffer.copy()
-            self.height, self.width, self.bpp = self.__buffer.shape
+            self.height, self.width, self.channel = self.__buffer.shape
         elif strFileName is not None:
             self.__buffer = cv2.imread(strFileName)
-            self.height, self.width, self.bpp = self.__buffer.shape
+            self.height, self.width, self.channel = self.__buffer.shape
         else:
             self.width = nWidth
             self.height = nHeight
-            self.bpp = nBpp
-            self.__buffer = numpy.zeros((self.height, self.width, self.bpp), dtype=numpy.uint8)
+            self.channel = nBpp
+            self.__buffer = numpy.zeros((self.height, self.width, self.channel), dtype=numpy.uint8)
 
     def get_buffer(self):
         return self.__buffer
 
     def get_tensor(self):
-        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32)  # Channel, Y, X
+        # Change the transform to (Channel, Height, Width) and normalization
+        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32) / 255.0
 
     def __copy__(self):
         return YoonImage(pBuffer=self.__buffer)
@@ -52,10 +59,17 @@ class YoonImage:
         return self.__buffer.copy()
 
     def copy_tensor(self):
-        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32)  # Channel, Y, X
+        # Change the transform to (Channel, Height, Width) and normalization
+        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32) / 255.0
 
-    def normalization(self, dMean=0.5, dStd=0.5):
+    def normalization(self, dMean=0, dStd=1):
         return YoonImage(pBuffer=self.__buffer - dMean / dStd)
+
+    def de_normalization(self, dMean=0, dStd=1):
+        return YoonImage(pBuffer=self.__buffer * dStd + dMean)
+
+    def binary(self, nThreshold=128):
+        return YoonImage(pBuffer=cv2.threshold(self.__buffer, nThreshold, 255, cv2.THRESH_BINARY))
 
     def flip_horizontal(self):
         return YoonImage(pBuffer=numpy.flipud(self.__buffer))
