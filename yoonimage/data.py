@@ -1,3 +1,5 @@
+import numpy
+
 from yoonpytory.rect import YoonRect2D
 from yoonpytory.vector import YoonVector2D
 from yoonpytory.line import YoonLine2D
@@ -40,6 +42,22 @@ class YoonDataset:
     pixelCounts: list = []
     regions: list = []
     images: list = []
+
+    @staticmethod
+    def from_tensor(pTensor: numpy.ndarray,
+                    bWithBatch: bool = True,
+                    nPlane: int = 3):
+        pDataSet = YoonDataset()
+        if bWithBatch:
+            for iBatch in range(len(pTensor)):
+                pDataSet.labels.append(iBatch)
+                pDataSet.images.append(YoonImage.from_tensor(pTensor=pTensor[iBatch]))
+            return pDataSet
+        else:
+            for iBatch in range(len(pTensor), nPlane):
+                pDataSet.labels.append(iBatch)
+                pDataSet.images.append(YoonImage.from_tensor(pTensor=numpy.concatenate([pTensor[iBatch + i] for i in range(nPlane)])))
+            return pDataSet
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())

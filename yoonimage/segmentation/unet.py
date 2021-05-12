@@ -1,3 +1,5 @@
+import os.path
+
 import numpy
 import torch
 import torch.nn
@@ -150,9 +152,9 @@ def collate_tensor(pListTensor):
         # Change the tensor type
         pListInput.append(torch.tensor(pInputData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
         pListTarget.append(torch.tensor(pTargetData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
-    # Grouping batch
-    pListInput = torch.FloatTensor(pListInput)
-    pListTarget = torch.FloatTensor(pListTarget)
+    # Grouping batch : Update tensor shape to (Batch, CH, Y, X)
+    pListInput = torch.nn.utils.rnn.pad_sequence(pListInput, batch_first=True)
+    pListTarget = torch.nn.utils.rnn.pad_sequence(pListTarget, batch_first=True)
     return pListInput, pListTarget
 
 
@@ -179,7 +181,7 @@ def __process_train(nEpoch: int, pModel: UNet, pDataLoader: DataLoader, pCriteri
         pTensorOutput = pModel(pTensorInput)
         # Compute a loss function
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
-        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
+        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
         # Compute network accuracy
         nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
         nLengthSample += len(pTensorInput[0])
@@ -216,9 +218,97 @@ def __process_test(pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLog
         pTensorOutput = pModel(pTensorInput)
         # Compute a loss function
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
-        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Count batch
+        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
         # Compute network accuracy
         nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
         nLengthSample += len(pTensorInput[0])
         nTotalAcc += nAcc
     return nTotalLoss / nLengthSample
+
+
+def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, strModelPath: str = None,
+          bInitEpoch=False):
+    dLearningRate = 0.01
+    # Check if we can use a GPU Device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    print("{} device activation".format(pDevice.__str__()))
+    # Define the training and testing data-set
+    pTrainSet = UNetDataset(pTrainData)
+    pTrainLoader = DataLoader(pTrainSet, batch_size=4, shuffle=True, collate_fn=collate_tensor,
+                              num_workers=8, pin_memory=True)
+    pValidationSet = UNetDataset(pValidationData)
+    pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+                                   num_workers=8, pin_memory=True)
+    # Define a network model
+    pModel = UNet().to(pDevice)
+    # Set the optimizer with adam
+    pOptimizer = torch.optim.Adam(pModel.parameters(), lr=dLearningRate)
+    # Set the training criterion
+    pCriterion = torch.nn.BCEWithLogitsLoss(reduction='mean')
+    # Load pre-trained model
+    nStart = 0
+    print("Directory of the pre-trained model: {}".format(strModelPath))
+    if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
+        pModelData = torch.load(strModelPath)
+        nStart = pModelData['epoch']
+        pModel.load_state_dict(pModelData['model'])
+        pOptimizer.load_state_dict(pModelData['optimizer'])
+        print("## Successfully load the model at {} epochs!".format(nStart))
+    # Train and Test Repeat
+    dMinLoss = 10000.0
+    nCountDecrease = 0
+    for iEpoch in range(nStart, nEpoch + 1):
+        # Train the network
+        __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
+                        pOptimizer=pOptimizer)
+        # Test the network
+        dLoss = __process_test(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
+        # Save the optimal model
+        if dLoss < dMinLoss:
+            dMinLoss = dLoss
+            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
+                       strModelPath)
+            nCountDecrease = 0
+        else:
+            nCountDecrease += 1
+            # Decrease the learning rate by 2 when the test loss decrease 3 times in a row
+            if nCountDecrease == 3:
+                pDicOptimizerState = pOptimizer.state_dict()
+                pDicOptimizerState['param_groups'][0]['lr'] /= 2
+                pOptimizer.load_state_dict(pDicOptimizerState)
+                print('learning rate is divided by 2')
+                nCountDecrease = 0
+
+
+def test(pTestData: YoonDataset, strModelPath: str = None):
+    # Check if we can use a GPU device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    print("{} device activation".format(pDevice.__str__()))
+    # Load UNET model
+    pModel = UNet().to(pDevice)
+    pModel.eval()
+    pFile = torch.load(strModelPath)
+    pModel.load_state_dict(pFile['model'])
+    print("Successfully load the Model in path")
+    # Define a data path for plot for test
+    pDataSet = UNetDataset(pTestData)
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+                             num_workers=0, pin_memory=True)
+    pBar = tqdm(pDataLoader)
+    print("Length of data = ", len(pBar))
+    pListOutput = []
+    pListTarget = []
+    for i, (pTensorInput, pTensorTarget) in enumerate(pBar):
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorOutput = pModel(pTensorInput)
+        pListOutput.append(pTensorOutput.detach().cpu().numpy())
+        pListTarget.append(pTensorTarget.detach().cpu().numpy())
+    # Warp the tensor to Dataset
+    pArrayOutput = numpy.concatenate(pListOutput)  # Link the
+    return YoonDataset.from_tensor(pArrayOutput=numpy.concatenate(pListOutput))

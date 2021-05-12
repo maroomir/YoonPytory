@@ -36,7 +36,7 @@ class YoonImage:
             self.__buffer = pBuffer.copy()
             self.height, self.width, self.channel = self.__buffer.shape
         elif strFileName is not None:
-            self.__buffer = cv2.imread(strFileName)
+            self.__buffer = cv2.imread(strFileName)  # load to BGR
             self.height, self.width, self.channel = self.__buffer.shape
         else:
             self.width = nWidth
@@ -89,8 +89,19 @@ class YoonImage:
     def resize(self, nWidth: int, nHeight: int):
         if nWidth == self.width and nHeight == self.height:
             return self.__copy__()
-        pResultBuffer = cv2.resize(self.__buffer, dsize=(nWidth, nHeight))
+        pResultBuffer = cv2.resize(self.__buffer, dsize=(nWidth, nHeight), interpolation=cv2.INTER_CUBIC)
         return YoonImage(pBuffer=pResultBuffer)
+
+    # Resize image with unchanged aspect ratio using padding
+    def resize_with_padding(self, nWidth: int, nHeight: int, nPadding: int = 128):
+        nWidthResized = int(self.width * min(nWidth / self.width, nHeight / self.height))
+        nHeightResized = int(self.height * min(nWidth / self.width, nHeight / self.height))
+        pBufferResized = cv2.resize(self.__buffer, dsize=(nWidthResized, nHeightResized), interpolation=cv2.INTER_CUBIC)
+        nTop = (self.height - nHeightResized) // 2
+        nLeft = (self.width - nWidthResized) // 2
+        pCanvas = numpy.full((nHeight, nWidth, self.channel), nPadding)
+        pCanvas[nTop:nTop + nHeightResized, nLeft:nLeft + nWidthResized, :] = pBufferResized
+        return YoonImage(pBuffer=pCanvas)
 
     def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):
         cv2.rectangle(self.__buffer, (int(pRect.left()), int(pRect.top())), (int(pRect.right()), int(pRect.bottom())),

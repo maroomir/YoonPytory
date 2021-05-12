@@ -159,7 +159,8 @@ def __draw_tSNE(pTensorTSNE,
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int, pTrainData: YoonDataset, pTestData: YoonDataset, strModelPath: str = None, bInitEpoch=False):
+def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, strModelPath: str = None,
+          bInitEpoch=False):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -171,9 +172,9 @@ def train(nEpoch: int, pTrainData: YoonDataset, pTestData: YoonDataset, strModel
     pTrainSet = SpeakerDataset(pTrainData)
     pTrainLoader = DataLoader(pTrainSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
                               num_workers=0, pin_memory=True)
-    pTestSet = SpeakerDataset(pTestData)
-    pTestLoader = DataLoader(pTestSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
-                             num_workers=0, pin_memory=True)
+    pValidationSet = SpeakerDataset(pValidationData)
+    pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+                                   num_workers=0, pin_memory=True)
     # Define a network model
     pModel = DVector(pTrainData).to(pDevice)
     # Set the optimizer with adam
@@ -184,10 +185,10 @@ def train(nEpoch: int, pTrainData: YoonDataset, pTestData: YoonDataset, strModel
     nStart = 0
     print("Directory of the pre-trained model: {}".format(strModelPath))
     if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
-        pTensorModelData = torch.load(strModelPath)
-        nStart = pTensorModelData['epoch']
-        pModel.load_state_dict(pTensorModelData['model'])
-        pOptimizer.load_state_dict(pTensorModelData['optimizer'])
+        pModelData = torch.load(strModelPath)
+        nStart = pModelData['epoch']
+        pModel.load_state_dict(pModelData['model'])
+        pOptimizer.load_state_dict(pModelData['optimizer'])
         print("## Successfully load the model at {} epochs!".format(nStart))
     # Train and Test Repeat
     dMinLoss = 10000.0
@@ -197,7 +198,7 @@ def train(nEpoch: int, pTrainData: YoonDataset, pTestData: YoonDataset, strModel
         __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer)
         # Test the network
-        dLoss = __process_test(pModel=pModel, pDataLoader=pTestLoader, pCriterion=pCriterion)
+        dLoss = __process_test(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
         # Save the optimal model
         if dLoss < dMinLoss:
             dMinLoss = dLoss
@@ -233,14 +234,14 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)
-    print(", Length of data = ", len(pBar))
+    print("Length of data = ", len(pBar))
     pListOutput = []
     pListTarget = []
-    for i, (pTensorInputData, pTensorTargetLabel) in enumerate(pBar):
-        pTensorInputData = pTensorInputData.type(torch.FloatTensor).to(pDevice)
-        pTensorOutput = pModel(pTensorInputData, bExtract=False)
+    for i, (pTensorInput, pTensorTarget) in enumerate(pBar):
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorOutput = pModel(pTensorInput, bExtract=False)
         pListOutput.append(pTensorOutput.detach().cpu().numpy())
-        pListTarget.append(pTensorTargetLabel.detach().cpu().numpy()[0])
+        pListTarget.append(pTensorTarget.detach().cpu().numpy()[0])  # (Batch, Label) to (Label)
     # Prepare embeddings for plot
     pArrayOutput = numpy.concatenate(pListOutput)
     pArrayTarget = numpy.array(pListTarget)
@@ -250,7 +251,6 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     pArrayTSNE = pTSNE.fit_transform(pArrayOutput)
     # Draw plot
     __draw_tSNE(pArrayTSNE, pArrayTarget)
-    return pListOutput
 
 
 def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None, strFeatureType: str = "deltas"):
