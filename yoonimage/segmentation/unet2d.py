@@ -3,13 +3,14 @@ import os.path
 import numpy
 import torch
 import torch.nn
-from tqdm import tqdm
 from torch import tensor
-from torch.nn import Module
 from torch.nn import BCEWithLogitsLoss
+from torch.nn import Module
 from torch.optim import Adam
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
+from tqdm import tqdm
+
 from yoonimage.data import YoonDataset
 
 
@@ -29,9 +30,9 @@ class UNetDataset(Dataset):
         return pArrayInput, pArrayTarget
 
 
-class UNet(Module):
+class UNet2D(Module):
     def __init__(self):
-        super(UNet, self).__init__()
+        super(UNet2D, self).__init__()
         # Down-sampling
         self.encoder1 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3),
                                             torch.nn.BatchNorm2d(num_features=64),
@@ -113,7 +114,7 @@ class UNet(Module):
         self.fc_layer = torch.nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=2,
                                                  stride=2, padding=0, bias=True)
 
-    def forward(self, pTensorX):
+    def forward(self, pTensorX: tensor):
         # Normalize input features (zero mean and unit variance).
         pXMean = torch.mean(pTensorX, dim=(1, -1))  # Mean of All pixels (sum / (x,y))
         pXStd = torch.std(pTensorX, dim=(1, -1))  # Std of All pixels (sum / (x,y))
@@ -159,7 +160,7 @@ def collate_tensor(pListTensor):
 
 
 # Define a train function
-def __process_train(nEpoch: int, pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
                     pOptimizer: Adam):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -196,7 +197,7 @@ def __process_train(nEpoch: int, pModel: UNet, pDataLoader: DataLoader, pCriteri
 
 
 # Define a test function
-def __process_test(pModel: UNet, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+def __process_test(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
                    pOptimizer: Adam):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -243,7 +244,7 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
     pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                                    num_workers=8, pin_memory=True)
     # Define a network model
-    pModel = UNet().to(pDevice)
+    pModel = UNet2D().to(pDevice)
     # Set the optimizer with adam
     pOptimizer = torch.optim.Adam(pModel.parameters(), lr=dLearningRate)
     # Set the training criterion
@@ -291,7 +292,7 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Load UNET model
-    pModel = UNet().to(pDevice)
+    pModel = UNet2D().to(pDevice)
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])
