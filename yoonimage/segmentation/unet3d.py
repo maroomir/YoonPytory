@@ -14,22 +14,6 @@ from torch.utils.data import DataLoader
 from yoonimage.data import YoonDataset
 
 
-class UNetDataset(Dataset):
-    def __init__(self,
-                 pInput: YoonDataset,
-                 pTarget: YoonDataset):
-        self.targets = pTarget
-        self.inputs = pInput
-
-    def __len__(self):
-        return self.targets.__len__()
-
-    def __getitem__(self, item):
-        pArrayTarget = self.targets[item].image.copy_tensor()
-        pArrayInput = self.inputs[item].image.copy_tensor()
-        return pArrayInput, pArrayTarget
-
-
 class Parallelize(Module):
     def __init__(self,
                  nDimInput: int,
@@ -96,4 +80,26 @@ class UNet3D(Module):
         ]
 
     def forward(self, pTensorX: tensor):
-        pass
+        pListStack = []
+        pTensorResult = pTensorX
+        # Apply down sampling layers
+        for i, pEncoder in enumerate(self.encoders):
+            pTensorResult = pEncoder(pTensorResult)
+            pListStack.append(pTensorResult)
+            pTensorResult = self.down_sampler(pTensorResult)
+        pTensorResult = self.worker(pTensorResult)
+        # Apply up sampling layers
+        for pSampler, pDecoder in zip(self.up_samplers, self.decoders):
+            pTensorAttached = pListStack.pop()
+            pTensorResult = pSampler(pTensorResult)
+            pPadding = [0, 0, 0, 0]  # left, right, top, bottom
+            if pTensorResult.shape[-1] != pTensorAttached.shape[-1]:
+                pPadding[1] = 1
+            if pTensorResult.shape[-2] != pTensorAttached.shape[-2]:
+                pPadding[3] = 1
+            if sum(pPadding) != 0:
+                pTensorResult = torch.nn.functional.pad(pTensorResult, pPadding, "reflect")
+            pTensorResult = torch.cat([pTensorResult, pTensorAttached], dim=1)
+            pTensorResult = pDecoder(pTensorResult)
+        return pTensorResult
+

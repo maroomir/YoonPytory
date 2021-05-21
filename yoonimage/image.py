@@ -114,3 +114,4 @@ class YoonImage:
         cv2.imshow("Image", self.__buffer)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
