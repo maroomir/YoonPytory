@@ -197,8 +197,8 @@ def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCrite
 
 
 # Define a test function
-def __process_test(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
-                   pOptimizer: Adam):
+def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+                       pOptimizer: Adam):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -266,7 +266,7 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
         __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer)
         # Test the network
-        dLoss = __process_test(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
+        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
         # Save the optimal model
         if dLoss < dMinLoss:
             dMinLoss = dLoss
