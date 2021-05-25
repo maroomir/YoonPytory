@@ -6,7 +6,7 @@ import torch.nn.functional
 from torch import tensor
 from torch.nn import Module
 from torch.autograd import Variable
-from yoonpytory.vector import YoonVector2D
+from yoonpytory.rect import YoonRect2D
 from yoonimage.image import YoonImage
 import numpy
 
@@ -106,21 +106,24 @@ def create_module(pListBlockDict: list):
         elif iBlock['type'] == "yolo":
             pListMask = iBlock['mask'].split(",")
             pListMask = [int(strMask) for strMask in pListMask]
-            pListAnchor = iBlock['anchors'].split(",")
-            pListAnchor = [int(strAnchor) for strAnchor in pListAnchor]
-            pListAnchor = [YoonVector2D(pListAnchor[j], pListAnchor[j + 1]) for j in range(0, len(pListAnchor), 2)]
-            pListAnchor = [pListAnchor[iMask] for iMask in pListMask]
-            pModule.add_module("detection_{0}".format(i), DetectionLayer(pListAnchor))
+            pListAnchorBox = iBlock['anchors'].split(",")
+            pListAnchorBox = [int(strAnchor) for strAnchor in pListAnchorBox]
+            pListAnchorBox = [YoonRect2D(dWidth=pListAnchorBox[j], dHeight=pListAnchorBox[j + 1])
+                              for j in range(0, len(pListAnchorBox), 2)]
+            pListAnchorBox = [pListAnchorBox[iMask] for iMask in pListMask]
+            pModule.add_module("detection_{0}".format(i), DetectionLayer(pListAnchorBox))
         pListModule.append(pModule)
         pListFilterStack.append(nCountFilter)
     return pDicNet, pListModule
 
-class Dartnet(Module):
+
+class DarkNet(Module):
     def __init__(self, strConfigFile):
-        super(Dartnet, self).__init__()
+        super(DarkNet, self).__init__()
         self.blocks = parse_config(strConfigFile)
-        self.imageHeight: int = 0
-        self.classCount: int = 0
+        self.image_height: int = 0
+        self.class_count: int = 0
+        self.anchor_boxes: list = None
         self.net_info, self.modules = create_module(self, self.blocks)
 
     def forward(self, pTensorX: tensor):
@@ -146,16 +149,31 @@ class Dartnet(Module):
                     pTensorResult = torch.cat((pTensorMap1, pTensorMap2), 1)
             elif strType == "shortcut":
                 nFromBack = int(iBlock['from'])
-                pTensorResult = pListTensorStack[i-1] + pListTensorStack[i+nFromBack]
+                pTensorResult = pListTensorStack[i - 1] + pListTensorStack[i + nFromBack]
             elif strType == "yolo":
-                pListAnchor = self.modules[i][0].anchors
-                self.imageHeight = int(self.net_info['height'])
-                self.classCount = int(iBlock['classes'])
+                self.anchor_boxes = self.modules[i][0].anchors
+                self.image_height = int(self.net_info['height'])
+                self.class_count = int(iBlock['classes'])
                 # Predict the bounding boxes
 
+    def predict_boxes(self, pTensorPredict: tensor):  # Tensor Shape = (Batch, CH, Height, Width)
+        nSizeBatch = pTensorPredict.size(0)
+        nCountGrid = self.image_height // pTensorPredict.size(2)
+        nSizeGrid = self.image_height // nCountGrid
+        nCountAttribute = 5 + self.class_count  # Count : (x, y, w, h, confidence, class...)
+        nCountAnchor = len(self.anchor_boxes)
+        pTensorPredict = pTensorPredict.view(nSizeBatch, nCountAttribute * nCountAnchor, nSizeGrid * nSizeGrid)
+        pTensorPredict = pTensorPredict.transpose(1, 2).contiguous()
+        pTensorPredict = pTensorPredict.view(nSizeBatch, nSizeGrid * nSizeGrid * nCountAnchor, nCountAttribute)
+        pListAnchor = [(pRect.width / nCountGrid, pRect.Height / nCountGrid) for pRect in self.anchor_boxes]
+        # Sigmoid the CenterX, CenterY and Object Confidence
+        pTensorPredict[:, :, 0] = torch.sigmoid(pTensorPredict[:, :, 0])
+        pTensorPredict[:, :, 1] = torch.sigmoid(pTensorPredict[:, :, 1])
+        pTensorPredict[:, :, 4] = torch.sigmoid(pTensorPredict[:, :, 4])
+        # Add the center offsets
+        pArrayGrid = numpy.arance(nSizeGrid)
+        pArrayGridX, pArrayGridY = numpy.meshgrid(pArrayGrid, pArrayGrid)
+        pDevice = pTensorPredict.device
+        pTensorOffsetX = torch.FloatTensor(pArrayGridX).view(-1, 1).to(pDevice)
+        pTensorOffsetY = torch.FloatTensor(pArrayGridY).view(-1, 1).to(pDevice)
 
-    def predict_boxes(self, pTensorOutput: tensor):  # Tensor Shape = (Batch, CH, Height, Width)
-        nSizeBatch = pTensorOutput.size(0)
-        nCountGrid = self.imageHeight // pTensorOutput.size(2)
-        nSizeGrid = self.imageHeight // nCountGrid
-        pTensorOutput = pTensorOutput.size(1)
