@@ -6,6 +6,7 @@ from yoonspeech.speech import YoonSpeech
 class YoonObject(object):
     label = 0
     name = ""
+    word = ""
     speech: YoonSpeech = None
     buffer: numpy.ndarray = None
     __buffer_type: str = "mfcc"
@@ -13,11 +14,13 @@ class YoonObject(object):
     def __init__(self,
                  nID: int = 0,
                  strName: str = "",
+                 strWord: str = "",
                  pSpeech: YoonSpeech = None,
                  pBuffer: numpy.ndarray = None,
                  strType: str = "mfcc"):
         self.label = nID
         self.name = strName
+        self.word = strWord
         self.__buffer_type = strType
         if pSpeech is not None:
             self.speech = pSpeech.__copy__()
@@ -39,6 +42,7 @@ class YoonDataset(object):
     class_count: int = 0
     labels: list = []
     names: list = []
+    words: list = []
     speechs: list = []
     buffers: list = []
     __buffer_type: str = "mfcc"

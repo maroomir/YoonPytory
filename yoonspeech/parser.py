@@ -2,12 +2,11 @@ import collections
 import os
 from os.path import splitext, basename
 
-import numpy
 from tqdm import tqdm
 
-from yoonspeech.speech import YoonSpeech
-from yoonspeech.data import YoonObject
 from yoonspeech.data import YoonDataset
+from yoonspeech.data import YoonObject
+from yoonspeech.speech import YoonSpeech
 
 
 def parse_librispeech_trainer(strRootDir: str,

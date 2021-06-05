@@ -1,5 +1,7 @@
 import cv2
 import numpy
+
+import yoonimage
 from yoonimage.image import YoonImage
 from yoonimage.data import YoonObject, YoonDataset
 from yoonpytory.rect import YoonRect2D
@@ -69,3 +71,15 @@ def draw_detection_result(pResultData: YoonDataset, pImage: YoonImage, pNet: Yol
             pImage.draw_rectangle(pResultData.regions[i], pArrayColor=pNet.colors[nID])
             pImage.draw_text(pNet.classes[nID], pResultData.regions[i].top_left(), pArrayColor=pNet.colors[nID])
     pImage.show_image()
+
+
+if __name__ == "main":
+    # Run network
+    net_param = YoloNet()
+    net_param.load_modern_net(strWeightFile="./data/yolo/yolov3.weights", strConfigFile="./data/yolo/yolov3.cfg",
+                              strNamesFile="./data/yolo/coco.names")
+    image = yoonimage.image(strFileName="./data/yolo/input1.bmp")
+    obj_list = yoonimage.detection(image, net_param, pSize=yoonimage.YOLO_SIZE_NORMAL,
+                                   dScale=yoonimage.YOLO_SCALE_ONE_ZERO_PER_8BIT)
+    result = yoonimage.remove_noise(obj_list)
+    yoonimage.draw_detection_result(result, image, net_param)

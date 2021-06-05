@@ -11,13 +11,15 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+import yoonimage
+import yoonimage.image
 from yoonimage.data import YoonDataset
 
 
 class UNetDataset(Dataset):
     def __init__(self,
                  pInput: YoonDataset,
-                 pTarget: YoonDataset):
+                 pTarget: YoonDataset = None):
         self.targets = pTarget
         self.inputs = pInput
 
@@ -25,9 +27,13 @@ class UNetDataset(Dataset):
         return self.targets.__len__()
 
     def __getitem__(self, item):
-        pArrayTarget = self.targets[item].image.copy_tensor()
-        pArrayInput = self.inputs[item].image.copy_tensor()
-        return pArrayInput, pArrayTarget
+        if self.targets is None:
+            pArrayInput = self.inputs[item].image.copy_tensor()
+            return pArrayInput
+        else:
+            pArrayTarget = self.targets[item].image.copy_tensor()
+            pArrayInput = self.inputs[item].image.copy_tensor()
+            return pArrayInput, pArrayTarget
 
 
 class UNet2D(Module):
@@ -227,7 +233,12 @@ def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEW
     return nTotalLoss / nLengthSample
 
 
-def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, strModelPath: str = None,
+def train(nEpoch: int,
+          pTrainData: YoonDataset,
+          pLabelData: YoonDataset,
+          pValidationData: YoonDataset = None,
+          pValidationLabelData: YoonDataset = None,
+          strModelPath: str = None,
           bInitEpoch=False):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
@@ -237,12 +248,14 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = UNetDataset(pTrainData)
+    pTrainSet = UNetDataset(pTrainData, pLabelData)
     pTrainLoader = DataLoader(pTrainSet, batch_size=4, shuffle=True, collate_fn=collate_tensor,
                               num_workers=8, pin_memory=True)
-    pValidationSet = UNetDataset(pValidationData)
-    pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
-                                   num_workers=8, pin_memory=True)
+    pValidationLoader = None
+    if pValidationData is not None and pValidationLabelData is not None:
+        pValidationSet = UNetDataset(pValidationData)
+        pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+                                       num_workers=8, pin_memory=True)
     # Define a network model
     pModel = UNet2D().to(pDevice)
     # Set the optimizer with adam
@@ -265,26 +278,30 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
         # Train the network
         __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer)
-        # Test the network
-        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
-        # Save the optimal model
-        if dLoss < dMinLoss:
-            dMinLoss = dLoss
+        if pValidationLoader is not None:
+            # Test the network
+            dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
+            # Save the optimal model
+            if dLoss < dMinLoss:
+                dMinLoss = dLoss
+                torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
+                           strModelPath)
+                nCountDecrease = 0
+            else:
+                nCountDecrease += 1
+                # Decrease the learning rate by 2 when the test loss decrease 3 times in a row
+                if nCountDecrease == 3:
+                    pDicOptimizerState = pOptimizer.state_dict()
+                    pDicOptimizerState['param_groups'][0]['lr'] /= 2
+                    pOptimizer.load_state_dict(pDicOptimizerState)
+                    print('learning rate is divided by 2')
+                    nCountDecrease = 0
+        else:
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
                        strModelPath)
-            nCountDecrease = 0
-        else:
-            nCountDecrease += 1
-            # Decrease the learning rate by 2 when the test loss decrease 3 times in a row
-            if nCountDecrease == 3:
-                pDicOptimizerState = pOptimizer.state_dict()
-                pDicOptimizerState['param_groups'][0]['lr'] /= 2
-                pOptimizer.load_state_dict(pDicOptimizerState)
-                print('learning rate is divided by 2')
-                nCountDecrease = 0
 
 
-def test(pTestData: YoonDataset, strModelPath: str = None):
+def test(pTestData: YoonDataset, strModelPath: str):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -304,12 +321,21 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     pBar = tqdm(pDataLoader)
     print("Length of data = ", len(pBar))
     pListOutput = []
-    pListTarget = []
-    for i, (pTensorInput, pTensorTarget) in enumerate(pBar):
+    for i, pTensorInput in enumerate(pBar):
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
         pTensorOutput = pModel(pTensorInput)
         pListOutput.append(pTensorOutput.detach().cpu().numpy())
-        pListTarget.append(pTensorTarget.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    pArrayOutput = numpy.concatenate(pListOutput)  # Link the
-    return YoonDataset.from_tensor(pArrayOutput=numpy.concatenate(pListOutput))
+    return YoonDataset.from_tensor(pTensor=numpy.concatenate(pListOutput))
+
+
+if __name__ == "__main__":
+    train_image = yoonimage.YoonImage(strFileName='../../data/unet/train-volume.tif')
+    train_dataset = YoonDataset(None, train_image)
+    label_image = yoonimage.YoonImage(strFileName='../../data/unet/train-labels.tif')
+    label_dataset = YoonDataset(None, label_image)
+    test_image = yoonimage.YoonImage(strFileName='../../data/unet/test-volume.tif')
+    test_dataset = YoonDataset(None, test_image)
+    strModelPath = '../../data/unet/model_unet.pth'
+    train(50, pTrainData=train_dataset, pLabelData=label_dataset, strModelPath=strModelPath)
+    test(pTestData=test_dataset, strModelPath=strModelPath)

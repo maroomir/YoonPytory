@@ -14,58 +14,39 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
-
-def get_phoneme_dict(strFilePath='./phn_list.txt'):
-    with open(strFilePath, 'r') as pFile:
-        pListPhn = pFile.read().split('\n')[:-1]
-    pDicPhn = {}
-    for strTag in pListPhn:
-        if strTag.split(' ')[0] == 'q':
-            pass
-        else:
-            pDicPhn[strTag.split(' ')[0]] = strTag.split(' ')[-1]
-    return pDicPhn
-
-
-def get_phoneme_list(strFilePath='./phn_list.txt'):
-    with open(strFilePath, 'r') as pFile:
-        pListPhn = pFile.read().split('\n')[:-1]
-    pListPhn = [strTag.split(' ')[-1] for strTag in pListPhn]
-    pListPhn = list(set(pListPhn))
-    return pListPhn
+from yoonspeech.data import YoonDataset
 
 
 class ASRDataset(Dataset):
     def __init__(self,
-                 strFileList: str,
-                 strRootDir: str,
-                 strDataType='wav',  # 'mel', 'mfcc'
-                 nFFTCount=512,
-                 dLengthWindow=0.025,
-                 dLengthShift=0.010,
-                 nSamplingRate=16000,
-                 nCoefficient=0,
-                 nDelta=1):
-        with open(strFileList, 'r') as pFile:
-            self.dataset = pFile.read().split('\n')[:-1]
-        self.root_path = strRootDir
-        self.data_type = strDataType
-        self.fft_count = nFFTCount
-        self.sampling_rate = nSamplingRate
-        self.window_length = dLengthWindow
-        self.hop_length = dLengthShift
-        self.coefficient = nCoefficient
-        self.delta = nDelta
-        self.phoneme_dict = get_phoneme_dict()
-        self.phoneme_list = get_phoneme_list()
+                 pDataset: YoonDataset,
+                 strRootDir: str):
+        self.data = pDataset
         self.g2p = G2p()
 
+    def _get_phoneme_dict(self, strFilePath='./phn_list.txt'):
+        with open(strFilePath, 'r') as pFile:
+            pListPhn = pFile.read().split('\n')[:-1]
+        pDicPhn = {}
+        for strTag in pListPhn:
+            if strTag.split(' ')[0] == 'q':
+                pass
+            else:
+                pDicPhn[strTag.split(' ')[0]] = strTag.split(' ')[-1]
+        return pDicPhn
+
+    def _get_phoneme_list(self, strFilePath='./phn_list.txt'):
+        with open(strFilePath, 'r') as pFile:
+            pListPhn = pFile.read().split('\n')[:-1]
+        pListPhn = [strTag.split(' ')[-1] for strTag in pListPhn]
+        pListPhn = list(set(pListPhn))
+        return pListPhn
+
     def __len__(self):
-        return len(self.dataset)
+        return len(self.data)
 
     def __getitem__(self, item):
-        pFeature = self.get_feature(self.dataset[item])
+        pFeature = self.get_feature(self.data[item])
         strLabel = self.get_label(self.dataset[item])
         return pFeature, strLabel
 
@@ -81,7 +62,7 @@ class ASRDataset(Dataset):
                 pass
             else:
                 strLabel = ''.join([i for i in strLabel if not i.isdigit()])
-                pListLabelPhoneme.append(self.phoneme_list.index(self.phoneme_dict[strLabel]) + 1)
+                pListLabelPhoneme.append(self._get_phoneme_list().index(self._get_phoneme_dict()[strLabel]) + 1)
         return numpy.array(pListLabelPhoneme)
 
     def get_feature(self, strPath: str):
@@ -248,8 +229,6 @@ def train(nEpoch: int,
         pOptimizer.load_state_dict(pModelData['optimizer'])
         nStart = pModelData['epoch']
         print("## Success to load the CTC model : epoch {}".format(nStart))
-    # Set the phoneme list for decoding
-    pListPhoneme = get_phoneme_list()
     # Define training and test dataset
     pTrainDataset = ASRDataset(strFileList=strTrainListPath, strRootDir=strDataDir, strDataType=strDataType,
                                nCoefficient=nDimInput, nDelta=nDeltaOrder)
@@ -282,5 +261,5 @@ def train(nEpoch: int,
                 nCountDecrease = 0
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     train(20, './libri_train_flac.txt', './libri_test_flac.txt', './LibriSpeech/')
