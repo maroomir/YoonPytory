@@ -149,7 +149,7 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     # Define a network architecture
     pModel = CTC(nDimInput=pTrainData.get_dimension(), nCountClass=pTrainData.phoneme_count)
-    pModel = pModel.to(pDevice)
+    pModel = pModel.to('cpu')  #pModel.to(pDevice)
     # Define an optimizer
     pOptimizer = Adam(pModel.parameters(), lr=dLearningRate)
     # Define a training criterion

@@ -1,8 +1,8 @@
 import yoonpytory
 import yoonimage
 import yoonspeech
-import yoonspeech.speakerRecognition.gmm
-import yoonspeech.speakerRecognition.dvector
+import yoonspeech.speakerRecognition
+import yoonspeech.speechRecognition
 
 
 def process_test_dir():
@@ -158,6 +158,20 @@ def process_speaker_recognition_with_torch():
                                                               strModelPath='./data/speech/model_opt.pth')
     print("The speaker is estimated : " + pTestData.names[label])
 
+def process_speech_recognition_with_ctc():
+    sampling_rate = 16000
+    window_length = 0.025
+    shift_length = 0.01
+    epoch = 100
+    # Train
+    pTrainData, pTestData = yoonspeech.parse_librispeech_trainer(
+        strRootDir='./data/speech/LibriSpeech/dev-clean',
+        nSamplingRate=sampling_rate, dRatioTrain=0.8,
+        dWindowLength=window_length, dShiftLength=shift_length,
+        strFeatureType="deltas")
+    yoonspeech.speechRecognition.ctc.train(epoch, pTrainData=pTrainData, pValidationData=pTestData,
+                                           strModelPath='./data/speech/ctc_opt.pth')
+
 
 if __name__ == '__main__':
     # process_test_dir()
@@ -169,4 +183,5 @@ if __name__ == '__main__':
     # process_multi_layer_perception()
     # process_speech()
     # process_speaker_recognition()
-    process_speaker_recognition_with_torch()
+    # process_speaker_recognition_with_torch()
+    process_speech_recognition_with_ctc()
