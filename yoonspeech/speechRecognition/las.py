@@ -1,13 +1,9 @@
 import os
-import sys
 
 import Levenshtein
-import librosa
-import numpy
 import torch
 import torch.nn
 import torch.nn.functional
-from g2p_en import G2p
 from torch import tensor
 from torch.nn import Module
 from torch.optim import Adam
@@ -15,99 +11,21 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-
-def get_phoneme_dict(strFilePath='./phn_list.txt'):
-    with open(strFilePath, 'r') as pFile:
-        pListPhn = pFile.read().split('\n')[:-1]
-    pDicPhn = {}
-    for strTag in pListPhn:
-        if strTag.split(' ')[0] == 'q':
-            pass
-        else:
-            pDicPhn[strTag.split(' ')[0]] = strTag.split(' ')[-1]
-    return pDicPhn
-
-
-def get_phoneme_list(strFilePath='./phn_list.txt'):
-    with open(strFilePath, 'r') as pFile:
-        pListPhn = pFile.read().split('\n')[:-1]
-    pListPhn = [strTag.split(' ')[-1] for strTag in pListPhn]
-    pListPhn = list(set(pListPhn))
-    return pListPhn
+from yoonspeech.data import YoonDataset
 
 
 class ASRDataset(Dataset):
     def __init__(self,
-                 strFileList: str,
-                 strRootDir: str,
-                 strDataType='wav',  # 'mel', 'mfcc'
-                 nFFTCount=512,
-                 dLengthWindow=0.025,
-                 dLengthShift=0.010,
-                 nSamplingRate=16000,
-                 nCoefficient=0,
-                 nDelta=1):
-        with open(strFileList, 'r') as pFile:
-            self.dataset = pFile.read().split('\n')[:-1]
-        self.root_path = strRootDir
-        self.data_type = strDataType
-        self.fft_count = nFFTCount
-        self.sampling_rate = nSamplingRate
-        self.window_length = dLengthWindow
-        self.hop_length = dLengthShift
-        self.coefficient = nCoefficient
-        self.delta = nDelta
-        self.phoneme_dict = get_phoneme_dict()
-        self.phoneme_list = get_phoneme_list()
-        self.g2p = G2p()
+                 pDataset: YoonDataset):
+        self.data = pDataset
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.data)
 
     def __getitem__(self, item):
-        pFeature = self.get_feature(self.dataset[item])
-        strLabel = self.get_label(self.dataset[item])
-        return pFeature, strLabel
-
-    def get_label(self, strPath: str):
-        with open(self.root_path + strPath.replace('.flac', '.txt')) as pFile:
-            pListLabel = pFile.read().lower()
-        pListPhoneme = ['h#']  # h# : start token
-        pListPhoneme.extend(pPhoneme.lower() for pPhoneme in self.g2p(pListLabel))
-        pListPhoneme.append('h#')  # h# : end token
-        pListLabelPhoneme = []
-        for strLabel in pListPhoneme:
-            if strLabel in ['q', ' ', "'"]:
-                pass
-            else:
-                strLabel = ''.join([i for i in strLabel if not i.isdigit()])
-                pListLabelPhoneme.append(self.phoneme_list.index(self.phoneme_dict[strLabel]) + 1)
-        return numpy.array(pListLabelPhoneme)
-
-    def get_feature(self, strPath: str):
-        pFeature, = librosa.load(self.root_path + strPath, self.sampling_rate)
-        if self.data_type != 'wav':
-            pStft = librosa.core.stft(pFeature, n_fft=self.fft_count, hop_length=self.hop_length,
-                                      win_length=self.window_length)
-            pFeature = numpy.abs(pStft)
-            if self.data_type == 'mel':
-                pMelFilterBank = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=self.coefficient)
-                pMelSpec = numpy.matmul(pMelFilterBank, pFeature)
-                pFeature = numpy.log(pMelSpec + sys.float_info.epsilon)
-                pFeature = pFeature.transpose()
-            elif self.data_type == 'mfcc':
-                pMelFilterBank = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=40)
-                pMelSpec = numpy.matmul(pMelFilterBank, pFeature)
-                pMelSpec = librosa.power_to_db(pMelSpec)
-                pMFCC = librosa.feature.mfcc(S=pMelSpec, n_mfcc=self.coefficient, dct_type=2, norm='ortho', lifter=0)
-                for i in range(self.delta):
-                    if i == 0:
-                        pFeature = pMFCC
-                    else:
-                        pFeature = numpy.concatenate((pFeature,
-                                                      librosa.feature.delta(pMFCC, order=i)), axis=0)
-                pFeature = pFeature.transpose()
-        return pFeature
+        pArrayInput = self.data[item].buffer
+        pArrayTarget = self.data[item].get_phonemes_array()
+        return pArrayInput, pArrayTarget
 
 
 def collate_tensor(pListTensor):
@@ -389,14 +307,10 @@ def __process_test(nEpoch: int, pModel: LAS, pDataLoader: DataLoader, pCriterion
 
 
 def train(nEpoch: int,
-          strTrainListPath: str,
-          strValidListPath: str,
-          strDataDir: str,
-          nSizeBatch=4,
-          strDataType='mfcc',
-          nDimInput=13,
-          nDeltaOrder=3,
+          pTrainData: YoonDataset,
+          pValidationData: YoonDataset,
           strModelPath='model_las.pth',
+          nSizeBatch=4,
           bInitTrain=False,
           dLearningRate=0.001,
           nWorker=0,  # 0 = CPU, 4 = CUDA
@@ -412,7 +326,7 @@ def train(nEpoch: int,
     nCountLayerListener = 3
     nCountLayerSpeller = 1
     nCountClass = 40 + 1 + 1 + 1  # 40 phoneme + <sos, eos, pad>
-    pModel = LAS(nDimInputListener=nDimInput * nDeltaOrder, nDimOutputListener=nDimHidden,
+    pModel = LAS(nDimInputListener=pTrainData.get_dimension(), nDimOutputListener=nDimHidden,
                  nCountLayerListener=nCountLayerListener,
                  nDimInputSpeller=nDimHidden + nCountClass, nDimOutputSpeller=nDimHidden,
                  nCountLayerSpeller=nCountLayerSpeller)
@@ -429,15 +343,11 @@ def train(nEpoch: int,
         pOptimizer.load_state_dict(pModelData['optimizer'])
         nStart = pModelData['epoch']
         print("## Success to load the LAS model : epoch {}".format(nStart))
-    # Set the phoneme list for decoding
-    pListPhoneme = get_phoneme_list()
     # Define training and test dataset
-    pTrainDataset = ASRDataset(strFileList=strTrainListPath, strRootDir=strDataDir, strDataType=strDataType,
-                               nCoefficient=nDimInput, nDelta=nDeltaOrder)
+    pTrainDataset = ASRDataset(pTrainData)
     pTrainLoader = DataLoader(pTrainDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=True,
                               num_workers=nWorker, pin_memory=True)
-    pValidDataset = ASRDataset(strFileList=strValidListPath, strRootDir=strDataDir, strDataType=strDataType,
-                               nCoefficient=nDimInput, nDelta=nDeltaOrder)
+    pValidDataset = ASRDataset(pValidationData)
     pValidLoader = DataLoader(pValidDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=False,
                               num_workers=nWorker, pin_memory=True)
     # Perform training / validation processing
@@ -462,6 +372,3 @@ def train(nEpoch: int,
                 print('learning rate is divided by 2')
                 nCountDecrease = 0
 
-
-if __name__ == '__main__':
-    train(20, './libri_train.txt', './libri_test.txt', './LibriSpeech/')

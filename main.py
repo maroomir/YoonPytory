@@ -118,20 +118,20 @@ def process_speaker_recognition():
     shift_length = 0.01
     # Train
     pTrainData, pTestData = yoonspeech.parse_librispeech_trainer(
-        strRootDir='./data/speaker_recognition/LibriSpeech/dev-clean',
+        strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="mfcc")
-    yoonspeech.speakerRecognition.gmm.train(pTrainData, pTestData, strModelPath='./data/speaker_recognition/GMM.mdl')
+    yoonspeech.speakerRecognition.gmm.train(pTrainData, pTestData, strModelPath='./data/speech/GMM.mdl')
     # Speaker recognition with gmm
     speech = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
-    yoonspeech.speakerRecognition.gmm.recognition(speech, strModelPath='./data/speaker_recognition/GMM.mdl',
+    yoonspeech.speakerRecognition.gmm.recognition(speech, strModelPath='./data/speech/GMM.mdl',
                                                   strFeatureType="mfcc")
     speech_female = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length,
                                       dShiftLength=shift_length)
     speech_female.load_sound_file(strFileName='./data/speech/yeseul.wav')
-    yoonspeech.speakerRecognition.gmm.recognition(speech_female, strModelPath='./data/speaker_recognition/GMM.mdl',
+    yoonspeech.speakerRecognition.gmm.recognition(speech_female, strModelPath='./data/speech/GMM.mdl',
                                                   strFeatureType="mfcc")
 
 
@@ -142,22 +142,21 @@ def process_speaker_recognition_with_torch():
     epoch = 100
     # Train
     pTrainData, pTestData = yoonspeech.parse_librispeech_trainer(
-        strRootDir='./data/speaker_recognition/LibriSpeech/dev-clean',
+        strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="deltas")
     yoonspeech.speakerRecognition.dvector.train(epoch, pTrainData=pTrainData, pValidationData=pTestData,
-                                                strModelPath='./data/speaker_recognition/model_opt.pth',
+                                                strModelPath='./data/speech/model_opt.pth',
                                                 bInitEpoch=False)
-    yoonspeech.speakerRecognition.dvector.test(pTestData, './data/speaker_recognition/model_opt.pth')
+    yoonspeech.speakerRecognition.dvector.test(pTestData, './data/speech/model_opt.pth')
     # Speaker recognition with d-vector
     class_count = pTestData.class_count
     speech = yoonspeech.speech(nSamplingRate=sampling_rate, dWindowLength=window_length, dShiftLength=shift_length)
     speech.load_sound_file(strFileName='./data/speech/2021451143.wav')
     label = yoonspeech.speakerRecognition.dvector.recognition(pSpeech=speech, nCountClass=class_count,
-                                                              strModelPath='./data/speaker_recognition/model_opt.pth')
+                                                              strModelPath='./data/speech/model_opt.pth')
     print("The speaker is estimated : " + pTestData.names[label])
-
 
 
 if __name__ == '__main__':

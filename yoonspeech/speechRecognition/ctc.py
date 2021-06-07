@@ -1,94 +1,31 @@
 import os
-import sys
 
 import Levenshtein
-import librosa
-import numpy
 import torch
 import torch.nn
 import torch.nn.functional
-from g2p_en import G2p
 from torch import tensor
 from torch.nn import Module
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
 from yoonspeech.data import YoonDataset
 
 
 class ASRDataset(Dataset):
     def __init__(self,
-                 pDataset: YoonDataset,
-                 strRootDir: str):
+                 pDataset: YoonDataset):
         self.data = pDataset
-        self.g2p = G2p()
-
-    def _get_phoneme_dict(self, strFilePath='./phn_list.txt'):
-        with open(strFilePath, 'r') as pFile:
-            pListPhn = pFile.read().split('\n')[:-1]
-        pDicPhn = {}
-        for strTag in pListPhn:
-            if strTag.split(' ')[0] == 'q':
-                pass
-            else:
-                pDicPhn[strTag.split(' ')[0]] = strTag.split(' ')[-1]
-        return pDicPhn
-
-    def _get_phoneme_list(self, strFilePath='./phn_list.txt'):
-        with open(strFilePath, 'r') as pFile:
-            pListPhn = pFile.read().split('\n')[:-1]
-        pListPhn = [strTag.split(' ')[-1] for strTag in pListPhn]
-        pListPhn = list(set(pListPhn))
-        return pListPhn
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, item):
-        pFeature = self.get_feature(self.data[item])
-        strLabel = self.get_label(self.dataset[item])
-        return pFeature, strLabel
-
-    def get_label(self, strPath: str):
-        with open(self.root_path + strPath.replace('.flac', '.txt')) as pFile:
-            pListLabel = pFile.read().lower()
-        pListPhoneme = ['h#']  # h# : start token
-        pListPhoneme.extend(pPhoneme.lower() for pPhoneme in self.g2p(pListLabel))
-        pListPhoneme.append('h#')  # h# : end token
-        pListLabelPhoneme = []
-        for strLabel in pListPhoneme:
-            if strLabel in ['q', ' ', "'"]:
-                pass
-            else:
-                strLabel = ''.join([i for i in strLabel if not i.isdigit()])
-                pListLabelPhoneme.append(self._get_phoneme_list().index(self._get_phoneme_dict()[strLabel]) + 1)
-        return numpy.array(pListLabelPhoneme)
-
-    def get_feature(self, strPath: str):
-        pFeature, nTemp = librosa.load(self.root_path + strPath, self.sampling_rate)
-        if self.data_type != 'wav':
-            pStft = librosa.core.stft(pFeature, n_fft=self.fft_count, hop_length=self.hop_length,
-                                      win_length=self.window_length)
-            pFeature = numpy.abs(pStft)
-            if self.data_type == 'mel':
-                pMelFilterBank = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=self.coefficient)
-                pMelSpec = numpy.matmul(pMelFilterBank, pFeature)
-                pFeature = numpy.log(pMelSpec + sys.float_info.epsilon)
-                pFeature = pFeature.transpose()
-            elif self.data_type == 'mfcc':
-                pMelFilterBank = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=40)
-                pMelSpec = numpy.matmul(pMelFilterBank, pFeature)
-                pMelSpec = librosa.power_to_db(pMelSpec)
-                pMFCC = librosa.feature.mfcc(S=pMelSpec, n_mfcc=self.coefficient, dct_type=2, norm='ortho', lifter=0)
-                for i in range(self.delta):
-                    if i == 0:
-                        pFeature = pMFCC
-                    else:
-                        pFeature = numpy.concatenate((pFeature,
-                                                      librosa.feature.delta(pMFCC, order=i)), axis=0)
-                pFeature = pFeature.transpose()
-        return pFeature
+        pArrayInput = self.data[item].buffer
+        pArrayTarget = self.data[item].get_phonemes_array()
+        return pArrayInput, pArrayTarget
 
 
 def collate_tensor(pListTensor):
@@ -196,14 +133,10 @@ def __process_test(nEpoch: int, pModel: CTC, pDataLoader: DataLoader, pCriterion
 
 
 def train(nEpoch: int,
-          strTrainListPath: str,
-          strValidListPath: str,
-          strDataDir: str,
+          pTrainData: YoonDataset,
+          pValidationData: YoonDataset,
+          strModelPath="model_ctc.pth",
           nSizeBatch=8,
-          strDataType='mfcc',
-          nDimInput=13,
-          nDeltaOrder=3,
-          strModelPath='model_ctc.pth',
           bInitTrain=False,
           dLearningRate=0.01,
           nWorker=0,  # 0 = CPU, 4 = CUDA
@@ -215,7 +148,7 @@ def train(nEpoch: int,
     else:
         pDevice = torch.device('cpu')
     # Define a network architecture
-    pModel = CTC(nDimInput=nDimInput * nDeltaOrder, nCountClass=41)
+    pModel = CTC(nDimInput=pTrainData.get_dimension(), nCountClass=pTrainData.phoneme_count)
     pModel = pModel.to(pDevice)
     # Define an optimizer
     pOptimizer = Adam(pModel.parameters(), lr=dLearningRate)
@@ -230,12 +163,10 @@ def train(nEpoch: int,
         nStart = pModelData['epoch']
         print("## Success to load the CTC model : epoch {}".format(nStart))
     # Define training and test dataset
-    pTrainDataset = ASRDataset(strFileList=strTrainListPath, strRootDir=strDataDir, strDataType=strDataType,
-                               nCoefficient=nDimInput, nDelta=nDeltaOrder)
+    pTrainDataset = ASRDataset(pTrainData)
     pTrainLoader = DataLoader(pTrainDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=True,
                               num_workers=nWorker, pin_memory=True)
-    pValidDataset = ASRDataset(strFileList=strValidListPath, strRootDir=strDataDir, strDataType=strDataType,
-                               nCoefficient=nDimInput, nDelta=nDeltaOrder)
+    pValidDataset = ASRDataset(pValidationData)
     pValidLoader = DataLoader(pValidDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=False,
                               num_workers=nWorker, pin_memory=True)
     # Perform training / validation processing
@@ -260,6 +191,3 @@ def train(nEpoch: int,
                 print('learning rate is divided by 2')
                 nCountDecrease = 0
 
-
-if __name__ == '__main__':
-    train(20, './libri_train_flac.txt', './libri_test_flac.txt', './LibriSpeech/')

@@ -10,16 +10,16 @@ from sklearn.preprocessing import minmax_scale
 
 class YoonSpeech:
     __signal: list
-    samplingRate: int
-    fftCount: int = 512
-    melOrder: int = 24
-    mfccOrder: int = 13
-    windowLength: float = 0.02
-    shiftLength: float = 0.005
-    contextSize: int = 10
+    sampling_rate: int
+    fft_count: int = 512
+    mel_order: int = 24
+    mfcc_order: int = 13
+    window_length: float = 0.02
+    shift_length: float = 0.005
+    context_size: int = 10
 
     def __str__(self):
-        return "SIGNAL LENGTH : {0}, SAMPLING RATE : {1}".format(len(self.__signal), self.samplingRate)
+        return "SIGNAL LENGTH : {0}, SAMPLING RATE : {1}".format(len(self.__signal), self.sampling_rate)
 
     def __init__(self,
                  strFileName: str = None,
@@ -32,13 +32,14 @@ class YoonSpeech:
                  dWindowLength: float = 0.02,
                  dShiftLength: float = 0.005
                  ):
-        self.samplingRate = nSamplingRate
-        self.fftCount = nFFTCount
-        self.melOrder = nMelOrder
-        self.mfccOrder = nMFCCOrder
-        self.windowLength = dWindowLength
-        self.shiftLength = dShiftLength
-        self.contextSize = nContextSize
+        self.sampling_rate = nSamplingRate
+        self.fft_count = nFFTCount
+        self.mel_order = nMelOrder
+        self.mfcc_order = nMFCCOrder
+        self.window_length = dWindowLength
+        self.shift_length = dShiftLength
+        self.context_size = nContextSize
+        self.feature_type = "org"
         if strFileName is not None:
             self.load_sound_file(strFileName)
         elif pSignal is not None:
@@ -47,28 +48,28 @@ class YoonSpeech:
             self.__signal = None
 
     def __copy__(self):
-        return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.samplingRate)
+        return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.sampling_rate)
 
     def get_signal(self):
         return self.__signal
 
     def load_sound_file(self, strFileName: str):
-        self.__signal, self.samplingRate = librosa.load(strFileName, self.samplingRate)
+        self.__signal, self.sampling_rate = librosa.load(strFileName, self.sampling_rate)
 
     def save_sound_file(self, strFileName: str):
-        soundfile.write(strFileName, self.__signal, self.samplingRate)
+        soundfile.write(strFileName, self.__signal, self.sampling_rate)
 
     def resampling(self, nTargetRate: int):
-        pListResampling = librosa.resample(self.__signal, self.samplingRate, nTargetRate)
+        pListResampling = librosa.resample(self.__signal, self.sampling_rate, nTargetRate)
         return YoonSpeech(pSignal=pListResampling, nSamplingRate=nTargetRate)
 
     def crop(self, dStartTime: float, dEndTime: float):
-        iStart, iEnd = int(dStartTime * self.samplingRate), int(dEndTime * self.samplingRate)
-        return YoonSpeech(pSignal=self.__signal[iStart, iEnd], nSamplingRate=self.samplingRate)
+        iStart, iEnd = int(dStartTime * self.sampling_rate), int(dEndTime * self.sampling_rate)
+        return YoonSpeech(pSignal=self.__signal[iStart, iEnd], nSamplingRate=self.sampling_rate)
 
     def scaling(self, dMin=-0.99999, dMax=0.99999):
         pSignal = minmax_scale(self.__signal, feature_range=(dMin, dMax))
-        return YoonSpeech(pSignal=pSignal, nSamplingRate=self.samplingRate)
+        return YoonSpeech(pSignal=pSignal, nSamplingRate=self.sampling_rate)
 
     def show_time_signal(self):
         # Init graph
@@ -80,7 +81,7 @@ class YoonSpeech:
         pGraph.grid(True)
         # Set graph per time sample
         nCountTime = len(self.__signal)
-        listUnitX = numpy.linspace(0, nCountTime / self.samplingRate, nCountTime)
+        listUnitX = numpy.linspace(0, nCountTime / self.sampling_rate, nCountTime)
         pGraph.set_xlim(listUnitX.min(), listUnitX.max())
         pGraph.set_ylim(self.__signal.min() * 1.4, self.__signal.max() * 1.4)
         pGraph.plot(listUnitX, self.__signal)
@@ -120,8 +121,8 @@ class YoonSpeech:
 
     # Compute Short Time Fourier Transformation
     def __stft(self, nFFTCount: int, dWindowLength: float, dShiftLength: float):
-        nCountWindowSample = int(dWindowLength * self.samplingRate)
-        nCountStepSample = int(dShiftLength * self.samplingRate)
+        nCountWindowSample = int(dWindowLength * self.sampling_rate)
+        nCountStepSample = int(dShiftLength * self.sampling_rate)
         nCountFrames = int(numpy.floor((len(self.__signal) - nCountWindowSample) / float(nCountStepSample)) + 1)
         pArrayWindow = numpy.hanning(nCountWindowSample)
         pListSourceSection = []
@@ -154,7 +155,7 @@ class YoonSpeech:
             pArrayMagnitude = abs(pArrayFreq[0:nSizeHalf])
             return 20 * numpy.log10(pArrayMagnitude)
         elif strFFTType == 'stft':
-            pArrayFreq = self.__stft(self.fftCount, self.windowLength, self.shiftLength)
+            pArrayFreq = self.__stft(self.fft_count, self.window_length, self.shift_length)
             pArrayMagnitude = abs(pArrayFreq)
             return 20 * numpy.log10(pArrayMagnitude + 1.0e-10)
         else:
@@ -163,47 +164,53 @@ class YoonSpeech:
 
     def get_feature(self, strFeatureType: str):
         if strFeatureType == "org":
+            self.feature_type = strFeatureType
             return self.__signal.copy()
         # Scaling(-0.9999, 0.9999) : To protect overload error in float range
         elif strFeatureType == "mel":
+            self.feature_type = strFeatureType
             return self.scaling(-0.9999, 0.9999).get_log_mel_spectrum()
         elif strFeatureType == "mfcc":
+            self.feature_type = strFeatureType
             return self.scaling(-0.9999, 0.9999).get_mfcc()
         elif strFeatureType == "deltas":
+            self.feature_type = strFeatureType
             return self.get_mfcc_deltas(bContext=True)
         else:
             Exception("Feature type is not correct")
 
-    def get_dimension(self, strFeatureType: str):
-        if strFeatureType == "org":
+    def get_dimension(self, strType: str = None):
+        if strType is None:
+            strType = self.feature_type
+        # Dimension to original or convert dataset
+        if strType == "org":
             return 0
-        # Dimension to convert dataset
-        elif strFeatureType == "mfcc":
-            return self.mfccOrder
-        elif strFeatureType == "mel":
-            return self.melOrder
-        elif strFeatureType == "deltas":
-            return self.mfccOrder * 3 * self.contextSize  # MFCC * delta * delta-delta
+        elif strType == "mfcc":
+            return self.mfcc_order
+        elif strType == "mel":
+            return self.mel_order
+        elif strType == "deltas":
+            return self.mfcc_order * 3 * self.context_size  # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 
     def get_log_mel_spectrum(self):
-        pArrayFreqSignal = self.__stft(self.fftCount, self.windowLength, self.shiftLength)
+        pArrayFreqSignal = self.__stft(self.fft_count, self.window_length, self.shift_length)
         pArrayMagnitude = abs(pArrayFreqSignal) ** 2
-        pArrayMelFilter = librosa.filters.mel(self.samplingRate, self.fftCount, self.melOrder)
+        pArrayMelFilter = librosa.filters.mel(self.sampling_rate, self.fft_count, self.mel_order)
         pArrayMelSpectrogram = numpy.matmul(pArrayMagnitude, pArrayMelFilter.transpose())  # Multiply Matrix
         return 10 * numpy.log10(pArrayMelSpectrogram)
 
     def get_log_mel_deltas(self,
                            bContext: bool = False):
         # Perform a short-time Fourier Transform
-        nShiftCount = int(self.shiftLength * self.samplingRate)
-        nWindowCount = int(self.windowLength * self.samplingRate)
-        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount,
+        nShiftCount = int(self.shift_length * self.sampling_rate)
+        nWindowCount = int(self.window_length * self.sampling_rate)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fft_count, hop_length=nShiftCount,
                                              win_length=nWindowCount)
         pArrayFeature = abs(pArrayFreqSignal).transpose()
         # Estimate either log mep-spectrum
-        pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.melOrder)
+        pArrayMelFilter = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=self.mel_order)
         pPowerFeature = pArrayFeature ** 2
         pArrayFeature = numpy.matmul(pPowerFeature, pArrayMelFilter.transpose())
         pArrayFeature = 10 * numpy.log10(pArrayFeature + numpy.array(sys.float_info.epsilon))  # feature + Epsilon
@@ -211,25 +218,25 @@ class YoonSpeech:
         pArrayDelta2 = librosa.feature.delta(pArrayFeature, order=2)
         pArrayResult = numpy.concatenate(pArrayFeature, pArrayDelta1, pArrayDelta2)
         if bContext:
-            pArrayResult = self.__context_window(pArrayResult, self.contextSize)
+            pArrayResult = self.__context_window(pArrayResult, self.context_size)
         return pArrayResult
 
     def get_mfcc(self):
         pArrayLogMelSpectrogram = self.get_log_mel_spectrum()
         pArrayMFCC = scipy.fftpack.dct(pArrayLogMelSpectrogram, axis=-1,
                                        norm='ortho')  # Discreate cosine transformation
-        return pArrayMFCC[:, :self.melOrder]
+        return pArrayMFCC[:, :self.mel_order]
 
     def get_mfcc_deltas(self,
                         bContext: bool = False):
         # Perform a short-time Fourier Transform
-        nShiftCount = int(self.shiftLength * self.samplingRate)
-        nWindowCount = int(self.windowLength * self.samplingRate)
-        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fftCount, hop_length=nShiftCount,
+        nShiftCount = int(self.shift_length * self.sampling_rate)
+        nWindowCount = int(self.window_length * self.sampling_rate)
+        pArrayFreqSignal = librosa.core.stft(self.__signal, n_fft=self.fft_count, hop_length=nShiftCount,
                                              win_length=nWindowCount)
         pArrayFeature = abs(pArrayFreqSignal).transpose()
         # Estimate either log mep-spectrum
-        pArrayMelFilter = librosa.filters.mel(self.samplingRate, n_fft=self.fftCount, n_mels=self.mfccOrder)
+        pArrayMelFilter = librosa.filters.mel(self.sampling_rate, n_fft=self.fft_count, n_mels=self.mfcc_order)
         pPowerFeature = pArrayFeature ** 2
         pArrayFeature = numpy.matmul(pPowerFeature, pArrayMelFilter.transpose())
         pArrayFeature = 10 * numpy.log10(pArrayFeature + numpy.array(sys.float_info.epsilon))  # feature + Epsilon
@@ -238,5 +245,5 @@ class YoonSpeech:
         pArrayDelta2 = librosa.feature.delta(pArrayFeature, order=2)
         pArrayResult = numpy.concatenate((pArrayFeature, pArrayDelta1, pArrayDelta2), axis=-1)
         if bContext:
-            pArrayResult = self.__context_window(pArrayResult, self.contextSize)
+            pArrayResult = self.__context_window(pArrayResult, self.context_size)
         return pArrayResult
