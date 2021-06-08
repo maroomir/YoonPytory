@@ -253,7 +253,7 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     __draw_tSNE(pArrayTSNE, pArrayTarget)
 
 
-def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None, strFeatureType: str = "speaker_recog"):
+def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None, strFeatureType: str = "deltas"):
     # Warp data set
     pTestData = YoonDataset(nCountClass, strFeatureType, None, pSpeech)
     # Check if we can use a GPU device

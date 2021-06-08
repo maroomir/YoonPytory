@@ -137,8 +137,8 @@ class YoonSpeech:
     # Combine features depending on the context window setup
     @staticmethod
     def __context_window(pFeature: numpy.ndarray, nSizeContext: int):
-        if nSizeContext < 2:
-            Exception("Context window length is too short")
+        if nSizeContext < 2:  # Context window length is too short
+            return pFeature
         nLeft = int(nSizeContext / 2)
         nRight = nSizeContext - nLeft
         pListResult = []
@@ -176,13 +176,7 @@ class YoonSpeech:
             return self.scaling(-0.9999, 0.9999).get_mfcc()
         elif strFeatureType == "deltas":
             self.feature_type = strFeatureType
-            return self.get_mfcc_deltas(bContext=False)
-        elif strFeatureType == "speaker_recog":
-            self.feature_type = strFeatureType
             return self.get_mfcc_deltas(bContext=True)
-        elif strFeatureType == "speech_recog":
-            self.feature_type = strFeatureType
-            return self.get_mfcc_deltas(bContext=False)
         else:
             Exception("Feature type is not correct")
 
@@ -197,11 +191,7 @@ class YoonSpeech:
         elif strType == "mel":
             return self.mel_order
         elif strType == "deltas":
-            return self.mfcc_order * 3  # MFCC * delta * delta-delta
-        elif strType == "speaker_recog":
-            return self.mfcc_order * 3 * self.context_size  # MFCC * delta * delta-delta * Context
-        elif strType == "speech_recog":
-            return self.mfcc_order * 3  # MFCC * delta * delta-delta
+            return self.mfcc_order * 3 * self.context_size # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 

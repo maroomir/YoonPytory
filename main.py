@@ -158,19 +158,35 @@ def process_speaker_recognition_with_torch():
                                                               strModelPath='./data/speech/model_opt.pth')
     print("The speaker is estimated : " + pTestData.names[label])
 
+
 def process_speech_recognition_with_ctc():
     sampling_rate = 16000
     window_length = 0.025
     shift_length = 0.01
     epoch = 100
     # Train
-    pTrainData, pTestData = yoonspeech.parse_librispeech_trainer(
+    train_data, test_data = yoonspeech.parse_librispeech_trainer(
         strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
-        strFeatureType="deltas")
-    yoonspeech.speechRecognition.ctc.train(epoch, pTrainData=pTrainData, pValidationData=pTestData,
+        strFeatureType="deltas", nContextSize=1)
+    yoonspeech.speechRecognition.ctc.train(epoch, pTrainData=train_data, pValidationData=test_data,
                                            strModelPath='./data/speech/ctc_opt.pth')
+
+
+def process_speech_recognition_with_las():
+    sampling_rate = 16000
+    window_length = 0.025
+    shift_length = 0.01
+    epoch = 100
+    # Train
+    train_data, test_data = yoonspeech.parse_librispeech_trainer(
+        strRootDir='./data/speech/LibriSpeech/dev-clean',
+        nSamplingRate=sampling_rate, dRatioTrain=0.8,
+        dWindowLength=window_length, dShiftLength=shift_length,
+        strFeatureType="deltas", nContextSize=1)
+    yoonspeech.speechRecognition.las.train(epoch, pTrainData=train_data, pValidationData=test_data,
+                                           strModelPath='./data/speech/las_opt.pth')
 
 
 if __name__ == '__main__':
@@ -184,4 +200,5 @@ if __name__ == '__main__':
     # process_speech()
     # process_speaker_recognition()
     # process_speaker_recognition_with_torch()
-    process_speech_recognition_with_ctc()
+    # process_speech_recognition_with_ctc()
+    process_speech_recognition_with_las()
