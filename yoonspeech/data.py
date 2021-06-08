@@ -218,4 +218,4 @@ class YoonDataset(object):
     def get_dimension(self):
         if len(self.speechs) == 0:
             raise Exception("The container size is zero")
-        return self.speechs[0].get_dimension()
+        return self.speechs[0].get_dimension(self.__buffer_type)

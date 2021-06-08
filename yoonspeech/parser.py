@@ -52,7 +52,8 @@ def parse_librispeech_trainer(strRootDir: str,
                 return strLine
 
     def make_speech_buffer(strFile):
-        return YoonSpeech(strFileName=strFile, nSamplingRate=nSamplingRate, nContextSize=nContextSize,
+        return YoonSpeech(strFileName=strFile, strFeatureType=strFeatureType, nSamplingRate=nSamplingRate,
+                          nContextSize=nContextSize,
                           nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
                           dWindowLength=dWindowLength, dShiftLength=dShiftLength)
 
@@ -144,7 +145,7 @@ def parse_librispeech_tester(strRootDir: str,
     pDataTest = YoonDataset(strType=strFeatureType, nSpeakers=nSpeakersCount, nPhonemes=yoonspeech.DEFAULT_PHONEME_COUNT)
     for strFileName in pListTestFile:
         strID = splitext(basename(strFileName))[0].split('-')[0]
-        pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate,
+        pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, strFeatureType=strFeatureType,
                              nContextSize=nContextSize,
                              nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
                              dWindowLength=dWindowLength, dShiftLength=dShiftLength)

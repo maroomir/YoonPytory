@@ -23,6 +23,7 @@ class YoonSpeech:
 
     def __init__(self,
                  strFileName: str = None,
+                 strFeatureType: str = "org",
                  pSignal: list = None,
                  nSamplingRate: int = 48000,
                  nFFTCount: int = 512,
@@ -39,7 +40,7 @@ class YoonSpeech:
         self.window_length = dWindowLength
         self.shift_length = dShiftLength
         self.context_size = nContextSize
-        self.feature_type = "org"
+        self.feature_type = strFeatureType
         if strFileName is not None:
             self.load_sound_file(strFileName)
         elif pSignal is not None:
@@ -175,7 +176,13 @@ class YoonSpeech:
             return self.scaling(-0.9999, 0.9999).get_mfcc()
         elif strFeatureType == "deltas":
             self.feature_type = strFeatureType
+            return self.get_mfcc_deltas(bContext=False)
+        elif strFeatureType == "speaker_recog":
+            self.feature_type = strFeatureType
             return self.get_mfcc_deltas(bContext=True)
+        elif strFeatureType == "speech_recog":
+            self.feature_type = strFeatureType
+            return self.get_mfcc_deltas(bContext=False)
         else:
             Exception("Feature type is not correct")
 
@@ -190,7 +197,11 @@ class YoonSpeech:
         elif strType == "mel":
             return self.mel_order
         elif strType == "deltas":
-            return self.mfcc_order * 3 * self.context_size  # MFCC * delta * delta-delta
+            return self.mfcc_order * 3  # MFCC * delta * delta-delta
+        elif strType == "speaker_recog":
+            return self.mfcc_order * 3 * self.context_size  # MFCC * delta * delta-delta * Context
+        elif strType == "speech_recog":
+            return self.mfcc_order * 3  # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 

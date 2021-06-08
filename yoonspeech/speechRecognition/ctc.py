@@ -51,7 +51,7 @@ class CTC(Module):
         self.classification_layer = torch.nn.Linear(nDimOutput, nCountClass)
 
     def forward(self, pTensorX: tensor):
-        pTensorX, = self.lstm(pTensorX)
+        pTensorX, pHidden = self.lstm(pTensorX)
         pTensorX = self.fc_layer(pTensorX)
         pTensorX = self.classification_layer(pTensorX)
         return torch.nn.functional.log_softmax(pTensorX, dim=1).transpose(0, 1)
