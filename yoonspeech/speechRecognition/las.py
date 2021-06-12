@@ -109,20 +109,20 @@ class Speller(Module):
     def __init__(self,
                  nDimInput: int,
                  nDimOutput: int,
-                 nCountSpeller: int,
+                 nCountClass: int,
                  nCountLayer: int
                  ):
         super(Speller, self).__init__()
-        self.class_count = nCountSpeller
+        self.class_count = nCountClass
         # Define the speller lstm architecture
         self.lstm = torch.nn.LSTM(nDimInput, nDimOutput, num_layers=nCountLayer, batch_first=True)
         # Define the speller classification for character distribution
-        self.fc_layer = torch.nn.Linear(nDimOutput * 2, nCountSpeller)
+        self.fc_layer = torch.nn.Linear(nDimOutput * 2, nCountClass)
         # Define the attention network architecture
         self.attention = Attention()
         self.max_step = 100
         self.output_dim = nDimOutput
-        self.class_num = nCountSpeller
+        self.class_num = nCountClass
 
     def forward(self,
                 pTensorX: tensor,
@@ -133,8 +133,11 @@ class Speller(Module):
         pListScore = []
         # Process the labeling : concat <sos> and <eos> to the label
         pTensorStartContext, pTensorEndContext = self._process_labeling(pTensorLabel)
+        # Get the one-hot encoder labels
+        pTensorOneHotStartContext = self._process_one_hot(pTensorStartContext)
+        pTensorOneHotEndContext = self._process_one_hot(pTensorEndContext)
         # Get the input of the first character : <sos>
-        pTensorInputWord, pTensorHidden = self.initialize(pTensorStartContext)
+        pTensorInputWord, pTensorHidden = self.initialize(pTensorOneHotStartContext)
         if dLearningRate > 0:
             nMaxStep = pTensorEndContext.size(1)
         else:
@@ -149,11 +152,11 @@ class Speller(Module):
             if dLearningRate > 0:
                 # Need to implement the tf-rate version
                 # Make the next step input with the ground truth for teacher forcing
-                pTensorInputWord = torch.cat((pTensorStartContext[:, iStep, :].unsqueeze(1), pTensorContext), dim=-1)
+                pTensorInputWord = torch.cat((pTensorOneHotStartContext[:, iStep, :].unsqueeze(1), pTensorContext), dim=-1)
             else:
                 # Make the next step input with the predicted output of current step
                 pTensorInputWord = torch.cat((pTensorPredict, pTensorContext), dim=-1)
-        return torch.cat(pListPrediction, dim=1), torch.cat(pTensorScore, dim=1), pTensorEndContext
+        return torch.cat(pListPrediction, dim=1), torch.cat(pListScore, dim=1), pTensorEndContext
 
     # Define a function for making the first input
     def initialize(self, pTensorTarget):
@@ -193,13 +196,9 @@ class Speller(Module):
         pTensor = torch.tensor((), dtype=pTensorLabel.dtype).to(pTensorLabel.device)
         pTensor = pTensor.new_full((len(pTensorLabel), 1), 41)  # <sos> : Start of Sentence
         pTensorLabelAttachedSOS = torch.cat((pTensor, pTensorLabel), dim=-1)
-        # Get the one-hot encoded labels
-        pTensorLabelAttachedSOS = self._process_one_hot(pTensorLabelAttachedSOS)
         pTensor = torch.tensor((), dtype=pTensorLabel.dtype).to(pTensorLabel.device)
         pTensor = pTensor.new_full((len(pTensorLabel), 1), 42)  # <eos> : End of Sentence
         pTensorLabelAttachedEOS = torch.cat((pTensorLabel, pTensor), dim=-1)
-        # Get the one-hot encoded labels
-        pTensorLabelAttachedEOS = self._process_one_hot(pTensorLabelAttachedEOS)
         return pTensorLabelAttachedSOS, pTensorLabelAttachedEOS
 
 
@@ -211,12 +210,12 @@ class LAS(Module):
                  nCountLayerListener: int,
                  nDimInputSpeller: int,
                  nDimOutputSpeller: int,
-                 nCountSpeller: int,
+                 nCountClass: int,
                  nCountLayerSpeller: int):
         super(LAS, self).__init__()
         # Set sub-networks: listener, speller
         self.listener = Listener(nDimInputListener, nDimOutputListener, nCountLayerListener)
-        self.speller = Speller(nDimInputSpeller, nDimOutputSpeller, nCountSpeller, nCountLayerSpeller)
+        self.speller = Speller(nDimInputSpeller, nDimOutputSpeller, nCountClass, nCountLayerSpeller)
 
     def forward(self,
                 pTensorX: tensor,
@@ -273,7 +272,7 @@ def __process_train(nEpoch: int, pModel: LAS, pDataLoader: DataLoader, pCriterio
         dLoss.backward()
         pOptimizer.step()
         # Display the running progress
-        pBar.set_description("Train Epoch: {} [{}/{}] CTC_Loss: {:.4f} LER: {:.4f}".
+        pBar.set_description("Train Epoch: {} [{}/{}] LAS_Loss: {:.4f} LER: {:.4f}".
                              format(nEpoch, i, len(pDataLoader), dTotalLoss / (i + 1), dTotalLER / (i + 1)))
     return dTotalLoss, dTotalLER
 
@@ -301,7 +300,7 @@ def __process_test(nEpoch: int, pModel: LAS, pDataLoader: DataLoader, pCriterion
             dLER = __process_decode(pTensorOutput, pTensorTarget, pListTargetLength)
             dTotalLER += dLER
             # Display the running progress
-            pBar.set_description("Evaluate Epoch: {} [{}/{}] CTC_Loss: {:.4f} LER: {:.4f}".
+            pBar.set_description("Evaluate Epoch: {} [{}/{}] LAS_Loss: {:.4f} LER: {:.4f}".
                                  format(nEpoch, i, len(pDataLoader), dTotalLoss / (i + 1), dTotalLER / (i + 1)))
     return dTotalLoss, dTotalLER
 
@@ -315,7 +314,7 @@ def train(nEpoch: int,
           dLearningRate=0.001,
           nWorker=0,  # 0 = CPU, 4 = CUDA
           ):
-    # Set the device for running the CTC model
+    # Set the device for running the LAS model
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -327,7 +326,7 @@ def train(nEpoch: int,
     nCountLayerSpeller = 1
     nCountClass = 40 + 1 + 1 + 1  # 40 phoneme + <sos, eos, pad>
     pModel = LAS(nDimInputListener=pTrainData.get_dimension(), nDimOutputListener=nDimHidden,
-                 nCountLayerListener=nCountLayerListener,
+                 nCountLayerListener=nCountLayerListener, nCountClass=nCountClass,
                  nDimInputSpeller=nDimHidden + nCountClass, nDimOutputSpeller=nDimHidden,
                  nCountLayerSpeller=nCountLayerSpeller)
     pModel = pModel.to(pDevice)

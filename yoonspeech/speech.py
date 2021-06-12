@@ -49,7 +49,10 @@ class YoonSpeech:
             self.__signal = None
 
     def __copy__(self):
-        return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.sampling_rate)
+        return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.sampling_rate,
+                          nFFTCount=self.fft_count, nMelOrder=self.mel_order, nMFCCOrder=self.mfcc_order,
+                          dWindowLength=self.window_length, dShiftLength=self.shift_length,
+                          nContextSize=self.context_size, strFeatureType=self.feature_type)
 
     def get_signal(self):
         return self.__signal
@@ -62,15 +65,24 @@ class YoonSpeech:
 
     def resampling(self, nTargetRate: int):
         pListResampling = librosa.resample(self.__signal, self.sampling_rate, nTargetRate)
-        return YoonSpeech(pSignal=pListResampling, nSamplingRate=nTargetRate)
+        return YoonSpeech(pSignal=pListResampling, nSamplingRate=nTargetRate,
+                          nFFTCount=self.fft_count, nMelOrder=self.mel_order, nMFCCOrder=self.mfcc_order,
+                          dWindowLength=self.window_length, dShiftLength=self.shift_length,
+                          nContextSize=self.context_size, strFeatureType=self.feature_type)
 
     def crop(self, dStartTime: float, dEndTime: float):
         iStart, iEnd = int(dStartTime * self.sampling_rate), int(dEndTime * self.sampling_rate)
-        return YoonSpeech(pSignal=self.__signal[iStart, iEnd], nSamplingRate=self.sampling_rate)
+        return YoonSpeech(pSignal=self.__signal[iStart, iEnd], nSamplingRate=self.sampling_rate,
+                          nFFTCount=self.fft_count, nMelOrder=self.mel_order, nMFCCOrder=self.mfcc_order,
+                          dWindowLength=self.window_length, dShiftLength=self.shift_length,
+                          nContextSize=self.context_size, strFeatureType=self.feature_type)
 
     def scaling(self, dMin=-0.99999, dMax=0.99999):
         pSignal = minmax_scale(self.__signal, feature_range=(dMin, dMax))
-        return YoonSpeech(pSignal=pSignal, nSamplingRate=self.sampling_rate)
+        return YoonSpeech(pSignal=pSignal, nSamplingRate=self.sampling_rate,
+                          nFFTCount=self.fft_count, nMelOrder=self.mel_order, nMFCCOrder=self.mfcc_order,
+                          dWindowLength=self.window_length, dShiftLength=self.shift_length,
+                          nContextSize=self.context_size, strFeatureType=self.feature_type)
 
     def show_time_signal(self):
         # Init graph
@@ -191,7 +203,7 @@ class YoonSpeech:
         elif strType == "mel":
             return self.mel_order
         elif strType == "deltas":
-            return self.mfcc_order * 3 * self.context_size # MFCC * delta * delta-delta
+            return self.mfcc_order * 3 * self.context_size  # MFCC * delta * delta-delta
         else:
             Exception("Feature type is not correct")
 

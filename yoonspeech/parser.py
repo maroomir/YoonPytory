@@ -52,8 +52,8 @@ def parse_librispeech_trainer(strRootDir: str,
                 return strLine
 
     def make_speech_buffer(strFile):
-        return YoonSpeech(strFileName=strFile, strFeatureType=strFeatureType, nSamplingRate=nSamplingRate,
-                          nContextSize=nContextSize,
+        return YoonSpeech(strFileName=strFile, nSamplingRate=nSamplingRate,
+                          strFeatureType=strFeatureType, nContextSize=nContextSize,
                           nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
                           dWindowLength=dWindowLength, dShiftLength=dShiftLength)
 

@@ -169,7 +169,7 @@ def process_speech_recognition_with_ctc():
         strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
-        strFeatureType="deltas", nContextSize=1)
+        strFeatureType="deltas", nContextSize=1)  # Do not use the context for precious learning
     yoonspeech.speechRecognition.ctc.train(epoch, pTrainData=train_data, pValidationData=test_data,
                                            strModelPath='./data/speech/ctc_opt.pth')
 
@@ -184,7 +184,7 @@ def process_speech_recognition_with_las():
         strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
-        strFeatureType="deltas", nContextSize=1)
+        strFeatureType="deltas", nContextSize=1)  # Do not use the context for precious learning
     yoonspeech.speechRecognition.las.train(epoch, pTrainData=train_data, pValidationData=test_data,
                                            strModelPath='./data/speech/las_opt.pth')
 
