@@ -1,40 +1,11 @@
+import os
 import csv
 from datetime import datetime
 
 
-def train_log(strFilePath: str,
-              nEpoch: int,
-              iItem: int,
-              nLength: int,
-              **kwargs):
-    strMessage = "Train epoch={:3d} [{}/{} ]".format(nEpoch, iItem + 1, nLength)
-    for pItem in kwargs.items():
-        strMessage += " {}={}".format(pItem[0], pItem[1])
-    if iItem == nLength - 1:
-        __trace__(strFilePath, strMessage)
-    return strMessage
-
-
-def eval_log(strFilePath: str,
-             nEpoch: int,
-             iItem: int,
-             nLength: int,
-             **kwargs):
-    strMessage = "Eval epoch={} [{}/{}]".format(nEpoch, iItem + 1, nLength)
-    for pItem in kwargs.items():
-        strMessage += " {}={}".format(pItem[0], pItem[1])
-    if iItem == nLength - 1:
-        __trace__(strFilePath, strMessage)
-    return strMessage
-
-
-def __trace__(strFilePath: str, strMessage: str):
-    pNow = datetime.now()
-    with open(strFilePath, mode='a') as pFile:
-        pFile.write("[" + pNow.strftime("%H:%M:%S") + "] " + strMessage + "\n")
-
-
-def parse_log(strLogPath: str):
+def parse_nlm(strLogPath: str,
+              strMode="Train"  # Train, Eval, Test
+              ):
     def to_partition(strLine: str):
         pList = strLine.replace(",", "").split(" ")  # Clear the tags
         pDic = {}
@@ -44,30 +15,57 @@ def parse_log(strLogPath: str):
         return pDic
 
     with open(strLogPath, 'r') as pFile:
-        pList = pFile.read().split("\n")
-    pListTrainLog = []
-    pListEvalLog = []
-    for strTag in pList:
-        if strTag.find("Train") >= 0:
-            pListTrainLog.append(to_partition(strTag))
-        elif strTag.find("Eval") >= 0:
-            pListEvalLog.append(to_partition(strTag))
+        pListTag = pFile.read().split("\n")
+    pListLog = []
+    for strTag in pListTag:
+        if strTag.find(strMode) >= 0:
+            pListLog.append(to_partition(strTag))
         else:
             pass
-    return pListTrainLog, pListEvalLog
+    return pListLog
 
 
-def save_csv(strCsvPath: str, pListLog: list):
-    with open(strCsvPath, 'w', newline='') as pFile:
-        pWriter = csv.writer(pFile)
-        for i in range(len(pListLog)):
-            if i == 0:
-                pWriter.writerow([strItem for strItem in pListLog[i].keys()])
-            pWriter.writerow([strContents for strContents in pListLog[i].values()])
+class YoonNLM:  # Network Log Manager
+    def __init__(self,
+                 nEpoch: int,
+                 strRoot="./NLM",
+                 strMode="Train"  # Train, Eval, Test
+                 ):
+        self.epoch = nEpoch
+        self.root = strRoot
+        self.txt_path = ""
+        self.csv_path = ""
+        self.mode = strMode
 
+    def write(self,
+              iItem: int,
+              nLength: int,
+              **kwargs):
+        strMessage = self.mode + " epoch={:3d} [{}/{} ]".format(self.epoch, iItem + 1, nLength)
+        for pItem in kwargs.items():
+            strMessage += " {}={}".format(pItem[0], pItem[1])
+        if iItem == nLength - 1:
+            self.__trace__(strMessage)
+        return strMessage
 
-if __name__ == '__main__':
-    trains, evals = parse_log("LOG_TEST.txt")
-    save_csv("LOG_TEST_TRAIN.csv", trains)
-    save_csv("LOG_TEST_EVAL.csv", evals)
+    def __trace__(self, strMessage: str):
+        pNow = datetime.now()
+        strDirPath = os.path.join(self.root, str(pNow.year), str(pNow.month)).__str__()
+        if not os.path.exists(strDirPath):
+            os.makedirs(strDirPath)
+        strCurrentFilePath = strDirPath + "/{}.txt".format(pNow.day)
+        if strCurrentFilePath != self.txt_path:
+            pListLog = parse_nlm(self.txt_path, self.mode)
+            self.__record__(pListLog)
+            self.txt_path = strCurrentFilePath
+        with open(self.txt_path, mode='a') as pFile:
+            pFile.write("[" + pNow.strftime("%H:%M:%S") + "] " + strMessage + "\n")
 
+    def __record__(self, pListLog: list):
+        self.csv_path = self.txt_path.replace('.txt', '.csv')
+        with open(self.csv_path, 'a', newline='') as pFile:
+            pWriter = csv.writer(pFile)
+            for i in range(len(pListLog)):
+                if i == 0:
+                    pWriter.writerow([strItem for strItem in pListLog[i].keys()])
+                pWriter.writerow([strContents for strContents in pListLog[i].values()])

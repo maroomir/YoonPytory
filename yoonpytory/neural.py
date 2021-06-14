@@ -2,21 +2,21 @@ import numpy
 import matplotlib.pyplot
 
 
-def _sigmoid(pX: numpy.ndarray):
+def sigmoid(pX: numpy.ndarray):
     return numpy.exp(-numpy.logaddexp(0, -pX))
 
 
-def _logistic_regression(pX: numpy.ndarray, pW: numpy.ndarray):  # Output : Calculate output (pY)
+def logistic_regression(pX: numpy.ndarray, pW: numpy.ndarray):  # Output : Calculate output (pY)
     # X is input (row-wise sample)
     # W is weight
     pArrayV = numpy.matmul(pW, pX.transpose())
     pArrayV = pArrayV.transpose()
-    pArrayY = _sigmoid(pArrayV)
+    pArrayY = sigmoid(pArrayV)
     return pArrayY
 
 
-def _gradient_descent(pX: numpy.ndarray, pW: numpy.ndarray, pY: numpy.ndarray,
-                      dAlpha=0.001):  # Output : improved weight (W+1)
+def gradient_descent(pX: numpy.ndarray, pW: numpy.ndarray, pY: numpy.ndarray,
+                     dAlpha=0.001):  # Output : improved weight (W+1)
     # X is input
     nCountX, nDimensionX = pX.shape
     # W is weight estimated (not constructed)
@@ -33,7 +33,7 @@ def _gradient_descent(pX: numpy.ndarray, pW: numpy.ndarray, pY: numpy.ndarray,
         iArrayX = pX[i, :]  # iInput length = nDimension
         dTarget = pY[i]  # Size = 1
         # feedforward process
-        dY = _logistic_regression(iArrayX, pW)
+        dY = logistic_regression(iArrayX, pW)
         # backward process
         dError = dTarget - dY
         iGradient = dAlpha * dError * iArrayX
@@ -41,8 +41,8 @@ def _gradient_descent(pX: numpy.ndarray, pW: numpy.ndarray, pY: numpy.ndarray,
     return pW
 
 
-def _back_propagation(pX: numpy.ndarray, pListW: list, pY: numpy.ndarray,
-                      dAlpha=0.01):  # Output : improved weight List(W+1)
+def back_propagation(pX: numpy.ndarray, pListW: list, pY: numpy.ndarray,
+                     dAlpha=0.01):  # Output : improved weight List(W+1)
     # X is input
     # W is weight estimated (not constructed)
     # Y is target output (Right answer)
@@ -55,7 +55,7 @@ def _back_propagation(pX: numpy.ndarray, pListW: list, pY: numpy.ndarray,
         iLayer = iArrayX.copy()
         for j in range(0, len(pListW), 1):
             assert isinstance(pListW[j], numpy.ndarray)
-            iLayer = _logistic_regression(iLayer.copy(), pListW[j])
+            iLayer = logistic_regression(iLayer.copy(), pListW[j])
             pListY.append(iLayer.copy())
         # backward process
         pListError = [numpy.ndarray] * len(pListW)
@@ -110,8 +110,8 @@ class YoonNeuron:
             pArrayWeight = self.weight.copy()
         # Train
         for iEpoch in range(nCountEpoch):
-            pArrayWeight = _gradient_descent(pX=pInputTransform, pW=pArrayWeight, pY=pArrayTarget)
-            pArrayOutputEstimated = _logistic_regression(pInputTransform, pArrayWeight)
+            pArrayWeight = gradient_descent(pX=pInputTransform, pW=pArrayWeight, pY=pArrayTarget)
+            pArrayOutputEstimated = logistic_regression(pInputTransform, pArrayWeight)
             pArrayLoss[iEpoch] = 1 / 2 * numpy.matmul((self.output - pArrayOutputEstimated).transpose(),
                                                       (self.output - pArrayOutputEstimated)) / nCountData
             if iEpoch % 100 == 0:
@@ -124,7 +124,7 @@ class YoonNeuron:
     def process(self, bSaveOutput=False):
         nCountData, nDimensionInput = self.input.shape
         pInputTransform = numpy.column_stack((self.input, numpy.ones([nCountData, 1])))
-        pArrayResult = (_logistic_regression(pInputTransform, self.weight) >= 0.5) * 1
+        pArrayResult = (logistic_regression(pInputTransform, self.weight) >= 0.5) * 1
         print('The accuracy is {:.5f}%'.format(numpy.sum(self.output == pArrayResult) / nCountData * 100))
         if bSaveOutput:
             self.output = pArrayResult
@@ -145,7 +145,7 @@ class YoonNeuron:
         for iX in range(pXMesh.shape[0]):
             for iY in range(pYMesh.shape[0]):
                 pArray = numpy.array([pXMesh[iX][iY], pYMesh[iX][iY], 1], ndmin=2)
-                pZMesh[iX][iY] = _logistic_regression(pArray, self.weight)
+                pZMesh[iX][iY] = logistic_regression(pArray, self.weight)
         matplotlib.pyplot.contour(listX, listY, pZMesh, (0.49, 0.51))
         matplotlib.pyplot.show()
 
@@ -199,7 +199,7 @@ class YoonNetwork:
                     pListWeight.append(dScale * (2 * numpy.random.random((nSizeLayer, nSizeLayer)) - 1))
         # Train
         for iEpoch in range(nCountEpoch):
-            pListWeight = _back_propagation(pX=pInputTransform, pListW=pListWeight, pY=pArrayTarget)
+            pListWeight = back_propagation(pX=pInputTransform, pListW=pListWeight, pY=pArrayTarget)
             pArrayOutputEstimated = self.__feed_forward_network(pX=pInputTransform, pListW=pListWeight)
             pArrayLoss[iEpoch] = 1 / 2 * numpy.matmul((self.output - pArrayOutputEstimated).transpose(),
                                                       (self.output - pArrayOutputEstimated)) / nCountData
@@ -227,7 +227,7 @@ class YoonNetwork:
         pResult = pX
         for j in range(0, len(pListW), 1):
             assert isinstance(pListW[j], numpy.ndarray)
-            pResult = _logistic_regression(pResult.copy(), pListW[j])
+            pResult = logistic_regression(pResult.copy(), pListW[j])
         return pResult
 
     def show_plot(self):
