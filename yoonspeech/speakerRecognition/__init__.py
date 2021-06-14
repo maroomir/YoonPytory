@@ -1,2 +1,0 @@
-import yoonspeech.speakerRecognition.gmm
-import yoonspeech.speakerRecognition.dvector
