@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from yoonspeech.data import YoonDataset
+import yoonspeech.data
 
 
 class ASRDataset(Dataset):
@@ -24,7 +25,7 @@ class ASRDataset(Dataset):
 
     def __getitem__(self, item):
         pArrayInput = self.data[item].buffer
-        pArrayTarget = self.data[item].get_phonemes_array()
+        pArrayTarget = yoonspeech.data.get_phonemes()
         return pArrayInput, pArrayTarget
 
 

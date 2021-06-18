@@ -32,11 +32,9 @@ class SpeakerDataset(Dataset):
 
 class DVector(Module):
     def __init__(self,
-                 pDataset: YoonDataset):
+                 nDimInput: int,
+                 nDimOutput: int):
         super(DVector, self).__init__()
-        # Set the number of speakers to classify
-        nDimInput = pDataset[0].get_dimension()
-        nDimOutput = pDataset.class_count
         # Set 4 layers of feed-forward network (FFN) (+Activation)
         self.network = torch.nn.Sequential(torch.nn.Linear(nDimInput, 512),
                                            torch.nn.LeakyReLU(negative_slope=0.2),
@@ -159,7 +157,11 @@ def __draw_tSNE(pTensorTSNE,
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, strModelPath: str = None,
+def train(nEpoch: int,
+          strModelPath: str,
+          pTrainData: YoonDataset,
+          pValidationData: YoonDataset,
+          nCountSpeakers,
           bInitEpoch=False):
     dLearningRate = 0.01
     # Check if we can use a GPU Device
@@ -176,7 +178,7 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
     pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
                                    num_workers=0, pin_memory=True)
     # Define a network model
-    pModel = DVector(pTrainData).to(pDevice)
+    pModel = DVector(nDimInput=pTrainData.get_dimension(), nDimOutput=nCountSpeakers).to(pDevice)
     # Set the optimizer with adam
     pOptimizer = torch.optim.Adam(pModel.parameters(), lr=dLearningRate)
     # Set the training criterion
@@ -216,7 +218,9 @@ def train(nEpoch: int, pTrainData: YoonDataset, pValidationData: YoonDataset, st
                 nCountDecrease = 0
 
 
-def test(pTestData: YoonDataset, strModelPath: str = None):
+def test(pTestData: YoonDataset,
+         strModelPath: str,
+         nCountSpeakers: int):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -224,7 +228,7 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Load DVector model
-    pModel = DVector(pTestData).to(pDevice)  # Check train data
+    pModel = DVector(nDimInput=pTestData.get_dimension(), nDimOutput=nCountSpeakers).to(pDevice)  # Check train data
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])
@@ -253,16 +257,18 @@ def test(pTestData: YoonDataset, strModelPath: str = None):
     __draw_tSNE(pArrayTSNE, pArrayTarget)
 
 
-def recognition(pSpeech: YoonSpeech, nCountClass: int, strModelPath: str = None, strFeatureType: str = "deltas"):
+def recognition(pSpeech: YoonSpeech,
+                strModelPath: str,
+                nCountSpeakers: int):
     # Warp data set
-    pTestData = YoonDataset(nCountClass, strFeatureType, None, pSpeech)
+    pTestData = YoonDataset(None, pSpeech)
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
         pDevice = torch.device('cpu')
     # Load DVector model
-    pModel = DVector(pTestData).to(device=pDevice)
+    pModel = DVector(nDimInput=pTestData.get_dimension(), nDimOutput=nCountSpeakers).to(device=pDevice)
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])

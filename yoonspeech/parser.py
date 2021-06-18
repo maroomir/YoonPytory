@@ -86,27 +86,27 @@ def parse_librispeech_trainer(strRootDir: str,
     for i in range(nSpeakersCount):
         pDicSpeaker[pListSpeakers[i]] = i
     # Transform data dictionary
-    pDataTrain = YoonDataset(strType=strFeatureType, nSpeakers=nSpeakersCount, nPhonemes=yoonspeech.DEFAULT_PHONEME_COUNT)
-    pDataTest = YoonDataset(strType=strFeatureType, nSpeakers=nSpeakersCount, nPhonemes=yoonspeech.DEFAULT_PHONEME_COUNT)
+    pDataTrain = YoonDataset()
+    pDataTest = YoonDataset()
     for strFileName in pListTrainFile:
         strBase = splitext(basename(strFileName))[0]
         strID, strPart = strBase.split('-')[0], strBase.split('-')[1]
         strWord = get_words_in_trans(pDicTransFile[strID][strPart], strBase)
         pSpeech = make_speech_buffer(strFileName)
-        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, pSpeech=pSpeech, strWord=strWord,
-                             strType=strFeatureType)
+        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, strWord=strWord, strType=strFeatureType,
+                             pSpeech=pSpeech)
         pDataTrain.append(pObject)
     for strFileName in pListTestFile:
         strBase = splitext(basename(strFileName))[0]
         strID, strPart = strBase.split('-')[0], strBase.split('-')[1]
         strWord = get_words_in_trans(pDicTransFile[strID][strPart], strBase)
         pSpeech = make_speech_buffer(strFileName)
-        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, pSpeech=pSpeech, strWord=strWord,
-                             strType=strFeatureType)
+        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, strWord=strWord, strType=strFeatureType,
+                             pSpeech=pSpeech)
         pDataTest.append(pObject)
     print("Length of Train = {}".format(pDataTrain.__len__()))
     print("Length of Test = {}".format(pDataTest.__len__()))
-    return pDataTrain, pDataTest
+    return nSpeakersCount, pDataTrain, pDataTest
 
 
 def parse_librispeech_tester(strRootDir: str,
@@ -142,14 +142,13 @@ def parse_librispeech_tester(strRootDir: str,
     for i in range(nSpeakersCount):
         pDicLabel[pListSpeakers[i]] = i
     # Transform data dictionary
-    pDataTest = YoonDataset(strType=strFeatureType, nSpeakers=nSpeakersCount, nPhonemes=yoonspeech.DEFAULT_PHONEME_COUNT)
+    pDataTest = YoonDataset()
     for strFileName in pListTestFile:
         strID = splitext(basename(strFileName))[0].split('-')[0]
         pSpeech = YoonSpeech(strFileName=strFileName, nSamplingRate=nSamplingRate, strFeatureType=strFeatureType,
                              nContextSize=nContextSize,
                              nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
                              dWindowLength=dWindowLength, dShiftLength=dShiftLength)
-        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, pSpeech=pSpeech,
-                             strType=strFeatureType)
+        pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, strType=strFeatureType, pSpeech=pSpeech)
         pDataTest.append(pObject)
     return pDataTest

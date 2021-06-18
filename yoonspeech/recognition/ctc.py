@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+import yoonspeech
+import yoonspeech.data
 from yoonspeech.data import YoonDataset
 
 
@@ -23,8 +25,8 @@ class ASRDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, item):
-        pArrayInput = self.data[item].buffer
-        pArrayTarget = self.data[item].get_phonemes_array()
+        pArrayInput = self.data[item].speech.get_dimension(self.data[item].data_type)
+        pArrayTarget = yoonspeech.data.get_phonemes()
         return pArrayInput, pArrayTarget
 
 
@@ -41,9 +43,9 @@ def collate_tensor(pListTensor):
 # Define the CTC Model
 class CTC(Module):
     def __init__(self,
-                 nDimInput=39,
-                 nDimOutput=256,
-                 nCountClass=40,
+                 nDimInput,
+                 nDimOutput,
+                 nCountClass,
                  nCountLayer=2):
         super(CTC, self).__init__()
         self.lstm = torch.nn.LSTM(nDimInput, nDimOutput, num_layers=nCountLayer, batch_first=True)
@@ -148,8 +150,8 @@ def train(nEpoch: int,
     else:
         pDevice = torch.device('cpu')
     # Define a network architecture
-    pModel = CTC(nDimInput=pTrainData.get_dimension(), nCountClass=pTrainData.phoneme_count)
-    pModel = pModel.to('cpu')  #pModel.to(pDevice)
+    pModel = CTC(nDimInput=pTrainData.get_dimension(), nDimOutput=256, nCountClass=yoonspeech.DEFAULT_PHONEME_COUNT)
+    pModel = pModel.to(pDevice)
     # Define an optimizer
     pOptimizer = Adam(pModel.parameters(), lr=dLearningRate)
     # Define a training criterion

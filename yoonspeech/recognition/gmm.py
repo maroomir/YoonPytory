@@ -9,8 +9,8 @@ from yoonspeech.data import YoonDataset
 # Gaussian Mixture Modeling
 def train(pTrainData: YoonDataset, pTestData: YoonDataset, strModelPath: str):
     # Make dataset
-    pTrainSet = pTrainData.to_gmm_set()
-    pTestSet = pTestData.to_gmm_set()
+    pTrainSet = pTrainData.to_gmm_dataset()
+    pTestSet = pTestData.to_gmm_dataset()
     # Shuffle dataset
     numpy.random.shuffle(pTrainSet)
     numpy.random.shuffle(pTestSet)
@@ -49,7 +49,7 @@ def test(pTestData: YoonDataset, strModelPath: str):
     # Load GMM modeling
     with open(strModelPath, 'rb') as pFile:
         pDicGMM = pickle.load(pFile)
-    pTestSet = pTestData.to_gmm_set()
+    pTestSet = pTestData.to_gmm_dataset()
     # GMM test
     iAccuracy = 0
     for i, (pInputData, nTargetLabel) in enumerate(pTestSet):

@@ -14,10 +14,19 @@ class YoonImage:
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
 
-    @staticmethod
-    def from_tensor(pTensor: numpy.ndarray, bNormalized: bool = True):
+    @classmethod
+    def from_tensor(cls, pTensor: numpy.ndarray):
         # Change the transform and de-normalization
-        return YoonImage(pBuffer=pTensor.transpose((1, 2, 0)) * (255 if bNormalized is True else 1).astype(numpy.int))
+        return YoonImage(pBuffer=pTensor.transpose(1, 2, 0))
+
+    @classmethod
+    def from_mats(cls, *args):
+        pListMat = []
+        if len(args) > 0:
+            for i in range(len(args)):
+                assert isinstance(args[i], numpy.ndarray)
+                pListMat.append(args)
+            return numpy.array(pListMat)
 
     def __init__(self,
                  pImage=None,
@@ -29,14 +38,18 @@ class YoonImage:
         if pImage is not None:
             assert isinstance(pImage, YoonImage)
             self.__buffer = pImage.copy_buffer()
-            self.width = pImage.width
-            self.height = pImage.height
-            self.channel = pImage.channel
+            if len(self.__buffer.shape) < 3:  # Contains only the height and width
+                self.__buffer = numpy.expand_dims(self.__buffer, axis=-1)
+            self.height, self.width, self.channel = self.__buffer.shape
         elif pBuffer is not None:
             self.__buffer = pBuffer.copy()
+            if len(self.__buffer.shape) < 3:  # Contains only the height and width
+                self.__buffer = numpy.expand_dims(self.__buffer, axis=-1)
             self.height, self.width, self.channel = self.__buffer.shape
         elif strFileName is not None:
             self.__buffer = cv2.imread(strFileName)  # load to BGR
+            if len(self.__buffer.shape) < 3:  # Contains only the height and width
+                self.__buffer = numpy.expand_dims(self.__buffer, axis=-1)
             self.height, self.width, self.channel = self.__buffer.shape
         else:
             self.width = nWidth
@@ -47,9 +60,9 @@ class YoonImage:
     def get_buffer(self):
         return self.__buffer
 
-    def get_tensor(self, bNormalize: bool = True):
-        # Change the transform to (Channel, Height, Width) and normalization
-        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32) / (255.0 if bNormalize is True else 1.0)
+    def get_tensor(self):
+        # Change the transform to (Channel, Height, Width)
+        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32)
 
     def __copy__(self):
         return YoonImage(pBuffer=self.__buffer)
@@ -57,18 +70,42 @@ class YoonImage:
     def copy_buffer(self):
         return self.__buffer.copy()
 
-    def copy_tensor(self, bNormalize: bool = True):
-        # Change the transform to (Channel, Height, Width) and normalization
-        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32) / (255.0 if bNormalize is True else 1.0)
+    def copy_tensor(self):
+        # Change the transform to (Channel, Height, Width)
+        return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32)
 
-    def normalization(self, dMean=0, dStd=1):
+    def minmax_normalize(self):
+        nMax = numpy.max(self.__buffer)
+        nMin = numpy.min(self.__buffer)
+        pReseultBuffer = self.copy_buffer().astype(numpy.float32)
+        pReseultBuffer = (pReseultBuffer - nMin) / (nMax - nMin)
+        return nMin, (nMax - nMin), YoonImage(pBuffer=pReseultBuffer)
+
+    def z_normalize(self):
+        pFuncMask = self.__buffer > 0
+        dMean = numpy.mean(self.__buffer[pFuncMask])
+        dStd = numpy.std(self.__buffer[pFuncMask])
+        pReseultBuffer = self.copy_buffer().astype(numpy.float32)
+        pReseultBuffer = numpy.matmul((pReseultBuffer - dMean) / dStd, pFuncMask)
+        return dMean, dStd, YoonImage(pBuffer=pReseultBuffer)
+
+    def normalize(self, dMean=128, dStd=255):
         return YoonImage(pBuffer=self.__buffer - dMean / dStd)
 
-    def de_normalization(self, dMean=0, dStd=1):
+    def denormalize(self, dMean=128, dStd=255):
         return YoonImage(pBuffer=self.__buffer * dStd + dMean)
 
-    def binary(self, nThreshold=128):
-        return YoonImage(pBuffer=cv2.threshold(self.__buffer, nThreshold, 255, cv2.THRESH_BINARY))
+    def to_binary(self, nThreshold=128):
+        pResultBuffer = cv2.threshold(self.__buffer, nThreshold, 255, cv2.THRESH_BINARY)[1]
+        return YoonImage(pBuffer=pResultBuffer)
+
+    def to_gray(self):
+        pResultBuffer = cv2.cvtColor(self.__buffer, cv2.COLOR_BGR2GRAY)
+        return YoonImage(pBuffer=pResultBuffer)
+
+    def to_color(self):
+        pResultBuffer = cv2.cvtColor(self.__buffer, cv2.COLOR_GRAY2BGR)
+        return YoonImage(pBuffer=pResultBuffer)
 
     def flip_horizontal(self):
         return YoonImage(pBuffer=numpy.flipud(self.__buffer))
@@ -83,7 +120,7 @@ class YoonImage:
         return YoonImage(pBuffer=pResultBuffer)
 
     def scale(self, dScaleX: (int, float), dScaleY: (int, float)):
-        pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY)
+        pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY, )
         return YoonImage(pBuffer=pResultBuffer)
 
     def resize(self, nWidth: int, nHeight: int):
@@ -91,6 +128,14 @@ class YoonImage:
             return self.__copy__()
         pResultBuffer = cv2.resize(self.__buffer, dsize=(nWidth, nHeight), interpolation=cv2.INTER_CUBIC)
         return YoonImage(pBuffer=pResultBuffer)
+
+    def rechannel(self, nChannel: int):
+        if nChannel == self.channel:
+            return self.__copy__()
+        if nChannel == 1:
+            return self.to_gray()
+        elif nChannel == 3:
+            return self.to_color()
 
     # Resize image with unchanged aspect ratio using padding
     def resize_with_padding(self, nWidth: int, nHeight: int, nPadding: int = 128):
@@ -114,4 +159,3 @@ class YoonImage:
         cv2.imshow("Image", self.__buffer)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-

@@ -15,18 +15,12 @@ class DummyLayer(Module):
         super(DummyLayer, self).__init__()
 
 
-class DetectionLayer(Module):
-    def __init__(self, pListAnchor: list):
-        super(DetectionLayer, self).__init__()
-        self.anchors = pListAnchor
-
-
-class PredictionLayer(Module):
+class YoloLayer(Module):
     def __init__(self,
                  pListAnchor: list,
-                 nImageWidth: int,
-                 nImageHeight: int,
-                 nCountClass: int):
+                 nImageWidth: int = 0,
+                 nImageHeight: int = 0,
+                 nCountClass: int = 0):
         self.image_width = nImageWidth
         self.image_height = nImageHeight
         self.class_count = nCountClass
@@ -69,10 +63,6 @@ class DarkNet(Module):
     def __init__(self, strConfigFile):
         super(DarkNet, self).__init__()
         self.blocks = self.__parse_config(strConfigFile)
-        self.image_width: int = 0
-        self.image_height: int = 0
-        self.class_count: int = 0
-        self.anchor_boxes: list = None
         self.net_info, self.modules = self.__create_module()
         self.header = torch.Tensor([0, 0, 0, 0])
         self.seen = 0
@@ -165,7 +155,7 @@ class DarkNet(Module):
                 pListAnchorBox = [(pListAnchorBox[i], pListAnchorBox[i + 1])
                                   for j in range(0, len(pListAnchorBox), 2)]
                 pListAnchorBox = [pListAnchorBox[iMask] for iMask in pListMask]
-                pModule.add_module("detection_{0}".format(i), DetectionLayer(pListAnchorBox))
+                pModule.add_module("detection_{0}".format(i), YoloLayer(pListAnchorBox))
             pListModule.append(pModule)
             pListFilterStack.append(nCountFilter)
         return pDicNet, pListModule
@@ -198,14 +188,12 @@ class DarkNet(Module):
                 pTensorX = pDicResultStack[i - 1] + pDicResultStack[i + nFromBack]
                 pDicResultStack[i] = pTensorX
             elif strType == "yolo":
-                self.anchor_boxes = self.modules[i][0].anchors
-                self.image_height = int(self.net_info['height'])
-                self.image_width = self.image_height
-                self.class_count = int(iBlock['classes'])
+                self.modules[i][0].image_height = int(self.net_info['height'])  # YoloLayer
+                self.modules[i][0].image_width = self.image_height
+                self.modules[i][0].class_count = int(iBlock['classes'])
                 # Predict the bounding boxes
-                pPredictor = PredictionLayer(self.anchor_boxes, self.image_width, self.image_height, self.class_count)
                 pTensorX = pTensorX.data
-                pTensorX = pPredictor(pTensorX)
+                pTensorX = self.modules[i][0](pTensorX)
                 if type(pTensorX) == int:
                     continue
                 if pTensorResult is None:
@@ -307,4 +295,3 @@ class DarkNet(Module):
                 else:
                     to_cpu(pConvolution.bias.data).numpy().tofile(pFile)
                 to_cpu(pConvolution.weight.data).numpy().tofile(pFile)
-

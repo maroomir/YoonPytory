@@ -1,8 +1,10 @@
+import math
 import os.path
 
 import numpy
 import torch
 import torch.nn
+import torch.nn.functional
 from torch import tensor
 from torch.nn import BCEWithLogitsLoss
 from torch.nn import Module
@@ -11,20 +13,40 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-import yoonimage
-import yoonimage.image
 from yoonimage.data import YoonDataset
+from yoonpytory.log import YoonNLM
 
 
 class UNetDataset(Dataset):
     def __init__(self,
                  pInput: YoonDataset,
-                 pTarget: YoonDataset = None):
-        self.targets = pTarget
+                 pTarget: YoonDataset = None,
+                 nDimOutput=1,
+                 strMode="Test",  # "Train", "Eval", "Test"
+                 dRatioTrain=0.8
+                 ):
         self.inputs = pInput
+        self.inputs.resize(strOption="min")
+        self.inputs.rechannel(strOption="min")
+        self.inputs.normalize(strOption="z")
+        self.input_dim = self.inputs.min_channel()
+        self.targets = pTarget
+        self.output_dim = nDimOutput
+        if strMode != "Test" and self.targets is not None and len(self.targets) == len(self.inputs):
+            self.targets.resize(strOption="min")
+            self.targets.rechannel(strOption="min")
+            self.targets.normalize(dMean=0, dStd=255)
+            self.output_dim = self.targets.min_channel()
+            nCutLine = dRatioTrain * len(self.inputs)
+            if strMode == "Train":
+                self.inputs = self.inputs[:nCutLine]
+                self.targets = self.targets[:nCutLine]
+            elif strMode == "Eval":
+                self.inputs = self.inputs[nCutLine:]
+                self.targets = self.targets[nCutLine:]
 
     def __len__(self):
-        return self.targets.__len__()
+        return self.inputs.__len__()
 
     def __getitem__(self, item):
         if self.targets is None:
@@ -36,138 +58,121 @@ class UNetDataset(Dataset):
             return pArrayInput, pArrayTarget
 
 
-class UNet2D(Module):
-    def __init__(self):
-        super(UNet2D, self).__init__()
-        # Down-sampling
-        self.encoder1 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=64),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=64),
-                                            torch.nn.ReLU()
-                                            )
-        self.down_sampler1 = torch.nn.MaxPool2d(kernel_size=2)
-        self.encoder2 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=128),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=128),
-                                            torch.nn.ReLU()
-                                            )
-        self.down_sampler2 = torch.nn.MaxPool2d(kernel_size=2)
-        self.encoder3 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=256),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=256),
-                                            torch.nn.ReLU()
-                                            )
-        self.down_sampler3 = torch.nn.MaxPool2d(kernel_size=2)
-        self.encoder4 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=512),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=512),
-                                            torch.nn.ReLU()
-                                            )
-        self.down_sampler4 = torch.nn.MaxPool2d(kernel_size=2)
-        self.encoder5 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=512, out_channels=1024, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=1024),
-                                            torch.nn.ReLU()
-                                            )
-        # Up-sampling
-        self.decoder5 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=1024, out_channels=512, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=512),
-                                            torch.nn.ReLU()
-                                            )
-        self.up_sampler4 = torch.nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=2,
-                                                    stride=2, padding=0, bias=True)
-        self.decoder4 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=512 * 2, out_channels=512, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=512),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=256),
-                                            torch.nn.ReLU()
-                                            )
-        self.up_sampler3 = torch.nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=2,
-                                                    stride=2, padding=0, bias=True)
-        self.decoder3 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=256 * 2, out_channels=256, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=256),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=128),
-                                            torch.nn.ReLU()
-                                            )
-        self.up_sampler2 = torch.nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2,
-                                                    stride=2, padding=0, bias=True)
-        self.decoder2 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=128 * 2, out_channels=128, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=128),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=64),
-                                            torch.nn.ReLU()
-                                            )
-        self.up_sampler1 = torch.nn.ConvTranspose2d(in_channels=64, out_channels=64, kernel_size=2,
-                                                    stride=2, padding=0, bias=True)
-        self.decoder1 = torch.nn.Sequential(torch.nn.Conv2d(in_channels=64 * 2, out_channels=64, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=64),
-                                            torch.nn.ReLU(),
-                                            torch.nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3),
-                                            torch.nn.BatchNorm2d(num_features=64),
-                                            torch.nn.ReLU()
-                                            )
-        self.fc_layer = torch.nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=2,
-                                                 stride=2, padding=0, bias=True)
+class ConvolutionBlock(Module):
+    def __init__(self,
+                 nDimInput: int,
+                 nDimOutput: int,
+                 dRateDropout: float = 0.3):
+        super(ConvolutionBlock, self).__init__()
+        self.network = torch.nn.Sequential(
+            torch.nn.Conv2d(nDimInput, nDimOutput, kernel_size=3, padding=1, bias=False),
+            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            torch.nn.Dropout2d(dRateDropout),
+            torch.nn.Conv2d(nDimOutput, nDimOutput, kernel_size=3, padding=1, bias=False),
+            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            torch.nn.Dropout2d(dRateDropout)
+        )
 
     def forward(self, pTensorX: tensor):
-        # Normalize input features (zero mean and unit variance).
-        pXMean = torch.mean(pTensorX, dim=(1, -1))  # Mean of All pixels (sum / (x,y))
-        pXStd = torch.std(pTensorX, dim=(1, -1))  # Std of All pixels (sum / (x,y))
-        pXStd[pXStd < 0.01] = 0.01
-        pTensorX = (pTensorX - pXMean[:, None, None]) / pXStd[:, None, None]
-        # Down-sampling
-        pEncoder1 = self.encoder1(pTensorX)
-        pEncoder2 = self.encoder2(self.down_sampler1(pEncoder1))
-        pEncoder3 = self.encoder3(self.down_sampler2(pEncoder2))
-        pEncoder4 = self.encoder4(self.down_sampler3(pEncoder3))
-        pEncoder5 = self.encoder5(self.down_sampler4(pEncoder4))
-        # Up-sampling
-        pDecoder5 = self.decoder5(pEncoder5)
-        pTensorChain4 = torch.cat((self.up_sampler4(pDecoder5), pEncoder4), dim=1)  # (0: batch dir, 1: CH dir ...)
-        pDecoder4 = self.decoder4(pTensorChain4)
-        pTensorChain3 = torch.cat((self.up_sampler3(pDecoder4), pEncoder3), dim=1)
-        pDecoder3 = self.decoder3(pTensorChain3)
-        pTensorChain2 = torch.cat((self.up_sampler2(pDecoder3), pEncoder2), dim=1)
-        pDecoder2 = self.decoder2(pTensorChain2)
-        pTensorChain1 = torch.cat((self.up_sampler1(pDecoder2), pEncoder1), dim=1)
-        pDecoder1 = self.decoder1(pTensorChain1)
-        # Full-convolution Layer
-        pTensorResult = self.fc_layer(pDecoder1)
+        return self.network(pTensorX)
+
+
+class UpSamplerBlock(Module):
+    def __init__(self,
+                 nDimInput: int,
+                 nDimOutput: int):
+        super(UpSamplerBlock, self).__init__()
+        self.network = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(nDimInput, nDimOutput, kernel_size=2, stride=2, bias=True),
+            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
+        )
+
+    def forward(self, pTensorX: tensor):
+        return self.network(pTensorX)
+
+
+class UNet2D(Module):
+    def __init__(self,
+                 nDimInput: int,
+                 nDimOutput: int,
+                 nChannel: int,
+                 nCountDepth: int,
+                 dRateDropout: float = 0.3):
+        super(UNet2D, self).__init__()
+        # Init Encoders and Decoders
+        self.encoders = torch.nn.ModuleList([ConvolutionBlock(nDimInput, nChannel, dRateDropout)])
+        for i in range(nCountDepth - 1):
+            self.encoders += [ConvolutionBlock(nChannel, nChannel * 2, dRateDropout)]
+            nChannel *= 2
+        self.down_sampler = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.worker = ConvolutionBlock(nChannel, nChannel * 2, dRateDropout)
+        self.decoders = torch.nn.ModuleList()
+        self.up_samplers = torch.nn.ModuleList()
+        for i in range(nCountDepth - 1):
+            self.up_samplers += [UpSamplerBlock(nChannel * 2, nChannel)]
+            self.decoders += [ConvolutionBlock(nChannel * 2, nChannel, dRateDropout)]
+            nChannel //= 2
+        self.up_samplers += [UpSamplerBlock(nChannel * 2, nChannel)]
+        self.decoders += [
+            torch.nn.Sequential(
+                ConvolutionBlock(nChannel * 2, nChannel, dRateDropout),
+                torch.nn.Conv2d(nChannel, nDimOutput, kernel_size=1, stride=1),
+                torch.nn.Tanh()
+            )
+        ]
+
+    def __padding(self, pTensorX: tensor):
+        def floor_ceil(n):
+            return math.floor(n), math.ceil(n)
+
+        nBatch, nDensity, nHeight, nWidth = pTensorX.shape
+        nWidthBitMargin = ((nWidth - 1) | 15) + 1  # 15 = (1111)
+        nHeightBitMargin = ((nHeight - 1) | 15) + 1
+        pPadWidth = floor_ceil((nWidthBitMargin - nWidth) / 2)
+        pPadHeight = floor_ceil((nHeightBitMargin - nHeight) / 2)
+        x = torch.nn.functional.pad(pTensorX, pPadWidth + pPadHeight)
+        return x, (pPadHeight, pPadWidth, nHeightBitMargin, nWidthBitMargin)
+
+    def __unpadding(self, x, pPadHeight, pPadWidth, nHeightMargin, nWidthMargin):
+        return x[...,
+               pPadHeight[0]:nHeightMargin - pPadHeight[1],
+               pPadWidth[0]:nWidthMargin - pPadWidth[1]]
+
+    def forward(self, pTensorX: tensor):
+        pTensorX, pPadOption = self.__padding(pTensorX)
+        pListStack = []
+        pTensorResult = pTensorX
+        # Apply down sampling layers
+        for i, pEncoder in enumerate(self.encoders):
+            pTensorResult = pEncoder(pTensorResult)
+            pListStack.append(pTensorResult)
+            pTensorResult = self.down_sampler(pTensorResult)
+        pTensorResult = self.worker(pTensorResult)
+        # Apply up sampling layers
+        for pSampler, pDecoder in zip(self.up_samplers, self.decoders):
+            pTensorAttached = pListStack.pop()
+            pTensorResult = pSampler(pTensorResult)
+            # Reflect pad on the right/botton if needed to handle odd input dimensions.
+            pPadding = [0, 0, 0, 0]  # left, right, top, bottom
+            if pTensorResult.shape[-1] != pTensorAttached.shape[-1]:
+                pPadding[1] = 1  # Padding right
+            if pTensorResult.shape[-2] != pTensorAttached.shape[-2]:
+                pPadding[3] = 1  # Padding bottom
+            if sum(pPadding) != 0:
+                pTensorResult = torch.nn.functional.pad(pTensorResult, pPadding, "reflect")
+            pTensorResult = torch.cat([pTensorResult, pTensorAttached], dim=1)
+            pTensorResult = pDecoder(pTensorResult)
+        pListStack.clear()  # To Memory Optimizing
+        pTensorResult = self.__unpadding(pTensorResult, *pPadOption)
         return pTensorResult
-
-
-# Define a collate function for the data loader (Assort for Batch)
-def collate_tensor(pListTensor):
-    pListInput = []
-    pListTarget = []
-    nHeightMin = min([pData.shape[1] for pData, pTarget in pListTensor]) - 1  # Shape = CH, Y, X
-    nWidthMin = min([pData.shape[-1] for pData, pTarget in pListTarget]) - 1  # Shape = CH, Y, X
-    for pInputData, pTargetData in pListTensor:
-        nStartY = numpy.random.randint(pInputData.shape[1] - nHeightMin)
-        nStartX = numpy.random.randint(pInputData.shape[-1] - nWidthMin)
-        # Change the tensor type
-        pListInput.append(torch.tensor(pInputData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
-        pListTarget.append(torch.tensor(pTargetData[:, nStartY:nStartY + nHeightMin, nStartX:nStartX + nWidthMin]))
-    # Grouping batch : Update tensor shape to (Batch, CH, Y, X)
-    pListInput = torch.nn.utils.rnn.pad_sequence(pListInput, batch_first=True)
-    pListTarget = torch.nn.utils.rnn.pad_sequence(pListTarget, batch_first=True)
-    return pListInput, pListTarget
 
 
 # Define a train function
 def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
-                    pOptimizer: Adam):
+                    pOptimizer: Adam, pLog: YoonNLM):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -178,8 +183,8 @@ def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCrite
     # Warp the iterable Data Loader with TQDM
     pBar = tqdm(enumerate(pDataLoader))
     nLengthSample = 0
-    nTotalLoss = 0
-    nTotalAcc = 0
+    dTotalLoss = 0.0
+    dTotalAcc = 0.0
     for i, (pTensorInput, pTensorTarget) in pBar:
         # Move data and label to device
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
@@ -188,23 +193,22 @@ def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCrite
         pTensorOutput = pModel(pTensorInput)
         # Compute a loss function
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
-        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
+        dTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
         # Compute network accuracy
         nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
         nLengthSample += len(pTensorInput[0])
-        nTotalAcc += nAcc
+        dTotalAcc += nAcc
         # Perform backpropagation to update network parameters
         pOptimizer.zero_grad()
         pLoss.backward()
         pOptimizer.step()
-        pBar.set_description('Epoch:{:3d} [{}/{} {:.2f}%] CE Loss: {:.3f} ACC: {:.2f}%'
-                             .format(nEpoch, i, len(pDataLoader), 100.0 * (i / len(pDataLoader)),
-                                     nTotalLoss / nLengthSample, (nTotalAcc / nLengthSample) * 100.0))
+        strMessage = pLog.write(i, len(pDataLoader),
+                                CELoss=dTotalLoss / nLengthSample, ACC=(dTotalAcc / nLengthSample) * 100.0)
+        pBar.set_description(strMessage)
 
 
 # Define a test function
-def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
-                       pOptimizer: Adam):
+def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss, pLog: YoonNLM):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -215,8 +219,8 @@ def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEW
     # Warp the iterable Data Loader with TQDM
     pBar = tqdm(enumerate(pDataLoader))
     nLengthSample = 0
-    nTotalLoss = 0
-    nTotalAcc = 0
+    dTotalLoss = 0
+    dTotalAcc = 0
     for i, (pTensorInput, pTensorTarget) in pBar:
         # Move data and label to device
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
@@ -225,22 +229,32 @@ def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEW
         pTensorOutput = pModel(pTensorInput)
         # Compute a loss function
         pLoss = pCriterion(pTensorOutput, pTensorTarget)
-        nTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
+        dTotalLoss += pLoss.item() * len(pTensorTarget[0])  # Loss per batch * batch
         # Compute network accuracy
         nAcc = torch.sum(torch.eq(pTensorOutput > 0.5, pTensorTarget > 0.5)).item()  # output and targets binary
         nLengthSample += len(pTensorInput[0])
-        nTotalAcc += nAcc
-    return nTotalLoss / nLengthSample
+        dTotalAcc += nAcc
+        # Trace the log
+        strMessage = pLog.write(i, len(pDataLoader),
+                                CELoss=dTotalLoss / nLengthSample, ACC=(dTotalAcc / nLengthSample) * 100.0)
+        pBar.set_description(strMessage)
+    return dTotalLoss / nLengthSample
 
 
 def train(nEpoch: int,
+          strModelPath: str,
           pTrainData: YoonDataset,
           pLabelData: YoonDataset,
-          pValidationData: YoonDataset = None,
-          pValidationLabelData: YoonDataset = None,
-          strModelPath: str = None,
+          nChannel=8,
+          nCountDepth=4,
+          nBatchSize=1,
+          nCountWorker=2,  # 0: CPU / 2 : GPU
+          dRateDropout=0.3,
+          dRatioDecay=0.5,
           bInitEpoch=False):
-    dLearningRate = 0.01
+    def learning_func(iStep):
+        return 1.0 - max(0, iStep - nEpoch * (1 - dRatioDecay)) / (dRatioDecay * nEpoch + 1)
+
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -248,76 +262,85 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = UNetDataset(pTrainData, pLabelData)
-    pTrainLoader = DataLoader(pTrainSet, batch_size=4, shuffle=True, collate_fn=collate_tensor,
-                              num_workers=8, pin_memory=True)
-    pValidationLoader = None
-    if pValidationData is not None and pValidationLabelData is not None:
-        pValidationSet = UNetDataset(pValidationData)
-        pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
-                                       num_workers=8, pin_memory=True)
+    pTrainSet = UNetDataset(pTrainData, pLabelData, dRatioTrain=0.8, strMode="Train")
+    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
+    pValidationSet = UNetDataset(pTrainData, pLabelData, dRatioTrain=0.8, strMode="Eval")
+    pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
+                                   num_workers=nCountWorker, pin_memory=True)
     # Define a network model
-    pModel = UNet2D().to(pDevice)
+    pModel = UNet2D(nDimInput=pTrainSet.input_dim, nDimOutput=pTrainSet.output_dim, nChannel=nChannel,
+                    nCountDepth=nCountDepth, dRateDropout=dRateDropout).to(pDevice)
     # Set the optimizer with adam
-    pOptimizer = torch.optim.Adam(pModel.parameters(), lr=dLearningRate)
+    pOptimizer = torch.optim.Adam(pModel.parameters())
     # Set the training criterion
     pCriterion = torch.nn.BCEWithLogitsLoss(reduction='mean')
+    # Set the scheduler to control the learning rate
+    pScheduler = torch.optim.lr_scheduler.LambdaLR(pOptimizer, lr_lambda=learning_func)
+    # Define the log manager
+    pNLMTrain = YoonNLM(nEpoch, "./NLM/UNet2D", "Train")
+    pNLMEval = YoonNLM(nEpoch, "./NLM/UNet2D", "Eval")
     # Load pre-trained model
     nStart = 0
     print("Directory of the pre-trained model: {}".format(strModelPath))
     if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
-        pModelData = torch.load(strModelPath)
+        pModelData = torch.load(strModelPath, map_location=pDevice)
         nStart = pModelData['epoch']
         pModel.load_state_dict(pModelData['model'])
         pOptimizer.load_state_dict(pModelData['optimizer'])
         print("## Successfully load the model at {} epochs!".format(nStart))
     # Train and Test Repeat
     dMinLoss = 10000.0
-    nCountDecrease = 0
     for iEpoch in range(nStart, nEpoch + 1):
         # Train the network
         __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
-                        pOptimizer=pOptimizer)
-        if pValidationLoader is not None:
-            # Test the network
-            dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion)
-            # Save the optimal model
-            if dLoss < dMinLoss:
-                dMinLoss = dLoss
-                torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                           strModelPath)
-                nCountDecrease = 0
-            else:
-                nCountDecrease += 1
-                # Decrease the learning rate by 2 when the test loss decrease 3 times in a row
-                if nCountDecrease == 3:
-                    pDicOptimizerState = pOptimizer.state_dict()
-                    pDicOptimizerState['param_groups'][0]['lr'] /= 2
-                    pOptimizer.load_state_dict(pDicOptimizerState)
-                    print('learning rate is divided by 2')
-                    nCountDecrease = 0
-        else:
+                        pOptimizer=pOptimizer, pLog=pNLMTrain)
+        # Test the network
+        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion, pLog=pNLMEval)
+        # Change the learning rate
+        pScheduler.step()
+        # Rollback the model when loss is NaN
+        if math.isnan(dLoss):
+            if strModelPath is not None and os.path.exists(strModelPath):
+                # Reload the best model and decrease the learning rate
+                pModelData = torch.load(strModelPath, map_location=pDevice)
+                pModel.load_state_dict(pModelData['model'])
+                pOptimizerData = pModelData['optimizer']
+                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                pOptimizer.load_state_dict(pOptimizerData)
+                print("## Rollback the Model with half learning rate!")
+        # Save the optimal model
+        elif dLoss < dMinLoss:
+            dMinLoss = dLoss
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
                        strModelPath)
+        elif iEpoch % 100 == 0:
+            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
+                       'unet_{}epoch.pth'.format(iEpoch))
 
 
-def test(pTestData: YoonDataset, strModelPath: str):
+def test(pTestData: YoonDataset,
+         strModelPath: str,
+         nChannel=8,
+         nCountDepth=4,
+         nCountWorker=2,  # 0: CPU / 2 : GPU
+         dRateDropout=0.3):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
+    # Define a data path for plot for test
+    pDataSet = UNetDataset(pTestData)
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, num_workers=nCountWorker, pin_memory=True)
     # Load UNET model
-    pModel = UNet2D().to(pDevice)
+    pModel = UNet2D(nDimInput=pDataSet.input_dim, nDimOutput=pDataSet.output_dim, nChannel=nChannel,
+                    nCountDepth=nCountDepth, dRateDropout=dRateDropout).to(pDevice)
     pModel.eval()
     pFile = torch.load(strModelPath)
     pModel.load_state_dict(pFile['model'])
     print("Successfully load the Model in path")
-    # Define a data path for plot for test
-    pDataSet = UNetDataset(pTestData)
-    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
-                             num_workers=0, pin_memory=True)
+    # Start the test sequence
     pBar = tqdm(pDataLoader)
     print("Length of data = ", len(pBar))
     pListOutput = []
@@ -327,15 +350,3 @@ def test(pTestData: YoonDataset, strModelPath: str):
         pListOutput.append(pTensorOutput.detach().cpu().numpy())
     # Warp the tensor to Dataset
     return YoonDataset.from_tensor(pTensor=numpy.concatenate(pListOutput))
-
-
-if __name__ == "__main__":
-    train_image = yoonimage.YoonImage(strFileName='../../data/unet/train-volume.tif')
-    train_dataset = YoonDataset(None, train_image)
-    label_image = yoonimage.YoonImage(strFileName='../../data/unet/train-labels.tif')
-    label_dataset = YoonDataset(None, label_image)
-    test_image = yoonimage.YoonImage(strFileName='../../data/unet/test-volume.tif')
-    test_dataset = YoonDataset(None, test_image)
-    strModelPath = '../../data/unet/model_unet.pth'
-    train(50, pTrainData=train_dataset, pLabelData=label_dataset, strModelPath=strModelPath)
-    test(pTestData=test_dataset, strModelPath=strModelPath)
