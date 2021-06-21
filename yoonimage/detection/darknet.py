@@ -5,7 +5,6 @@ import torch.nn
 import torch.nn.functional
 from torch import tensor
 from torch.nn import Module
-from torch.autograd import Variable
 
 import numpy
 

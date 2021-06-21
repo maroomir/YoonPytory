@@ -21,9 +21,7 @@ class UNetDataset(Dataset):
     def __init__(self,
                  pInput: YoonDataset,
                  pTarget: YoonDataset = None,
-                 nDimOutput=1,
-                 strMode="Test",  # "Train", "Eval", "Test"
-                 dRatioTrain=0.8
+                 nDimOutput=1
                  ):
         self.inputs = pInput
         self.inputs.resize(strOption="min")
@@ -32,18 +30,6 @@ class UNetDataset(Dataset):
         self.input_dim = self.inputs.min_channel()
         self.targets = pTarget
         self.output_dim = nDimOutput
-        if strMode != "Test" and self.targets is not None and len(self.targets) == len(self.inputs):
-            self.targets.resize(strOption="min")
-            self.targets.rechannel(strOption="min")
-            self.targets.normalize(dMean=0, dStd=255)
-            self.output_dim = self.targets.min_channel()
-            nCutLine = dRatioTrain * len(self.inputs)
-            if strMode == "Train":
-                self.inputs = self.inputs[:nCutLine]
-                self.targets = self.targets[:nCutLine]
-            elif strMode == "Eval":
-                self.inputs = self.inputs[nCutLine:]
-                self.targets = self.targets[nCutLine:]
 
     def __len__(self):
         return self.inputs.__len__()

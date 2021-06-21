@@ -9,6 +9,30 @@ import torchvision.transforms
 import matplotlib.pyplot
 import sklearn.metrics
 
+from yoonimage.data import YoonDataset
+from yoonpytory.log import YoonNLM
+
+
+class SegmentationDataset(Dataset):
+    def __init__(self,
+                 pDataset: YoonDataset,
+                 nDimOutput: int
+                 ):
+        self.data = pDataset
+        self.data.resize(strOption="min")
+        self.data.rechannel(strOption="min")
+        self.data.normalize(strOption="z")
+        self.input_dim = self.data.min_channel()
+        self.output_dim = nDimOutput
+
+    def __len__(self):
+        return self.data.__len__()
+
+    def __getitem__(self, item):
+        pArrayInput = self.data[item].image.copy_tensor()
+        nTarget = self.data[item].label
+        return pArrayInput, nTarget
+
 
 class AlexNet(Module):
     def __init__(self,
