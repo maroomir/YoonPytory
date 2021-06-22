@@ -2,6 +2,31 @@ import torch
 import torch.nn.functional
 from torch.nn import Module
 from torch import tensor
+from torch.utils.data import Dataset
+
+from yoonimage.data import YoonDataset
+from yoonpytory.log import YoonNLM
+
+
+class SegmentationDataset(Dataset):
+    def __init__(self,
+                 pDataset: YoonDataset,
+                 nDimOutput: int
+                 ):
+        self.data = pDataset
+        self.data.resize(strOption="min")
+        self.data.rechannel(strOption="min")
+        self.data.normalize(strOption="z")
+        self.input_dim = self.data.min_channel()
+        self.output_dim = nDimOutput
+
+    def __len__(self):
+        return self.data.__len__()
+
+    def __getitem__(self, item):
+        pArrayInput = self.data[item].image.copy_tensor()
+        nTarget = self.data[item].label
+        return pArrayInput, nTarget
 
 
 class ConvolutionBlock(Module):
@@ -67,8 +92,8 @@ class ResNet50(Module):  # Conv Count = 50
         self.layer2 = torch.nn.Sequential(  # Conv=10
             torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             ConvolutionBlock(nDimInput=64, pListFilter=[64, 64, 256], nStride=1),  # Conv=4
-            IdentityBlock(pListFilter=[64, 64, 256]),   # Conv=3
-            IdentityBlock(pListFilter=[64, 64, 256])    # Conv=3
+            IdentityBlock(pListFilter=[64, 64, 256]),  # Conv=3
+            IdentityBlock(pListFilter=[64, 64, 256])  # Conv=3
         )
         self.layer3 = torch.nn.Sequential(  # Conv=13
             ConvolutionBlock(nDimInput=256, pListFilter=[128, 128, 512], nStride=2),
