@@ -180,12 +180,12 @@ def process_speech_recognition_with_las():
     shift_length = 0.01
     epoch = 100
     # Train
-    train_data, test_data = yoonspeech.parse_librispeech_trainer(
+    train_data, eval_data = yoonspeech.parse_librispeech_trainer(
         strRootDir='./data/speech/LibriSpeech/dev-clean',
         nSamplingRate=sampling_rate, dRatioTrain=0.8,
         dWindowLength=window_length, dShiftLength=shift_length,
         strFeatureType="deltas", nContextSize=1)  # Do not use the context for precious learning
-    yoonspeech.recognition.las.train(epoch, pTrainData=train_data, pValidationData=test_data,
+    yoonspeech.recognition.las.train(epoch, pTrainData=train_data, pValidationData=eval_data,
                                      strModelPath='./data/speech/las_opt.pth')
 
 

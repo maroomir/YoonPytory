@@ -1,13 +1,40 @@
 from __future__ import division
+from typing import Any
 
 import torch
 import torch.nn
 import torch.nn.functional
 from torch import tensor
 from torch.nn import Module
-from torch.autograd import Variable
+from torch.autograd import Function
 
 import numpy
+
+
+class MishActivation(Function):
+    @staticmethod
+    def forward(ctx: Any, *args: Any, **kwargs: Any) -> Any:
+        ctx.save_for_backward(args[0])
+        # Activation :  X * tanh(ln(1 + exp(X)))
+        pTensorY = args[0].mul(torch.tanh(torch.nn.functional.softplus(args[0])))
+        return pTensorY
+
+    @staticmethod
+    def backward(ctx: Any, *grad_outputs: Any) -> Any:
+        pTensorX = ctx.saved_tensor[0]
+        pTensorSigmoid = torch.sigmoid(pTensorX)
+        pTensorTanh = torch.nn.functional.softplus(pTensorX).tanh()
+        return grad_outputs[0].mul(pTensorTanh + pTensorX * pTensorSigmoid * (1 - pTensorTanh * pTensorTanh))
+
+
+class Mish(Module):
+    def __init__(self,
+                 bInplace: bool = False):
+        super(Mish, self).__init__()
+        self.inplace = bInplace
+
+    def forward(self, pTensorX: tensor):
+        return MishActivation.apply(pTensorX)
 
 
 class DummyLayer(Module):
@@ -122,7 +149,8 @@ class DarkNet(Module):
                 # Check the activation
                 if strActiveFunc == "leaky":
                     pModule.add_module("leaky_{0}".format(i), torch.nn.LeakyReLU(0.1, inplace=True))
-
+                elif strActiveFunc == "mish":
+                    pModule.add_module("mish_{0}".format(i), Mish(bInplace=True))
             elif iBlock['type'] == "upsample":
                 nStride = int(iBlock['stride'])
                 pModule.add_module("leaky_{0}".format(i), torch.nn.Upsample(scale_factor=2, mode="nearest"))

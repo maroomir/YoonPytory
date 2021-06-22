@@ -41,7 +41,9 @@ def parse_librispeech_trainer(strRootDir: str,
                               dWindowLength: float = 0.025,
                               dShiftLength: float = 0.01,
                               strFeatureType: str = "mfcc",
-                              dRatioTrain: float = 0.8):
+                              dRatioTrain: float = 0.8,
+                              strMode: str = "dvector"  # dvector, gmm, ctc, las
+                              ):
 
     def get_words_in_trans(strFilePath, strID):
         with open(strFilePath) as pFile:
@@ -87,7 +89,7 @@ def parse_librispeech_trainer(strRootDir: str,
         pDicSpeaker[pListSpeakers[i]] = i
     # Transform data dictionary
     pDataTrain = YoonDataset()
-    pDataTest = YoonDataset()
+    pDataEval = YoonDataset()
     for strFileName in pListTrainFile:
         strBase = splitext(basename(strFileName))[0]
         strID, strPart = strBase.split('-')[0], strBase.split('-')[1]
@@ -103,10 +105,16 @@ def parse_librispeech_trainer(strRootDir: str,
         pSpeech = make_speech_buffer(strFileName)
         pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, strWord=strWord, strType=strFeatureType,
                              pSpeech=pSpeech)
-        pDataTest.append(pObject)
+        pDataEval.append(pObject)
     print("Length of Train = {}".format(pDataTrain.__len__()))
-    print("Length of Test = {}".format(pDataTest.__len__()))
-    return nSpeakersCount, pDataTrain, pDataTest
+    print("Length of Test = {}".format(pDataEval.__len__()))
+    if strMode == "dvector" or strMode == "gmm":
+        nDimOutput = nSpeakersCount
+    elif strMode == "ctc" or strMode == "las":
+        nDimOutput = yoonspeech.DEFAULT_PHONEME_COUNT
+    else:
+        raise ValueError("Unsupported parsing mode")
+    return nDimOutput, pDataTrain, pDataEval
 
 
 def parse_librispeech_tester(strRootDir: str,
@@ -119,7 +127,9 @@ def parse_librispeech_tester(strRootDir: str,
                              nContextSize: int = 10,
                              dWindowLength: float = 0.025,
                              dShiftLength: float = 0.01,
-                             strFeatureType: str = "mfcc"):
+                             strFeatureType: str = "mfcc",
+                             strMode: str = "dvector"  # dvector, gmm, ctc, las
+                             ):
     pDicFile = collections.defaultdict(list)
     pListTestFile = []
     # Extract file names
@@ -151,4 +161,10 @@ def parse_librispeech_tester(strRootDir: str,
                              dWindowLength=dWindowLength, dShiftLength=dShiftLength)
         pObject = YoonObject(nID=int(pDicLabel[strID]), strName=strID, strType=strFeatureType, pSpeech=pSpeech)
         pDataTest.append(pObject)
-    return pDataTest
+    if strMode == "dvector" or strMode == "gmm":
+        nDimOutput = nSpeakersCount
+    elif strMode == "ctc" or strMode == "las":
+        nDimOutput = yoonspeech.DEFAULT_PHONEME_COUNT
+    else:
+        raise ValueError("Unsupported parsing mode")
+    return nDimOutput, pDataTest
