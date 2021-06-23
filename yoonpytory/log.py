@@ -27,11 +27,11 @@ def parse_nlm(strLogPath: str,
 
 class YoonNLM:  # Network Log Manager
     def __init__(self,
-                 nEpoch: int,
+                 nStartEpoch=0,
                  strRoot="./NLM",
                  strMode="Train"  # Train, Eval, Test
                  ):
-        self.epoch = nEpoch
+        self.epoch = nStartEpoch
         self.root = strRoot
         self.txt_path = ""
         self.csv_path = ""
@@ -41,10 +41,11 @@ class YoonNLM:  # Network Log Manager
               iItem: int,
               nLength: int,
               **kwargs):
-        strMessage = self.mode + " epoch={:3d} [{}/{} ]".format(self.epoch, iItem + 1, nLength)
+        strMessage = self.mode + " epoch={:3d} [{}/{}]".format(self.epoch, iItem + 1, nLength)
         for pItem in kwargs.items():
             strMessage += " {}={}".format(pItem[0], pItem[1])
         if iItem == nLength - 1:
+            self.epoch += 1
             self.__trace__(strMessage)
         return strMessage
 

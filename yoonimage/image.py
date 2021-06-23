@@ -28,13 +28,21 @@ class YoonImage:
                 pListMat.append(args)
             return numpy.array(pListMat)
 
+    @classmethod
+    def from_array(cls,
+                   pArray: numpy.ndarray,
+                   nWidth: int,
+                   nHeight: int,
+                   nChannel: int):
+        return YoonImage(pBuffer=pArray.reshape((nHeight, nWidth, nChannel)))
+
     def __init__(self,
                  pImage=None,
                  pBuffer: numpy.ndarray = None,
                  strFileName: str = None,
                  nWidth=640,
                  nHeight=480,
-                 nBpp=1):
+                 nChannel=1):
         if pImage is not None:
             assert isinstance(pImage, YoonImage)
             self.__buffer = pImage.copy_buffer()
@@ -54,7 +62,7 @@ class YoonImage:
         else:
             self.width = nWidth
             self.height = nHeight
-            self.channel = nBpp
+            self.channel = nChannel
             self.__buffer = numpy.zeros((self.height, self.width, self.channel), dtype=numpy.uint8)
 
     def get_buffer(self):
@@ -89,11 +97,27 @@ class YoonImage:
         pReseultBuffer = numpy.matmul((pReseultBuffer - dMean) / dStd, pFuncMask)
         return dMean, dStd, YoonImage(pBuffer=pReseultBuffer)
 
-    def normalize(self, dMean=128, dStd=255):
+    def normalize(self, nChannel=None, dMean=128, dStd=255):
+        if nChannel is None:
+            return self._normalize_all(dMean, dStd)
+        return YoonImage(pBuffer=self.__buffer[:, :, nChannel] - dMean / dStd)
+
+    def denormalize(self, nChannel=None, dMean=128, dStd=255):
+        if nChannel is None:
+            return self._denormalize_all(dMean, dStd)
+        return YoonImage(pBuffer=self.__buffer[:, :, nChannel] * dStd + dMean)
+
+    def _normalize_all(self, dMean=128, dStd=255):
         return YoonImage(pBuffer=self.__buffer - dMean / dStd)
 
-    def denormalize(self, dMean=128, dStd=255):
+    def _denormalize_all(self, dMean=128, dStd=255):
         return YoonImage(pBuffer=self.__buffer * dStd + dMean)
+
+    def pixel_decimal(self):
+        return self._normalize_all(dMean=0, dStd=255)
+
+    def pixel_recover(self):
+        return self._denormalize_all(dMean=0, dStd=255)
 
     def to_binary(self, nThreshold=128):
         pResultBuffer = cv2.threshold(self.__buffer, nThreshold, 255, cv2.THRESH_BINARY)[1]
@@ -120,7 +144,7 @@ class YoonImage:
         return YoonImage(pBuffer=pResultBuffer)
 
     def scale(self, dScaleX: (int, float), dScaleY: (int, float)):
-        pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY, )
+        pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY)
         return YoonImage(pBuffer=pResultBuffer)
 
     def resize(self, nWidth: int, nHeight: int):

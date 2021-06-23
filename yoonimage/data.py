@@ -254,9 +254,10 @@ class YoonDataset:
                 self.images[iImage] = self.images[iImage].rechannel(nChannel)
 
     def normalize(self,
+                  nChannel: int = None,  # 0, 1, 2...
                   dMean: float = 128,
                   dStd: float = 255,
-                  strOption=None  # "minmax", "z", "float"
+                  strOption=None  # "minmax", "z"
                   ):
         if strOption == "minmax":
             for iImage in range(len(self.images)):
@@ -266,21 +267,29 @@ class YoonDataset:
             for iImage in range(len(self.images)):
                 if isinstance(self.images[iImage], YoonImage):
                     self.images[iImage] = self.images[iImage].z_normalize()[2]
-        elif strOption == "float":
-            for iImage in range(len(self.images)):
-                if isinstance(self.images[iImage], YoonImage):
-                    self.images[iImage] = self.images[iImage].normalize(0, 255)
         else:
             for iImage in range(len(self.images)):
                 if isinstance(self.images[iImage], YoonImage):
-                    self.images[iImage] = self.images[iImage].normalize(dMean, dStd)
+                    self.images[iImage] = self.images[iImage].normalize(nChannel, dMean, dStd)
 
-    def denormalize(self,
-                    dMean: float = 128,
-                    dStd: float = 255):
+    def decimalize(self):
         for iImage in range(len(self.images)):
             if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].denormalize(dMean, dStd)
+                self.images[iImage] = self.images[iImage].pixel_decimal()
+
+    def denormalize(self,
+                    nChannel: int = None,  # 0, 1, 2...
+                    dMean: float = 128,
+                    dStd: float = 255,
+                    ):
+        for iImage in range(len(self.images)):
+            if isinstance(self.images[iImage], YoonImage):
+                self.images[iImage] = self.images[iImage].denormalize(nChannel, dMean, dStd)
+
+    def recover(self):
+        for iImage in range(len(self.images)):
+            if isinstance(self.images[iImage], YoonImage):
+                self.images[iImage] = self.images[iImage].pixel_recover()
 
     def to_region_points(self):
         pListResult = []

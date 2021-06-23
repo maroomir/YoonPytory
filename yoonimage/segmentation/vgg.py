@@ -4,8 +4,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-import torchvision
-import torchvision.transforms
 import matplotlib.pyplot
 import sklearn.metrics
 
@@ -43,9 +41,12 @@ class VGG(Module):
     }
 
     def __init__(self,
+                 nDimInput,
+                 nNumClass,
                  strType="VGG16"):
         super(VGG, self).__init__()
         self.network = self.__make_layers(self.__config_dict[strType])
+        self.channel = nDimInput
         self.fc_layer = torch.nn.Sequential(
             torch.nn.Linear(512 * 1 * 1, 360),
             torch.nn.ReLU(inplace=True),
@@ -53,7 +54,7 @@ class VGG(Module):
             torch.nn.Linear(360, 100),
             torch.nn.ReLU(inplace=True),
             torch.nn.Dropout(),
-            torch.nn.Linear(100, 10),
+            torch.nn.Linear(100, nNumClass),
         )
 
     def forward(self, pTensorX: Tensor):
@@ -64,7 +65,7 @@ class VGG(Module):
 
     def __make_layers(self, pListConfig):
         pListLayer = []
-        nChannel = 3
+        nChannel = self.channel
         for pParam in pListConfig:
             if pParam == 'M':
                 pListLayer += [torch.nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -106,7 +107,11 @@ def __process_train(nEpoch: int, pModel: VGG, pDataLoader: DataLoader, pOptimize
                 nCountCorrect, nCountTotal))
 
 
-def __process_evaluate(iEpoch: int, pModel: VGG, pDataLoader: DataLoader, pCriterion, pScheduler):
+def __process_evaluate(iEpoch: int,
+                       pModel: VGG,
+                       pDataLoader: DataLoader,
+                       pCriterion,
+                       pLog: YoonNLM):
     print("\nTest: ")
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
@@ -130,7 +135,6 @@ def __process_evaluate(iEpoch: int, pModel: VGG, pDataLoader: DataLoader, pCrite
                 print("[%3d/%3d] | Loss: %.3f | Acc: %.3f%% (%d/%d)" % (
                     i + 1, len(pDataLoader), dLossTotal / (i + 1), 100. * nCountCorrect / nCountTotal,
                     nCountCorrect, nCountTotal))
-    pScheduler.step()
 
 
 def __process_test(pModel: VGG, pDataLoader: DataLoader, pListLabel: list):
@@ -207,37 +211,68 @@ def __draw_dataset(pDataSet: Dataset, pListLabel: list, nCountShow=15):
     matplotlib.pyplot.show()
 
 
-def main(nEpoch=50):
+def train(nEpoch: int,
+          strModelPath: str,
+          nCountClass: int,
+          pTrainData: YoonDataset,
+          pEvalData: YoonDataset,
+          nBatchSize=1,
+          nCountWorker=2,
+          dLearningRate=0.1,
+          bInitEpoch=False):
+    # Check if we can use a GPU Device
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
         pDevice = torch.device('cpu')
-    # Visualizing CIFAR 10
-    pTransformTrain = torchvision.transforms.Compose([
-        torchvision.transforms.RandomCrop(32, padding=4),
-        torchvision.transforms.RandomHorizontalFlip(),
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-    ])
-    pTransformTest = torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-    ])
-    pTrainSet = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=pTransformTrain)
-    pTestSet = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=pTransformTest)
-    pListLabelClassification = ['plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-    # __draw_dataset(pTrainSet, pListLabelClassification)
-    pTrainLoader = DataLoader(pTrainSet, batch_size=128, shuffle=True, num_workers=2)
-    pTestLoader = DataLoader(pTestSet, batch_size=128, shuffle=False, num_workers=2)
-    pModel = VGG("VGG19").to(pDevice)
+    print("{} device activation".format(pDevice.__str__()))
+    # Define the training and testing data-set
+    pTrainSet = SegmentationDataset(pTrainData, nCountClass)
+    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
+    pValidationSet = SegmentationDataset(pEvalData, nCountClass)
+    pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
+                                   num_workers=nCountWorker, pin_memory=True)
+    # Define a network model
+    pModel = VGG(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim).to(pDevice)
     pCriterion = torch.nn.CrossEntropyLoss()
-    pOptimizer = torch.optim.SGD(pModel.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+    pOptimizer = torch.optim.SGD(pModel.parameters(), lr=dLearningRate, momentum=0.9, weight_decay=5e-4)
     pScheduler = torch.optim.lr_scheduler.StepLR(pOptimizer, step_size=20, gamma=0.5)
-    for iEpoch in range(nEpoch):
-        __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion, pOptimizer=pOptimizer)
-        __process_evaluate(iEpoch, pModel=pModel, pDataLoader=pTestLoader, pCriterion=pCriterion, pScheduler=pScheduler)
-    __process_test(pModel=pModel, pDataLoader=pTestLoader, pListLabel=pListLabelClassification)
-
-
-if __name__ == "__main__":
-    main()
+    # Define the log manager
+    pNLMTrain = YoonNLM(nEpoch, "./NLM/AlexNet", "Train")
+    pNLMEval = YoonNLM(nEpoch, "./NLM/AlexNet", "Eval")
+    # Load pre-trained model
+    nStart = 0
+    print("Directory of the pre-trained model: {}".format(strModelPath))
+    if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
+        pModelData = torch.load(strModelPath, map_location=pDevice)
+        nStart = pModelData['epoch']
+        pModel.load_state_dict(pModelData['model'])
+        pOptimizer.load_state_dict(pModelData['optimizer'])
+        print("## Successfully load the model at {} epochs!".format(nStart))
+    # Train and Test Repeat
+    dMinLoss = 10000.0
+    for iEpoch in range(nStart, nEpoch + 1):
+        __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
+                        pOptimizer=pOptimizer, pLog=pNLMTrain)
+        dLoss = __process_evaluate(iEpoch, pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion,
+                                   pLog=pNLMEval)
+        # Change the learning rate
+        pScheduler.step()
+        # Rollback the model when loss is NaN
+        if math.isnan(dLoss):
+            if strModelPath is not None and os.path.exists(strModelPath):
+                # Reload the best model and decrease the learning rate
+                pModelData = torch.load(strModelPath, map_location=pDevice)
+                pModel.load_state_dict(pModelData['model'])
+                pOptimizerData = pModelData['optimizer']
+                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                pOptimizer.load_state_dict(pOptimizerData)
+                print("## Rollback the Model with half learning rate!")
+        # Save the optimal model
+        elif dLoss < dMinLoss:
+            dMinLoss = dLoss
+            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
+                       strModelPath)
+        elif iEpoch % 100 == 0:
+            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
+                       'alexnet_{}epoch.pth'.format(iEpoch))

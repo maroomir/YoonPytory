@@ -230,7 +230,9 @@ def __process_evaluate(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEW
 def train(nEpoch: int,
           strModelPath: str,
           pTrainData: YoonDataset,
-          pLabelData: YoonDataset,
+          pTrainLabel: YoonDataset,
+          pEvalData: YoonDataset,
+          pEvalLabel: YoonDataset,
           nChannel=8,
           nCountDepth=4,
           nBatchSize=1,
@@ -248,9 +250,9 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = UNetDataset(pTrainData, pLabelData, dRatioTrain=0.8, strMode="Train")
+    pTrainSet = UNetDataset(pTrainData, pTrainLabel, dRatioTrain=0.8, strMode="Train")
     pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = UNetDataset(pTrainData, pLabelData, dRatioTrain=0.8, strMode="Eval")
+    pValidationSet = UNetDataset(pEvalData, pEvalLabel, dRatioTrain=0.8, strMode="Eval")
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
                                    num_workers=nCountWorker, pin_memory=True)
     # Define a network model
@@ -281,7 +283,8 @@ def train(nEpoch: int,
         __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer, pLog=pNLMTrain)
         # Test the network
-        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion, pLog=pNLMEval)
+        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion,
+                                   pLog=pNLMEval)
         # Change the learning rate
         pScheduler.step()
         # Rollback the model when loss is NaN
