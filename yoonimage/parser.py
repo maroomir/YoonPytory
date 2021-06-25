@@ -8,7 +8,7 @@ from yoonimage.image import YoonImage
 
 def parse_cifar10_trainer(strRootDir: str,
                           dRatioTrain: float = 0.8,
-                          strMode: str = "alexnet"  # alexnet, resnet, unet, vgg
+                          strMode: str = "alexnet"  # alexnet, resnet, vgg
                           ):
     # Read the label names
     strLabelFile = os.path.join(strRootDir, "batches.meta")

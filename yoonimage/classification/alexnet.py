@@ -6,32 +6,13 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+from tqdm import tqdm
 import matplotlib.pyplot
 import sklearn.metrics
 
 from yoonimage.data import YoonDataset
 from yoonpytory.log import YoonNLM
-
-
-class SegmentationDataset(Dataset):
-    def __init__(self,
-                 pDataset: YoonDataset,
-                 nDimOutput: int
-                 ):
-        self.data = pDataset
-        self.data.resize(strOption="min")
-        self.data.rechannel(strOption="min")
-        self.data.normalize(strOption="z")
-        self.input_dim = self.data.min_channel()
-        self.output_dim = nDimOutput
-
-    def __len__(self):
-        return self.data.__len__()
-
-    def __getitem__(self, item):
-        pArrayInput = self.data[item].image.copy_tensor()
-        nTarget = self.data[item].label
-        return pArrayInput, nTarget
+from dataset import ClassificationDataset
 
 
 class AlexNet(Module):
@@ -76,9 +57,10 @@ def __process_train(pModel: AlexNet,
     else:
         pDevice = torch.device('cpu')
     pModel.train()
-    dLossTotal = 0.0
-    nCountCorrect = 0
-    nCountTotal = 0
+    pBar = tqdm(enumerate(pDataLoader))
+    dTotalLoss = 0.0
+    nTotalCorrect = 0
+    nLengthSample = 0
     for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
         pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
@@ -87,44 +69,42 @@ def __process_train(pModel: AlexNet,
         pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
         pTensorLoss.backward()
         pOptimizer.step()
-        dLossTotal += pTensorLoss.item()
+        dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
         _, pTensorPredicted = pTensorOutput.max(1)
-        nCountTotal += pTensorTarget.size(0)
-        nCountCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-        if i + 1 == len(pDataLoader):
-            strMessage = pLog.write(i, len(pDataLoader),
-                                    Loss=dLossTotal / (i + 1), Acc=100. * nCountCorrect / nCountTotal)
-            print(strMessage)
+        nLengthSample += pTensorTarget.size(0)
+        nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
+        strMessage = pLog.write(i, len(pDataLoader),
+                                Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
+        pBar.set_description(strMessage)
 
 
 def __process_evaluate(pModel: AlexNet,
                        pDataLoader: DataLoader,
                        pCriterion,
                        pLog: YoonNLM):
-    print("\nTest: ")
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
         pDevice = torch.device('cpu')
     pModel.eval()
-    dLossTotal = 0.0
-    nCountCorrect = 0
-    nCountTotal = 0
+    pBar = tqdm(enumerate(pDataLoader))
+    dTotalLoss = 0.0
+    nTotalCorrect = 0
+    nLengthSample = 0
     with torch.no_grad():
-        for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
+        for i, (pTensorInput, pTensorTarget) in pBar:
             pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
             pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
             pTensorOutput = pModel(pTensorInput)
             pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
-            dLossTotal += pTensorLoss.item() * pTensorTarget.size(0)
+            dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
             _, pTensorPredicted = pTensorOutput.max(1)
-            nCountTotal += pTensorTarget.size(0)
-            nCountCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-            if i + 1 == len(pDataLoader):
-                strMessage = pLog.write(i, len(pDataLoader),
-                                        Loss=dLossTotal / nCountTotal, Acc=100. * nCountCorrect / nCountTotal)
-                print(strMessage)
-    return dLossTotal / nCountTotal
+            nLengthSample += pTensorTarget.size(0)
+            nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
+            strMessage = pLog.write(i, len(pDataLoader),
+                                    Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
+            pBar.set_description(strMessage)
+    return dTotalLoss / nLengthSample
 
 
 def __process_test(pModel: AlexNet, pDataLoader: DataLoader, pListLabel: list):
@@ -217,9 +197,9 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = SegmentationDataset(pTrainData, nCountClass)
+    pTrainSet = ClassificationDataset(pTrainData, nCountClass, "resize", "rechannel", "z_norm")
     pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = SegmentationDataset(pEvalData, nCountClass)
+    pValidationSet = ClassificationDataset(pEvalData, nCountClass, "resize", "rechannel", "z_norm")
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
                                    num_workers=nCountWorker, pin_memory=True)
     # Define a network model
@@ -237,8 +217,8 @@ def train(nEpoch: int,
         pOptimizer.load_state_dict(pModelData['optimizer'])
         print("## Successfully load the model at {} epochs!".format(nStart))
     # Define the log manager
-    pNLMTrain = YoonNLM(nStart, "./NLM/AlexNet", "Train")
-    pNLMEval = YoonNLM(nStart, "./NLM/AlexNet", "Eval")
+    pNLMTrain = YoonNLM(nStart, strRoot="./NLM/AlexNet", strMode="Train")
+    pNLMEval = YoonNLM(nStart, strRoot="./NLM/AlexNet", strMode="Eval")
     # Train and Test Repeat
     dMinLoss = 10000.0
     for iEpoch in range(nStart, nEpoch + 1):
@@ -266,3 +246,36 @@ def train(nEpoch: int,
         elif iEpoch % 100 == 0:
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
                        'alexnet_{}epoch.pth'.format(iEpoch))
+
+
+def test(pTestData: YoonDataset,
+         strModelPath: str,
+         nCountClass: int,
+         nCountWorker=2  # 0: CPU / 2 : GPU
+         ):
+    # Check if we can use a GPU device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    print("{} device activation".format(pDevice.__str__()))
+    # Define a data path for plot for test
+    pDataSet = ClassificationDataset(pTestData, nCountClass, "resize", "rechannel", "z_norm")
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, num_workers=nCountWorker, pin_memory=True)
+    # Load the model
+    pModel = AlexNet(nDimInput=pDataSet.input_dim, nNumClass=pDataSet.output_dim).to(pDevice)
+    pModel.eval()
+    pFile = torch.load(strModelPath)
+    pModel.load_state_dict(pFile['model'])
+    print("Successfully load the Model in path")
+    # Start the test sequence
+    pBar = tqdm(pDataLoader)
+    print("Length of data = ", len(pBar))
+    pListLabel = []
+    for i, pTensorInput in enumerate(pBar):
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorOutput = pModel(pTensorInput)
+        _, pTensorPredicted = pTensorOutput.max(1)
+        pListLabel.append(pTensorPredicted.detach().cpu().numpy())
+    # Warp the tensor to Dataset
+    return YoonDataset.from_tensor(pImage=None, pLabel=numpy.concatenate(pListLabel))

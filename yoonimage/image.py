@@ -163,6 +163,8 @@ class YoonImage:
 
     # Resize image with unchanged aspect ratio using padding
     def resize_with_padding(self, nWidth: int, nHeight: int, nPadding: int = 128):
+        if nWidth == self.width and nHeight == self.height:
+            return self.__copy__()
         nWidthResized = int(self.width * min(nWidth / self.width, nHeight / self.height))
         nHeightResized = int(self.height * min(nWidth / self.width, nHeight / self.height))
         pBufferResized = cv2.resize(self.__buffer, dsize=(nWidthResized, nHeightResized), interpolation=cv2.INTER_CUBIC)

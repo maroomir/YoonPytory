@@ -7,8 +7,51 @@ import torch.nn.functional
 from torch import tensor
 from torch.nn import Module
 from torch.autograd import Function
+from torch.utils.data import Dataset
 
 import numpy
+
+from yoonimage.data import YoonDataset
+
+
+def parse_config(strConfigFile: str):
+    pFile = open(strConfigFile, 'r')
+    pListLines = pFile.read().split("\n")
+    pListLines = [iLine for iLine in pListLines if len(iLine) > 0]  # erase the empty line
+    pListLines = [iLine for iLine in pListLines if iLine[0] != "#"]  # erase the comment
+    pListLines = [iLine.rstrip().lstrip for iLine in pListLines]  # erase the space
+    # Get parameter blocks
+    pDicBlock = {}
+    pListBlockDict = []
+    for iLine in pListLines:
+        if iLine[0] == "[":  # start new block
+            if iLine(pDicBlock) != 0:
+                pListBlockDict.append(pDicBlock)
+                pDicBlock = {}
+            pDicBlock['type'] = iLine[1:-1].rstrip()
+        else:
+            strKey, strValue = iLine.split('=')
+            pDicBlock[strKey.rstrip()] = strValue.lstrip()
+    pListBlockDict.append(pDicBlock)
+    return pListBlockDict
+
+
+class YoloDataset(Dataset):
+    def __init__(self,
+                 pDataset: YoonDataset,
+                 strConfigFile: str):
+        self.data = pDataset
+        self.blocks = parse_config(strConfigFile)
+        self.width = 0
+        self.height = 0
+        self.channel = 0
+
+    def __extract_info(self):
+        pDicNet = self.blocks[0]
+        self.height = int(pDicNet['height'])
+        self.width = int(pDicNet['width'])
+        self.channel = int(pDicNet['channels'])
+
 
 
 class MishActivation(Function):
@@ -35,6 +78,17 @@ class Mish(Module):
 
     def forward(self, pTensorX: tensor):
         return MishActivation.apply(pTensorX)
+
+
+class MaxPoolStride(Module):
+    def __init__(self, nKernel):
+        super(MaxPoolStride, self).__init__()
+        self.kernel_size = nKernel
+        self.pad = nKernel - 1
+
+    def forward(self, pTensorX: tensor):
+        pTensorX = torch.nn.functional.pad(pTensorX, (0, self.pad, 0, self.pad), mode="replicate")
+        return torch.nn.functional.max_pool2d(pTensorX, self.kernel_size, self.pad)
 
 
 class DummyLayer(Module):
@@ -87,38 +141,18 @@ class YoloLayer(Module):
 
 
 class DarkNet(Module):
-    def __init__(self, strConfigFile):
+    def __init__(self,
+                 strConfigFile: str):
         super(DarkNet, self).__init__()
-        self.blocks = self.__parse_config(strConfigFile)
+        self.blocks = parse_config(strConfigFile)
         self.net_info, self.modules = self.__create_module()
         self.header = torch.Tensor([0, 0, 0, 0])
         self.seen = 0
 
-    def __parse_config(self, strConfigFile: str):
-        pFile = open(strConfigFile, 'r')
-        pListLines = pFile.read().split("\n")
-        pListLines = [iLine for iLine in pListLines if len(iLine) > 0]  # erase the empty line
-        pListLines = [iLine for iLine in pListLines if iLine[0] != "#"]  # erase the comment
-        pListLines = [iLine.rstrip().lstrip for iLine in pListLines]  # erase the space
-        # Get parameter blocks
-        pDicBlock = {}
-        pListBlockDict = []
-        for iLine in pListLines:
-            if iLine[0] == "[":  # start new block
-                if iLine(pDicBlock) != 0:
-                    pListBlockDict.append(pDicBlock)
-                    pDicBlock = {}
-                pDicBlock['type'] = iLine[1:-1].rstrip()
-            else:
-                strKey, strValue = iLine.split('=')
-                pDicBlock[strKey.rstrip()] = strValue.lstrip()
-        pListBlockDict.append(pDicBlock)
-        return pListBlockDict
-
     def __create_module(self):
         pDicNet = self.blocks[0]
         pListModule = torch.nn.ModuleList()
-        nCountInput = 3
+        nDimPrev = self.net_info['channels']
         pListFilterStack = []
         for i, iBlock in enumerate(self.blocks[1:]):
             pModule = torch.nn.Sequential()
@@ -130,31 +164,32 @@ class DarkNet(Module):
                 except:
                     bBatchNormalize = 0
                     bBias = True
-                nCountFilter = int(iBlock['filters'])
+                nDimModule = int(iBlock['filters'])
                 bPadding = int(iBlock['pad'])
                 nSizeKernel = int(iBlock['size'])
                 nStride = int(iBlock['stride'])
-                if bPadding > 0:
+                if bPadding > 0:  # Auto padding
                     nPad = (nSizeKernel - 1) // 2
                 else:
                     nPad = 0
                 # Add the convolutional layer
                 pModule.add_module("conv_{0}".format(i),
-                                   torch.nn.Conv2d(in_channels=nCountInput, out_channels=nCountFilter,
+                                   torch.nn.Conv2d(in_channels=nDimPrev, out_channels=nDimModule,
                                                    kernel_size=nSizeKernel, stride=nStride,
                                                    padding=nPad, bias=bBias))
                 # Add the batch norm layer
                 if bBatchNormalize > 0:
-                    pModule.add_module("batch_norm_{0}".format(i), torch.nn.BatchNorm2d(num_features=nCountFilter))
+                    pModule.add_module("batch_norm_{0}".format(i), torch.nn.BatchNorm2d(num_features=nDimModule))
                 # Check the activation
                 if strActiveFunc == "leaky":
                     pModule.add_module("leaky_{0}".format(i), torch.nn.LeakyReLU(0.1, inplace=True))
                 elif strActiveFunc == "mish":
                     pModule.add_module("mish_{0}".format(i), Mish(bInplace=True))
+                elif strActiveFunc == "logistic":
+                    pModule.add_module("mish_{0}".format(i), torch.nn.Sigmoid())
             elif iBlock['type'] == "upsample":
                 nStride = int(iBlock['stride'])
-                pModule.add_module("leaky_{0}".format(i), torch.nn.Upsample(scale_factor=2, mode="nearest"))
-
+                pModule.add_module("leaky_{0}".format(i), torch.nn.Upsample(scale_factor=nStride, mode="nearest"))
             elif iBlock['type'] == "route":
                 iBlock['layers'] = iBlock['layers'].split(',')
                 nStart = int(iBlock['layers'][0])
@@ -168,12 +203,20 @@ class DarkNet(Module):
                     nEnd = nEnd - i
                 pModule.add_module("route_{0}".format(i), DummyLayer())
                 if nEnd < 0:
-                    nCountFilter = pListFilterStack[i + nStart] + pListFilterStack[i + nEnd]
+                    nDimModule = pListFilterStack[i + nStart] + pListFilterStack[i + nEnd]
                 else:
-                    nCountFilter = pListFilterStack[i + nStart]
+                    nDimModule = pListFilterStack[i + nStart]
             # Define the skip connection layer
             elif iBlock['type'] == "shortcut":
                 pModule.add_module("shortcut_{0}".format(i), DummyLayer())
+            # Define the pooling layer
+            elif iBlock['type'] == "maxpool":
+                nStride = int(iBlock['stride'])
+                nSize = int(iBlock['size'])
+                if nStride != 1:
+                    pModule.add_module("maxpool_{0}".format(i), torch.nn.MaxPool2d(kernel_size=nSize, stride=nStride))
+                else:
+                    pModule.add_module("maxpool_{0}".format(i), MaxPoolStride(nKernel=nSize))
             # Define the detection layer
             elif iBlock['type'] == "yolo":
                 pListMask = iBlock['mask'].split(",")
@@ -185,7 +228,8 @@ class DarkNet(Module):
                 pListAnchorBox = [pListAnchorBox[iMask] for iMask in pListMask]
                 pModule.add_module("detection_{0}".format(i), YoloLayer(pListAnchorBox))
             pListModule.append(pModule)
-            pListFilterStack.append(nCountFilter)
+            nDimPrev = nDimModule
+            pListFilterStack.append(nDimModule)
         return pDicNet, pListModule
 
     def forward(self, pTensorX: tensor):
@@ -217,7 +261,7 @@ class DarkNet(Module):
                 pDicResultStack[i] = pTensorX
             elif strType == "yolo":
                 self.modules[i][0].image_height = int(self.net_info['height'])  # YoloLayer
-                self.modules[i][0].image_width = self.image_height
+                self.modules[i][0].image_width = int(self.net_info['width'])
                 self.modules[i][0].class_count = int(iBlock['classes'])
                 # Predict the bounding boxes
                 pTensorX = pTensorX.data
@@ -299,7 +343,6 @@ class DarkNet(Module):
             else:
                 return pTensor
 
-        nDataLength = len(self.blocks) - 1
         pFile = open(strWeightFilePath, "wb")
         # Attach the header at the top of the file
         self.header[3] = self.seen
@@ -323,3 +366,4 @@ class DarkNet(Module):
                 else:
                     to_cpu(pConvolution.bias.data).numpy().tofile(pFile)
                 to_cpu(pConvolution.weight.data).numpy().tofile(pFile)
+

@@ -1,3 +1,6 @@
+import os
+import math
+
 import numpy.random
 import torch
 from torch import Tensor
@@ -6,30 +9,11 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import matplotlib.pyplot
 import sklearn.metrics
+from tqdm import tqdm
 
 from yoonimage.data import YoonDataset
 from yoonpytory.log import YoonNLM
-
-
-class SegmentationDataset(Dataset):
-    def __init__(self,
-                 pDataset: YoonDataset,
-                 nDimOutput: int
-                 ):
-        self.data = pDataset
-        self.data.resize(strOption="min")
-        self.data.rechannel(strOption="min")
-        self.data.normalize(strOption="z")
-        self.input_dim = self.data.min_channel()
-        self.output_dim = nDimOutput
-
-    def __len__(self):
-        return self.data.__len__()
-
-    def __getitem__(self, item):
-        pArrayInput = self.data[item].image.copy_tensor()
-        nTarget = self.data[item].label
-        return pArrayInput, nTarget
+from dataset import ClassificationDataset
 
 
 class VGG(Module):
@@ -77,18 +61,17 @@ class VGG(Module):
         return torch.nn.Sequential(*pListLayer)
 
 
-def __process_train(nEpoch: int, pModel: VGG, pDataLoader: DataLoader, pOptimizer, pCriterion):
-    print("\nEpoch: {}".format(nEpoch))
-    print("\nTrain: ")
+def __process_train(pModel: VGG, pDataLoader: DataLoader, pOptimizer, pCriterion, pLog: YoonNLM):
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
         pDevice = torch.device('cpu')
     pModel.train()
-    dLossTotal = 0.0
-    nCountCorrect = 0
-    nCountTotal = 0
-    for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
+    pBar = tqdm(enumerate(pDataLoader))
+    dTotalLoss = 0.0
+    nTotalCorrect = 0
+    nLengthSample = 0
+    for i, (pTensorInput, pTensorTarget) in pBar:
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
         pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
         pTensorOutput = pModel(pTensorInput)
@@ -96,19 +79,16 @@ def __process_train(nEpoch: int, pModel: VGG, pDataLoader: DataLoader, pOptimize
         pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
         pTensorLoss.backward()
         pOptimizer.step()
-        dLossTotal += pTensorLoss.item()
+        dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
         _, pTensorPredicted = pTensorOutput.max(1)
-        nCountTotal += pTensorTarget.size(0)
-        nCountCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-
-        if i + 1 == len(pDataLoader):
-            print("[%3d/%3d] | Loss : %.3f | Acc : %.3f%% (%d/%d)" % (
-                i + 1, len(pDataLoader), dLossTotal / (i + 1), 100. * nCountCorrect / nCountTotal,
-                nCountCorrect, nCountTotal))
+        nLengthSample += pTensorTarget.size(0)
+        nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
+        strMessage = pLog.write(i, len(pDataLoader),
+                                Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
+        pBar.set_description(strMessage)
 
 
-def __process_evaluate(iEpoch: int,
-                       pModel: VGG,
+def __process_evaluate(pModel: VGG,
                        pDataLoader: DataLoader,
                        pCriterion,
                        pLog: YoonNLM):
@@ -118,23 +98,24 @@ def __process_evaluate(iEpoch: int,
     else:
         pDevice = torch.device('cpu')
     pModel.eval()
-    dLossTotal = 0.0
-    nCountCorrect = 0
-    nCountTotal = 0
+    pBar = tqdm(enumerate(pDataLoader))
+    dTotalLoss = 0.0
+    nTotalCorrect = 0
+    nLengthSample = 0
     with torch.no_grad():
-        for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
+        for i, (pTensorInput, pTensorTarget) in pBar:
             pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
             pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
             pTensorOutput = pModel(pTensorInput)
             pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
-            dLossTotal += pTensorLoss.item()
+            dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
             _, pTensorPredicted = pTensorOutput.max(1)
-            nCountTotal += pTensorTarget.size(0)
-            nCountCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-            if i + 1 == len(pDataLoader):
-                print("[%3d/%3d] | Loss: %.3f | Acc: %.3f%% (%d/%d)" % (
-                    i + 1, len(pDataLoader), dLossTotal / (i + 1), 100. * nCountCorrect / nCountTotal,
-                    nCountCorrect, nCountTotal))
+            nLengthSample += pTensorTarget.size(0)
+            nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
+            strMessage = pLog.write(i, len(pDataLoader),
+                                    Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
+            pBar.set_description(strMessage)
+    return dTotalLoss / nLengthSample
 
 
 def __process_test(pModel: VGG, pDataLoader: DataLoader, pListLabel: list):
@@ -216,6 +197,7 @@ def train(nEpoch: int,
           nCountClass: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
+          strModelMode="VGG19",
           nBatchSize=1,
           nCountWorker=2,
           dLearningRate=0.1,
@@ -227,19 +209,16 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = SegmentationDataset(pTrainData, nCountClass)
+    pTrainSet = ClassificationDataset(pTrainData, nCountClass, "resize", "rechannel", "z_norm")
     pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = SegmentationDataset(pEvalData, nCountClass)
+    pValidationSet = ClassificationDataset(pEvalData, nCountClass, "resize", "rechannel", "z_norm")
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
                                    num_workers=nCountWorker, pin_memory=True)
     # Define a network model
-    pModel = VGG(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim).to(pDevice)
+    pModel = VGG(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim, strType=strModelMode).to(pDevice)
     pCriterion = torch.nn.CrossEntropyLoss()
     pOptimizer = torch.optim.SGD(pModel.parameters(), lr=dLearningRate, momentum=0.9, weight_decay=5e-4)
     pScheduler = torch.optim.lr_scheduler.StepLR(pOptimizer, step_size=20, gamma=0.5)
-    # Define the log manager
-    pNLMTrain = YoonNLM(nEpoch, "./NLM/AlexNet", "Train")
-    pNLMEval = YoonNLM(nEpoch, "./NLM/AlexNet", "Eval")
     # Load pre-trained model
     nStart = 0
     print("Directory of the pre-trained model: {}".format(strModelPath))
@@ -249,13 +228,15 @@ def train(nEpoch: int,
         pModel.load_state_dict(pModelData['model'])
         pOptimizer.load_state_dict(pModelData['optimizer'])
         print("## Successfully load the model at {} epochs!".format(nStart))
+    # Define the log manager
+    pNLMTrain = YoonNLM(nStart, strRoot="./NLM/VGG", strMode="Train")
+    pNLMEval = YoonNLM(nStart, strRoot="./NLM/VGG", strMode="Eval")
     # Train and Test Repeat
     dMinLoss = 10000.0
     for iEpoch in range(nStart, nEpoch + 1):
-        __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
+        __process_train(pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer, pLog=pNLMTrain)
-        dLoss = __process_evaluate(iEpoch, pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion,
-                                   pLog=pNLMEval)
+        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion, pLog=pNLMEval)
         # Change the learning rate
         pScheduler.step()
         # Rollback the model when loss is NaN
@@ -275,4 +256,38 @@ def train(nEpoch: int,
                        strModelPath)
         elif iEpoch % 100 == 0:
             torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                       'alexnet_{}epoch.pth'.format(iEpoch))
+                       'vgg_{}epoch.pth'.format(iEpoch))
+
+
+def test(pTestData: YoonDataset,
+         strModelPath: str,
+         nCountClass: int,
+         strModelMode="VGG19",
+         nCountWorker=2  # 0: CPU / 2 : GPU
+         ):
+    # Check if we can use a GPU device
+    if torch.cuda.is_available():
+        pDevice = torch.device('cuda')
+    else:
+        pDevice = torch.device('cpu')
+    print("{} device activation".format(pDevice.__str__()))
+    # Define a data path for plot for test
+    pDataSet = ClassificationDataset(pTestData, nCountClass, "resize", "rechannel", "z_norm")
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, num_workers=nCountWorker, pin_memory=True)
+    # Load the model
+    pModel = VGG(nDimInput=pDataSet.input_dim, nNumClass=pDataSet.output_dim, strType=strModelMode).to(pDevice)
+    pModel.eval()
+    pFile = torch.load(strModelPath)
+    pModel.load_state_dict(pFile['model'])
+    print("Successfully load the Model in path")
+    # Start the test sequence
+    pBar = tqdm(pDataLoader)
+    print("Length of data = ", len(pBar))
+    pListLabel = []
+    for i, pTensorInput in enumerate(pBar):
+        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
+        pTensorOutput = pModel(pTensorInput)
+        _, pTensorPredicted = pTensorOutput.max(1)
+        pListLabel.append(pTensorPredicted.detach().cpu().numpy())
+    # Warp the tensor to Dataset
+    return YoonDataset.from_tensor(pImage=None, pLabel=numpy.concatenate(pListLabel))

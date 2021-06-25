@@ -44,7 +44,7 @@ class YoonNLM:  # Network Log Manager
         strMessage = self.mode + " epoch={:3d} [{}/{}]".format(self.epoch, iItem + 1, nLength)
         for pItem in kwargs.items():
             strMessage += " {}={}".format(pItem[0], pItem[1])
-        if iItem == nLength - 1:
+        if iItem >= nLength - 1:
             self.epoch += 1
             self.__trace__(strMessage)
         return strMessage

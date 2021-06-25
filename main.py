@@ -2,7 +2,7 @@ import yoonpytory
 import yoonimage
 import yoonspeech
 import yoonspeech.recognition
-import yoonspeech.speechRecognition
+import yoonimage.classification
 
 
 def process_test_dir():
@@ -189,6 +189,21 @@ def process_speech_recognition_with_las():
                                      strModelPath='./data/speech/las_opt.pth')
 
 
+def process_image_segmentation(mode="alexnet"):
+    train_data, eval_data = yoonimage.parse_cifar10_trainer(
+        strRootDir='./data/images/cifar-10', dRatioTrain=0.8, strMode=mode)
+    epoch = 1000
+    if mode == "alexnet":
+        yoonimage.classification.alexnet.train(epoch, pTrainData=train_data, pEvalData=eval_data,
+                                               strModelPath='./data/image/alex_opt.pth')
+    elif mode == "vgg":
+        yoonimage.classification.vgg.train(epoch, pTrainData=train_data, pEvalData=eval_data,
+                                           strModelPath='./data/image/vgg_opt.pth')
+    elif mode == "resnet":
+        yoonimage.classification.resnet.train(epoch, pTrainData=train_data, pEvalData=eval_data,
+                                              strModelPath='./data/image/res_opt.pth')
+
+
 if __name__ == '__main__':
     # process_test_dir()
     # process_test_vector()
@@ -201,4 +216,5 @@ if __name__ == '__main__':
     # process_speaker_recognition()
     # process_speaker_recognition_with_torch()
     # process_speech_recognition_with_ctc()
-    process_speech_recognition_with_las()
+    # process_speech_recognition_with_las()
+    process_image_segmentation()

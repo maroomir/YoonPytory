@@ -157,7 +157,7 @@ class UNet2D(Module):
 
 
 # Define a train function
-def __process_train(nEpoch: int, pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
+def __process_train(pModel: UNet2D, pDataLoader: DataLoader, pCriterion: BCEWithLogitsLoss,
                     pOptimizer: Adam, pLog: YoonNLM):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -264,9 +264,6 @@ def train(nEpoch: int,
     pCriterion = torch.nn.BCEWithLogitsLoss(reduction='mean')
     # Set the scheduler to control the learning rate
     pScheduler = torch.optim.lr_scheduler.LambdaLR(pOptimizer, lr_lambda=learning_func)
-    # Define the log manager
-    pNLMTrain = YoonNLM(nEpoch, "./NLM/UNet2D", "Train")
-    pNLMEval = YoonNLM(nEpoch, "./NLM/UNet2D", "Eval")
     # Load pre-trained model
     nStart = 0
     print("Directory of the pre-trained model: {}".format(strModelPath))
@@ -276,15 +273,17 @@ def train(nEpoch: int,
         pModel.load_state_dict(pModelData['model'])
         pOptimizer.load_state_dict(pModelData['optimizer'])
         print("## Successfully load the model at {} epochs!".format(nStart))
+    # Define the log manager
+    pNLMTrain = YoonNLM(nStart, strRoot="./NLM/UNet2D", strMode="Train")
+    pNLMEval = YoonNLM(nStart, strRoot="./NLM/UNet2D", strMode="Eval")
     # Train and Test Repeat
     dMinLoss = 10000.0
     for iEpoch in range(nStart, nEpoch + 1):
         # Train the network
-        __process_train(iEpoch, pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
+        __process_train(pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
                         pOptimizer=pOptimizer, pLog=pNLMTrain)
         # Test the network
-        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion,
-                                   pLog=pNLMEval)
+        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion, pLog=pNLMEval)
         # Change the learning rate
         pScheduler.step()
         # Rollback the model when loss is NaN
@@ -338,4 +337,4 @@ def test(pTestData: YoonDataset,
         pTensorOutput = pModel(pTensorInput)
         pListOutput.append(pTensorOutput.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    return YoonDataset.from_tensor(pTensor=numpy.concatenate(pListOutput))
+    return YoonDataset.from_tensor(pImage=numpy.concatenate(pListOutput))

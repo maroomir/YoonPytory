@@ -45,20 +45,29 @@ class YoonDataset:
     images: list = []
 
     @staticmethod
-    def from_tensor(pTensor: numpy.ndarray,
+    def from_tensor(pImage: numpy.ndarray,
+                    pLabel: numpy.ndarray = None,
                     bWithBatch: bool = True,
                     nChannel: int = 3):
         pDataSet = YoonDataset()
         if bWithBatch:
-            for iBatch in range(len(pTensor)):
-                pDataSet.labels.append(iBatch)
-                pDataSet.images.append(YoonImage.from_tensor(pTensor=pTensor[iBatch]))
+            for iBatch in range(len(pImage)):
+                if pLabel is None:
+                    pDataSet.labels.append(iBatch)
+                else:
+                    pDataSet.labels.append(pLabel[iBatch])
+                if pImage is not None:
+                    pDataSet.images.append(YoonImage.from_tensor(pTensor=pImage[iBatch]))
             return pDataSet
         else:
-            for iBatch in range(len(pTensor), nChannel):
-                pDataSet.labels.append(iBatch)
-                pDataSet.images.append(YoonImage.from_tensor(pTensor=numpy.concatenate([pTensor[iBatch + i]
-                                                                                        for i in range(nChannel)])))
+            for iBatch in range(len(pImage), nChannel):
+                if pLabel is None:
+                    pDataSet.labels.append(iBatch)
+                else:
+                    pDataSet.labels.append(pLabel[iBatch])
+                if pImage is not None:
+                    pDataSet.images.append(YoonImage.from_tensor(pTensor=numpy.concatenate([pImage[iBatch + i]
+                                                                                            for i in range(nChannel)])))
             return pDataSet
 
     def __str__(self):
@@ -231,7 +240,7 @@ class YoonDataset:
     def resize(self,
                nWidth: int = 480,
                nHeight: int = 480,
-               strOption=None  # "min", "max"
+               strOption=None  # "min", "max", "padding"
                ):
         if strOption == "min":
             nWidth, nHeight = self.min_size()
@@ -239,7 +248,10 @@ class YoonDataset:
             nWidth, nHeight = self.max_size()
         for iImage in range(len(self.images)):
             if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].resize(nWidth, nHeight)
+                if strOption == "padding":
+                    self.images[iImage] = self.images[iImage].resize_with_padding(nWidth, nHeight)
+                else:
+                    self.images[iImage] = self.images[iImage].resize(nWidth, nHeight)
 
     def rechannel(self,
                   nChannel: int = 1,
