@@ -12,7 +12,7 @@ import sklearn.metrics
 
 from yoonimage.data import YoonDataset
 from yoonpytory.log import YoonNLM
-from dataset import ClassificationDataset
+from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
 
 
 class AlexNet(Module):
@@ -61,7 +61,7 @@ def __process_train(pModel: AlexNet,
     dTotalLoss = 0.0
     nTotalCorrect = 0
     nLengthSample = 0
-    for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
+    for i, (pTensorInput, pTensorTarget) in pBar:
         pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
         pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
         pTensorOutput = pModel(pTensorInput)
@@ -186,8 +186,8 @@ def train(nEpoch: int,
           nCountClass: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
-          nBatchSize=1,
-          nCountWorker=2,
+          nBatchSize=8,
+          nCountWorker=0,  # 0: CPU / 4 : GPU
           dLearningRate=0.1,
           bInitEpoch=False):
     # Check if we can use a GPU Device
@@ -198,10 +198,11 @@ def train(nEpoch: int,
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
     pTrainSet = ClassificationDataset(pTrainData, nCountClass, "resize", "rechannel", "z_norm")
-    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
+    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True,
+                              collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     pValidationSet = ClassificationDataset(pEvalData, nCountClass, "resize", "rechannel", "z_norm")
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
-                                   num_workers=nCountWorker, pin_memory=True)
+                                   collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Define a network model
     pModel = AlexNet(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim).to(pDevice)
     pCriterion = torch.nn.CrossEntropyLoss()
@@ -251,7 +252,7 @@ def train(nEpoch: int,
 def test(pTestData: YoonDataset,
          strModelPath: str,
          nCountClass: int,
-         nCountWorker=2  # 0: CPU / 2 : GPU
+         nCountWorker=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
@@ -261,7 +262,8 @@ def test(pTestData: YoonDataset,
     print("{} device activation".format(pDevice.__str__()))
     # Define a data path for plot for test
     pDataSet = ClassificationDataset(pTestData, nCountClass, "resize", "rechannel", "z_norm")
-    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, num_workers=nCountWorker, pin_memory=True)
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_segmentation,
+                             num_workers=nCountWorker, pin_memory=True)
     # Load the model
     pModel = AlexNet(nDimInput=pDataSet.input_dim, nNumClass=pDataSet.output_dim).to(pDevice)
     pModel.eval()

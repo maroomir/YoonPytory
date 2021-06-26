@@ -26,6 +26,8 @@ def parse_nlm(strLogPath: str,
 
 
 class YoonNLM:  # Network Log Manager
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
     def __init__(self,
                  nStartEpoch=0,
                  strRoot="./NLM",
@@ -43,7 +45,7 @@ class YoonNLM:  # Network Log Manager
               **kwargs):
         strMessage = self.mode + " epoch={:3d} [{}/{}]".format(self.epoch, iItem + 1, nLength)
         for pItem in kwargs.items():
-            strMessage += " {}={}".format(pItem[0], pItem[1])
+            strMessage += " {}={:.4f}".format(pItem[0], pItem[1])
         if iItem >= nLength - 1:
             self.epoch += 1
             self.__trace__(strMessage)
@@ -55,7 +57,9 @@ class YoonNLM:  # Network Log Manager
         if not os.path.exists(strDirPath):
             os.makedirs(strDirPath)
         strCurrentFilePath = strDirPath + "/{}.txt".format(pNow.day)
-        if strCurrentFilePath != self.txt_path:
+        if self.txt_path == "":
+            self.txt_path = strCurrentFilePath
+        elif strCurrentFilePath != self.txt_path:
             pListLog = parse_nlm(self.txt_path, self.mode)
             self.__record__(pListLog)
             self.txt_path = strCurrentFilePath

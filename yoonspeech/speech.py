@@ -9,14 +9,16 @@ from sklearn.preprocessing import minmax_scale
 
 
 class YoonSpeech:
-    __signal: list
-    sampling_rate: int
-    fft_count: int = 512
-    mel_order: int = 24
-    mfcc_order: int = 13
-    window_length: float = 0.02
-    shift_length: float = 0.005
-    context_size: int = 10
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # __signal: list
+    # sampling_rate: int
+    # fft_count: int = 512
+    # mel_order: int = 24
+    # mfcc_order: int = 13
+    # window_length: float = 0.02
+    # shift_length: float = 0.005
+    # context_size: int = 10
 
     def __str__(self):
         return "SIGNAL LENGTH : {0}, SAMPLING RATE : {1}".format(len(self.__signal), self.sampling_rate)
@@ -41,12 +43,11 @@ class YoonSpeech:
         self.shift_length = dShiftLength
         self.context_size = nContextSize
         self.feature_type = strFeatureType
+        self.__signal = None
         if strFileName is not None:
             self.load_sound_file(strFileName)
         elif pSignal is not None:
             self.__signal = pSignal
-        else:
-            self.__signal = None
 
     def __copy__(self):
         return YoonSpeech(pSignal=self.__signal, nSamplingRate=self.sampling_rate,

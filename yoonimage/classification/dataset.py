@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import Dataset
 
 from yoonimage.data import YoonDataset
@@ -32,3 +33,11 @@ class ClassificationDataset(Dataset):
         pArrayInput = self.data[item].image.copy_tensor()
         nTarget = self.data[item].label
         return pArrayInput, nTarget
+
+def collate_segmentation(pListTensor):
+    # Make the batch order in first step
+    pListInput = [torch.tensor(pData).unsqueeze(dim=0) for pData, nLabel in pListTensor]
+    pListTarget = [torch.tensor(nLabel).unsqueeze(dim=0) for pData, nLabel in pListTensor]
+    pTensorInput = torch.cat(pListInput, dim=0)
+    pTensorTarget = torch.LongTensor(pListTarget)
+    return pTensorInput, pTensorTarget

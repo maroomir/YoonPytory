@@ -1,33 +1,20 @@
 import os
+
+import matplotlib.pyplot
+import numpy
 import torch
 import torch.nn
-import numpy
-import matplotlib.pyplot
-from tqdm import tqdm
-from torch import tensor
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from torch.optim import Adam
-from torch.nn import Module
-from torch.nn import CrossEntropyLoss
 from sklearn.manifold import TSNE
+from torch import tensor
+from torch.nn import CrossEntropyLoss
+from torch.nn import Module
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from yoonspeech.data import YoonDataset
 from yoonspeech.speech import YoonSpeech
-
-
-# Define a SpeakerDataset class
-class SpeakerDataset(Dataset):
-    def __init__(self,
-                 pDataset: YoonDataset):
-        self.data = pDataset
-
-    def __len__(self):  # Return Dataset length to decision data-loader size
-        return self.data.__len__()
-
-    def __getitem__(self, item: int):  # obtain label and file name
-        nTarget = self.data[item].label
-        pArrayInput = self.data[item].buffer
-        return pArrayInput, nTarget
+from yoonspeech.recognition.dataset import DvectorDataset
 
 
 class DVector(Module):
@@ -61,22 +48,6 @@ class DVector(Module):
         if bExtract:
             pTensorResult = self.classification_layer(pTensorResult)
         return pTensorResult
-
-
-# Define a collate function for the data loader (Assort for Batch)
-def collate_tensor(pListTensor):
-    pListInput = []
-    pListTarget = []
-    nLengthMin = min([len(pData) for pData, nLabel in pListTensor]) - 1
-    for pInputData, nTargetLabel in pListTensor:
-        nStart = numpy.random.randint(len(pInputData) - nLengthMin)
-        # Change the tensor shape (Frame, Deltas) to (CH, Frame, Deltas)
-        pListInput.append(torch.tensor(pInputData[nStart:nStart + nLengthMin]).unsqueeze(0))
-        pListTarget.append(torch.tensor(nTargetLabel))
-    # Grouping batch
-    pListInput = torch.cat(pListInput, 0)  # (CH, Freme, Deltas) -> (CH * Batch, Frame, Deltas)
-    pListTarget = torch.LongTensor(pListTarget)
-    return pListInput, pListTarget
 
 
 # Define a train function
@@ -171,11 +142,11 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = SpeakerDataset(pTrainData)
-    pTrainLoader = DataLoader(pTrainSet, batch_size=8, shuffle=True, collate_fn=collate_tensor,
+    pTrainSet = DvectorDataset(pTrainData)
+    pTrainLoader = DataLoader(pTrainSet, batch_size=8, shuffle=True, collate_fn=collate_dvector,
                               num_workers=0, pin_memory=True)
-    pValidationSet = SpeakerDataset(pValidationData)
-    pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+    pValidationSet = DvectorDataset(pValidationData)
+    pValidationLoader = DataLoader(pValidationSet, batch_size=1, shuffle=False, collate_fn=collate_dvector,
                                    num_workers=0, pin_memory=True)
     # Define a network model
     pModel = DVector(nDimInput=pTrainData.get_dimension(), nDimOutput=nCountSpeakers).to(pDevice)
@@ -234,8 +205,8 @@ def test(pTestData: YoonDataset,
     pModel.load_state_dict(pFile['model'])
     print("Successfully load the Model in path")
     # Define a data path for plot for test
-    pDataSet = SpeakerDataset(pTestData)
-    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_tensor,
+    pDataSet = DvectorDataset(pTestData)
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, collate_fn=collate_dvector,
                              num_workers=0, pin_memory=True)
     pBar = tqdm(pDataLoader)
     print("Length of data = ", len(pBar))

@@ -78,9 +78,12 @@ def back_propagation(pX: numpy.ndarray, pListW: list, pY: numpy.ndarray,
 
 
 class YoonNeuron:
-    input: numpy.ndarray
-    weight: numpy.ndarray
-    output: numpy.ndarray
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    def __init__(self):
+        self.input: numpy.ndarray = None
+        self.weight: numpy.ndarray = None
+        self.output: numpy.ndarray = None
 
     def load_source(self, strFileName: str):
         pArrayData = numpy.load(strFileName)
@@ -151,9 +154,12 @@ class YoonNeuron:
 
 
 class YoonNetwork:
-    input: numpy.ndarray
-    weights: list
-    output: numpy.ndarray
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    def __init__(self):
+        self.input: numpy.ndarray = None
+        self.weights: list = None
+        self.output: numpy.ndarray = None
 
     def load_source(self, strFileName: str):
         pArrayData = numpy.load(strFileName)

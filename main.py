@@ -190,18 +190,20 @@ def process_speech_recognition_with_las():
 
 
 def process_image_segmentation(mode="alexnet"):
-    train_data, eval_data = yoonimage.parse_cifar10_trainer(
-        strRootDir='./data/images/cifar-10', dRatioTrain=0.8, strMode=mode)
+    class_count, train_data, eval_data = yoonimage.parse_cifar10_trainer(
+        strRootDir='./data/image/cifar-10', dRatioTrain=0.8, strMode=mode)
     epoch = 1000
+    train_data.draw_dataset(5, 5)
+    eval_data.draw_dataset(5, 5)
     if mode == "alexnet":
         yoonimage.classification.alexnet.train(epoch, pTrainData=train_data, pEvalData=eval_data,
-                                               strModelPath='./data/image/alex_opt.pth')
+                                               nCountClass=class_count, strModelPath='./data/image/alex_opt.pth')
     elif mode == "vgg":
         yoonimage.classification.vgg.train(epoch, pTrainData=train_data, pEvalData=eval_data,
-                                           strModelPath='./data/image/vgg_opt.pth')
+                                           nCountClass=class_count, strModelPath='./data/image/vgg_opt.pth')
     elif mode == "resnet":
         yoonimage.classification.resnet.train(epoch, pTrainData=train_data, pEvalData=eval_data,
-                                              strModelPath='./data/image/res_opt.pth')
+                                              nCountClass=class_count, strModelPath='./data/image/res_opt.pth')
 
 
 if __name__ == '__main__':
