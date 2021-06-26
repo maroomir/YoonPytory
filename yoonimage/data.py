@@ -321,7 +321,9 @@ class YoonDataset:
 
     def draw_dataset(self,
                      nRow: int = 4,
-                     nCol: int = 4):
+                     nCol: int = 4,
+                     strMode: str = "label"  # label, name
+                     ):
         nCountImage = len(self.images)
         nCountShow = nRow * nCol
         if nCountImage < nCountShow:
@@ -334,7 +336,11 @@ class YoonDataset:
             pPlot.set_xticks([])
             pPlot.set_yticks([])
             pImage = self.images[pListRandom[i]].pixel_decimal().copy_buffer()
-            nLabel = self.labels[pListRandom[i]]
-            pPlot.set_title("{:3d}".format(nLabel))
+            if strMode == "label":
+                nLabel = self.labels[pListRandom[i]]
+                pPlot.set_title("{:3d}".format(nLabel))
+            elif strMode == "name":
+                strName = self.names[pListRandom[i]]
+                pPlot.set_title("{}".format(strName))
             pPlot.imshow(pImage)
         matplotlib.pyplot.show()
