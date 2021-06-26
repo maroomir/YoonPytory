@@ -1,19 +1,19 @@
 import numpy
 import matplotlib.pyplot
 
-from yoonpytory.rect import YoonRect2D
-from yoonpytory.vector import YoonVector2D
-from yoonpytory.line import YoonLine2D
+from yoonpytory.figure import YoonLine2D, YoonRect2D, YoonVector2D
 from yoonimage.image import YoonImage
 
 
 class YoonObject:
-    label = 0
-    name = ""
-    score = 0.0
-    pix_count = 0
-    region: (YoonRect2D, YoonLine2D, YoonVector2D) = None
-    image: YoonImage = None
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # label = 0
+    # name = ""
+    # score = 0.0
+    # pix_count = 0
+    # region: (YoonRect2D, YoonLine2D, YoonVector2D) = None
+    # image: YoonImage = None
 
     def __init__(self,
                  nID: int = 0,
@@ -26,6 +26,8 @@ class YoonObject:
         self.name = strName
         self.score = dScore
         self.pix_count = nCountPixel
+        self.region: (YoonRect2D, YoonLine2D, YoonVector2D) = None
+        self.image: YoonImage = None
         if pRegion is not None:
             self.region = pRegion.__copy__()
         if pImage is not None:
@@ -37,12 +39,14 @@ class YoonObject:
 
 
 class YoonDataset:
-    labels: list = []
-    names: list = []
-    scores: list = []
-    pix_counts: list = []
-    regions: list = []
-    images: list = []
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # labels: list = []
+    # names: list = []
+    # scores: list = []
+    # pix_counts: list = []
+    # regions: list = []
+    # images: list = []
 
     @staticmethod
     def from_tensor(pImage: numpy.ndarray,
@@ -79,6 +83,12 @@ class YoonDataset:
     def __init__(self,
                  pList: list = None,
                  *args: (YoonObject, YoonImage, YoonRect2D, YoonLine2D, YoonVector2D)):
+        self.labels: list = []
+        self.names: list = []
+        self.scores: list = []
+        self.pix_counts: list = []
+        self.regions: list = []
+        self.images: list = []
         if len(args) > 0:
             iCount = 0
             for pItem in args:
@@ -218,8 +228,8 @@ class YoonDataset:
         self.names.append(pObject.name)
         self.scores.append(pObject.score)
         self.pix_counts.append(pObject.pix_count)
-        self.regions.append(pObject.region.__copy__())
-        self.images.append(pObject.image.__copy__())
+        self.regions.append(pObject.region)
+        self.images.append(pObject.image)
 
     def min_size(self):
         nHeight = min([pImage.height for pImage in self.images])
@@ -323,7 +333,7 @@ class YoonDataset:
             pPlot = pFigure.add_subplot(nRow, nCol, i + 1)
             pPlot.set_xticks([])
             pPlot.set_yticks([])
-            pImage = self.images[pListRandom[i]]
+            pImage = self.images[pListRandom[i]].pixel_decimal().copy_buffer()
             nLabel = self.labels[pListRandom[i]]
             pPlot.set_title("{:3d}".format(nLabel))
             pPlot.imshow(pImage)

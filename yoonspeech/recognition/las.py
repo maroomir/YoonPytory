@@ -8,35 +8,10 @@ from torch import tensor
 from torch.nn import Module
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from yoonspeech.data import YoonDataset
-import yoonspeech.data
-
-
-class ASRDataset(Dataset):
-    def __init__(self,
-                 pDataset: YoonDataset):
-        self.data = pDataset
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, item):
-        pArrayInput = self.data[item].buffer
-        pArrayTarget = yoonspeech.data.get_phonemes()
-        return pArrayInput, pArrayTarget
-
-
-def collate_tensor(pListTensor):
-    pListInput = [torch.tensor(pData) for pData, nLabel in pListTensor]
-    pListTarget = [torch.tensor(nLabel) for pData, nLabel in pListTensor]
-    pListInputLength = [len(pData) for pData in pListInput]
-    pListTargetLength = [len(pData) for pData in pListTarget]
-    pTensorInput = torch.nn.utils.rnn.pad_sequence(pListInput, batch_first=True)
-    pTensorTarget = torch.nn.utils.rnn.pad_sequence(pListTarget, batch_first=True)
-    return pTensorInput, pTensorTarget, pListInputLength, pListTargetLength
+from yoonspeech.recognition.dataset import ASRDataset, collate_asrdata
 
 
 # Define the pyramidal LSTM class
@@ -345,10 +320,10 @@ def train(nEpoch: int,
         print("## Success to load the LAS model : epoch {}".format(nStart))
     # Define training and test dataset
     pTrainDataset = ASRDataset(pTrainData)
-    pTrainLoader = DataLoader(pTrainDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=True,
+    pTrainLoader = DataLoader(pTrainDataset, batch_size=nSizeBatch, collate_fn=collate_asrdata, shuffle=True,
                               num_workers=nWorker, pin_memory=True)
     pValidDataset = ASRDataset(pValidationData)
-    pValidLoader = DataLoader(pValidDataset, batch_size=nSizeBatch, collate_fn=collate_tensor, shuffle=False,
+    pValidLoader = DataLoader(pValidDataset, batch_size=nSizeBatch, collate_fn=collate_asrdata, shuffle=False,
                               num_workers=nWorker, pin_memory=True)
     # Perform training / validation processing
     dMinLoss = 10000.0

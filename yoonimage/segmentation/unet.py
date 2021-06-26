@@ -236,7 +236,7 @@ def train(nEpoch: int,
           nChannel=8,
           nCountDepth=4,
           nBatchSize=1,
-          nCountWorker=2,  # 0: CPU / 2 : GPU
+          nCountWorker=0,  # 0: CPU / 4 : GPU
           dRateDropout=0.3,
           dRatioDecay=0.5,
           bInitEpoch=False):
@@ -310,7 +310,7 @@ def test(pTestData: YoonDataset,
          strModelPath: str,
          nChannel=8,
          nCountDepth=4,
-         nCountWorker=2,  # 0: CPU / 2 : GPU
+         nCountWorker=0,  # 0: CPU / 4 : GPU
          dRateDropout=0.3):
     # Check if we can use a GPU device
     if torch.cuda.is_available():

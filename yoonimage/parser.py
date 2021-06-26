@@ -14,19 +14,16 @@ def parse_cifar10_trainer(strRootDir: str,
     strLabelFile = os.path.join(strRootDir, "batches.meta")
     with open(strLabelFile, 'rb') as pFile:
         pDicLabel = pickle.load(pFile)
-        pArrayName = pDicLabel['label_names']
+        pListName = pDicLabel['label_names']
     # Read the data
     pListTrainFile = [os.path.join(strRootDir, "data_batch_{}".format(i + 1)) for i in range(5)]
     pArrayData = []
     pArrayLabel = []
     for strPath in pListTrainFile:
-        try:
-            with open(strPath, 'rb') as pFile:
-                pDicData = pickle.load(pFile, encoding='bytes')
-            pArrayData.append(pDicData['data'])
-            pArrayLabel.append(pDicData['label'])
-        except:
-            FileExistsError("{} file is not exists".format(strPath))
+        with open(strPath, 'rb') as pFile:
+            pDicData = pickle.load(pFile, encoding='bytes')
+            pArrayData.append(pDicData[b'data'])
+            pArrayLabel.append(pDicData[b'labels'])
     pArrayData = numpy.concatenate(pArrayData, axis=0)
     pArrayLabel = numpy.concatenate(pArrayLabel, axis=0)
     # Transform data array to YoonDataset
@@ -36,18 +33,18 @@ def parse_cifar10_trainer(strRootDir: str,
     pDataEval = YoonDataset()
     nCutLine = int(pArrayData.shape[0] * dRatioTrain)
     for i in range(nCutLine):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3)
+        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
         nLabel = pArrayLabel[i]
-        pObject = YoonObject(nID=nLabel, strName=pArrayName[nLabel], pImage=pImage)
+        pObject = YoonObject(nID=nLabel, strName=pListName[nLabel], pImage=pImage)
         pDataTrain.append(pObject)
     for i in range(nCutLine, pArrayData.shape[0]):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3)
+        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
         nLabel = pArrayLabel[i]
-        pObject = YoonObject(nID=nLabel, strName=pArrayName[nLabel], pImage=pImage)
+        pObject = YoonObject(nID=nLabel, strName=pListName[nLabel], pImage=pImage)
         pDataEval.append(pObject)
     print("Length of Train = {}".format(pDataTrain.__len__()))
     print("Length of Test = {}".format(pDataEval.__len__()))
-    nDimOutput = pArrayName.shape[0]  # 10 (CIFAR-10)
+    nDimOutput = len(pListName)  # 10 (CIFAR-10)
     return nDimOutput, pDataTrain, pDataEval
 
 
@@ -70,7 +67,7 @@ def parse_cifar10_tester(strRootDir: str,
         ValueError("The label and data size is not equal")
     pDataTest = YoonDataset()
     for i in range(pArrayData.shape[0]):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3)
+        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
         nLabel = pArrayLabel[i]
         pObject = YoonObject(nID=nLabel, strName=pArrayName[nLabel], pImage=pImage)
         pDataTest.append(pObject)

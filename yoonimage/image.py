@@ -1,15 +1,16 @@
 import cv2
 import numpy
 
-from yoonpytory.rect import YoonRect2D
-from yoonpytory.vector import YoonVector2D
+from yoonpytory.figure import YoonVector2D, YoonRect2D
 
 
 class YoonImage:
-    width: int
-    height: int
-    channel: int
-    __buffer: numpy.ndarray  # height, width, channel(bpp)
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # width: int
+    # height: int
+    # channel: int
+    # __buffer: numpy.ndarray  # height, width, channel(bpp)
 
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
@@ -20,21 +21,23 @@ class YoonImage:
         return YoonImage(pBuffer=pTensor.transpose(1, 2, 0))
 
     @classmethod
-    def from_mats(cls, *args):
-        pListMat = []
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], numpy.ndarray)
-                pListMat.append(args)
-            return numpy.array(pListMat)
-
-    @classmethod
     def from_array(cls,
                    pArray: numpy.ndarray,
                    nWidth: int,
                    nHeight: int,
-                   nChannel: int):
-        return YoonImage(pBuffer=pArray.reshape((nHeight, nWidth, nChannel)))
+                   nChannel: int,
+                   strMode: "mix"  # mix, parallel
+                   ):
+        if strMode == "parallel":
+            pArray = pArray.reshape(-1)
+            pListBuffer = []
+            for i in range(nChannel):
+                pChannel = pArray[i * nWidth * nHeight: (i+1)*nWidth*nHeight]
+                pChannel = pChannel.reshape((nHeight, nWidth))
+                pListBuffer.append(numpy.expand_dims(pChannel, axis=-1))
+            return YoonImage(pBuffer=numpy.concatenate(pListBuffer, axis=-1))
+        if strMode == "mix":
+            return YoonImage(pBuffer=pArray.reshape((nHeight, nWidth, nChannel)))
 
     def __init__(self,
                  pImage=None,
@@ -43,6 +46,10 @@ class YoonImage:
                  nWidth=640,
                  nHeight=480,
                  nChannel=1):
+        self.width: int
+        self.height: int
+        self.channel: int
+        self.__buffer: numpy.ndarray  # height, width, channel(bpp)
         if pImage is not None:
             assert isinstance(pImage, YoonImage)
             self.__buffer = pImage.copy_buffer()
@@ -93,25 +100,33 @@ class YoonImage:
         pFuncMask = self.__buffer > 0
         dMean = numpy.mean(self.__buffer[pFuncMask])
         dStd = numpy.std(self.__buffer[pFuncMask])
-        pReseultBuffer = self.copy_buffer().astype(numpy.float32)
-        pReseultBuffer = numpy.matmul((pReseultBuffer - dMean) / dStd, pFuncMask)
-        return dMean, dStd, YoonImage(pBuffer=pReseultBuffer)
+        pResultBuffer = self.copy_buffer().astype(numpy.float32)
+        pResultBuffer = (pResultBuffer - dMean) / dStd
+        return dMean, dStd, YoonImage(pBuffer=pResultBuffer)
 
     def normalize(self, nChannel=None, dMean=128, dStd=255):
         if nChannel is None:
             return self._normalize_all(dMean, dStd)
-        return YoonImage(pBuffer=self.__buffer[:, :, nChannel] - dMean / dStd)
+        pResultBuffer = self.copy_buffer()
+        pResultBuffer = (pResultBuffer[:, :, nChannel] - dMean) / dStd
+        return YoonImage(pBuffer=pResultBuffer)
 
     def denormalize(self, nChannel=None, dMean=128, dStd=255):
         if nChannel is None:
             return self._denormalize_all(dMean, dStd)
-        return YoonImage(pBuffer=self.__buffer[:, :, nChannel] * dStd + dMean)
+        pResultBuffer = self.copy_buffer()
+        pResultBuffer = pResultBuffer[:, :, nChannel] * dStd + dMean
+        return YoonImage(pBuffer=pResultBuffer)
 
     def _normalize_all(self, dMean=128, dStd=255):
-        return YoonImage(pBuffer=self.__buffer - dMean / dStd)
+        pResultBuffer = self.copy_buffer()
+        pResultBuffer = (pResultBuffer - dMean) / dStd
+        return YoonImage(pBuffer=pResultBuffer)
 
     def _denormalize_all(self, dMean=128, dStd=255):
-        return YoonImage(pBuffer=self.__buffer * dStd + dMean)
+        pResultBuffer = self.copy_buffer()
+        pResultBuffer = pResultBuffer * dStd + dMean
+        return YoonImage(pBuffer=pResultBuffer)
 
     def pixel_decimal(self):
         return self._normalize_all(dMean=0, dStd=255)

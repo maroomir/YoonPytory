@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from yoonimage.data import YoonDataset
 from yoonpytory.log import YoonNLM
-from dataset import ClassificationDataset
+from yoonimage.classification.dataset import ClassificationDataset
 
 
 class ConvolutionBlock(Module):
@@ -252,7 +252,7 @@ def train(nEpoch: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
           nBatchSize=1,
-          nCountWorker=2,
+          nCountWorker=0,  # 0: CPU / 4 : GPU
           dLearningRate=0.1,
           bInitEpoch=False):
     # Check if we can use a GPU Device
@@ -315,7 +315,7 @@ def train(nEpoch: int,
 def test(pTestData: YoonDataset,
          strModelPath: str,
          nCountClass: int,
-         nCountWorker=2  # 0: CPU / 2 : GPU
+         nCountWorker=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
     if torch.cuda.is_available():

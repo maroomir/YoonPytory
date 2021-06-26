@@ -1,7 +1,6 @@
 import numpy
-
-import yoonspeech
 from g2p_en import G2p
+
 from yoonspeech.speech import YoonSpeech
 
 phoneme_list = ["aa aa aa", "ae ae ae", "ah ah ah", "ao ao aa", "aw aw aw", "ax ax ah", "ax-h ax ah", "axr er er",  # 8
@@ -63,11 +62,13 @@ def get_phonemes():
 
 
 class YoonObject(object):
-    label = 0
-    name = ""
-    word = ""
-    data_type = "deltas"
-    speech: YoonSpeech = None
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # label = 0
+    # name = ""
+    # word = ""
+    # data_type = "deltas"
+    # speech: YoonSpeech = None
 
     def __init__(self,
                  nID: int = 0,
@@ -79,6 +80,7 @@ class YoonObject(object):
         self.name = strName
         self.word = strWord
         self.data_type = strType
+        self.speech = None
         if pSpeech is not None:
             self.speech = pSpeech.__copy__()
 
@@ -87,11 +89,13 @@ class YoonObject(object):
 
 
 class YoonDataset(object):
-    labels: list = []
-    names: list = []
-    words: list = []
-    data_types: list = []
-    speeches: list = []
+    # The shared area of YoonDataset class
+    # All of instances are using this shared area
+    # labels: list = []
+    # names: list = []
+    # words: list = []
+    # data_types: list = []
+    # speeches: list = []
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())
@@ -102,6 +106,11 @@ class YoonDataset(object):
     def __init__(self,
                  pList: list = None,
                  *args: (YoonObject, YoonSpeech)):
+        self.labels: list = []
+        self.names: list = []
+        self.words: list = []
+        self.data_types: list = []
+        self.speeches: list = []
         if len(args) > 0:
             iCount = 0
             for pItem in args:

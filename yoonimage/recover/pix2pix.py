@@ -457,7 +457,7 @@ def train(nEpoch: int,
           nChannel=8,
           nCountDepth=4,
           nBatchSize=1,
-          nCountWorker=2,  # 0: CPU / 2 : GPU
+          nCountWorker=0,  # 0: CPU / 4 : GPU
           dRateDropout=0.3,
           dRatioDecay=0.5,
           bInitEpoch=False,
@@ -557,7 +557,7 @@ def test(strPath: str,
          strModelPath: str,
          nChannel=8,
          nCountDepth=4,
-         nCountWorker=2,  # 0: CPU / 2 : GPU
+         nCountWorker=0,  # 0: CPU / 4 : GPU
          dRateDropout=0.3):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
@@ -599,7 +599,7 @@ if __name__ == '__main__':
               nChannel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
               nCountDepth=4,
               nBatchSize=2,
-              nCountWorker=2,  # 0= CPU / 2 >= GPU
+              nCountWorker=0,  # 0: CPU / 4 : GPU
               dRateDropout=0.3,
               dRatioDecay=0.5,
               bInitEpoch=False)
@@ -607,7 +607,7 @@ if __name__ == '__main__':
              strModelPath='model_gen.pth',
              nChannel=64,  # 8 : colab / 4 : RTX2070
              nCountDepth=4,
-             nCountWorker=2,  # 0: CPU / 2 : GPU
+             nCountWorker=0,  # 0: CPU / 4 : GPU
              dRateDropout=0)
     elif mode == 'train':
         train(nEpoch=3000,
@@ -617,7 +617,7 @@ if __name__ == '__main__':
               nChannel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
               nCountDepth=4,
               nBatchSize=2,
-              nCountWorker=2,  # 0= CPU / 2 >= GPU
+              nCountWorker=0,  # 0: CPU / 4 : GPU
               dRateDropout=0.3,
               dRatioDecay=0.5,
               bInitEpoch=False)
@@ -626,7 +626,7 @@ if __name__ == '__main__':
              strModelPath='model_gen.pth',
              nChannel=64,  # 8 : colab / 4 : RTX2070
              nCountDepth=4,
-             nCountWorker=2,  # 0: CPU / 2 : GPU
+             nCountWorker=0,  # 0: CPU / 4 : GPU
              dRateDropout=0)
     else:
         pass
