@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from yoonimage.data import YoonDataset
 from yoonpytory.log import YoonNLM
-from yoonimage.classification.dataset import ClassificationDataset
+from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
 
 
 class ConvolutionBlock(Module):
@@ -263,10 +263,11 @@ def train(nEpoch: int,
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
     pTrainSet = ClassificationDataset(pTrainData, nCountClass, "resize", "rechannel", "z_norm")
-    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True, num_workers=nCountWorker, pin_memory=True)
+    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True,
+                              collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     pValidationSet = ClassificationDataset(pEvalData, nCountClass, "resize", "rechannel", "z_norm")
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
-                                   num_workers=nCountWorker, pin_memory=True)
+                                   collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Define a network model
     pModel = ResNet50(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim).to(pDevice)
     pCriterion = torch.nn.CrossEntropyLoss()
@@ -325,7 +326,8 @@ def test(pTestData: YoonDataset,
     print("{} device activation".format(pDevice.__str__()))
     # Define a data path for plot for test
     pDataSet = ClassificationDataset(pTestData, nCountClass, "resize", "rechannel", "z_norm")
-    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False, num_workers=nCountWorker, pin_memory=True)
+    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False,
+                             collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Load the model
     pModel = ResNet50(nDimInput=pDataSet.input_dim, nNumClass=pDataSet.output_dim).to(pDevice)
     pModel.eval()
