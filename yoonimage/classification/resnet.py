@@ -48,6 +48,7 @@ class ConvolutionBlock(Module):
 class IdentityBlock(Module):
     def __init__(self,
                  pListFilter: list):
+        super(IdentityBlock, self).__init__()
         self.filter1, self.filter2, self.filter3 = pListFilter
         self.network = torch.nn.Sequential(
             torch.nn.Conv2d(self.filter3, self.filter1, kernel_size=1, stride=1, padding=0, bias=False),  # Pad=0=valid
@@ -61,7 +62,7 @@ class IdentityBlock(Module):
         )
 
     def forward(self, pTensorX: tensor):
-        pTensorOut = self.network(pTensorX),
+        pTensorOut = self.network(pTensorX)
         pTensorOut += pTensorX
         pTensorOut = torch.nn.functional.relu(pTensorOut)
         return pTensorOut
@@ -251,7 +252,7 @@ def train(nEpoch: int,
           nCountClass: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
-          nBatchSize=1,
+          nBatchSize=8,
           nCountWorker=0,  # 0: CPU / 4 : GPU
           dLearningRate=0.1,
           bInitEpoch=False):
