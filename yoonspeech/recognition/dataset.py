@@ -34,6 +34,7 @@ class ASRDataset(Dataset):
         pArrayTarget = yoonspeech.data.get_phonemes()
         return pArrayInput, pArrayTarget
 
+
 # Define a collate function for the data loader (Assort for Batch)
 def collate_dvector(pListTensor):
     pListInput = []
@@ -49,6 +50,7 @@ def collate_dvector(pListTensor):
     pListTarget = torch.LongTensor(pListTarget)
     return pListInput, pListTarget
 
+
 def collate_asrdata(pListTensor):
     pListInput = [torch.tensor(pData) for pData, nLabel in pListTensor]
     pListTarget = [torch.tensor(nLabel) for pData, nLabel in pListTensor]
@@ -57,3 +59,23 @@ def collate_asrdata(pListTensor):
     pTensorInput = torch.nn.utils.rnn.pad_sequence(pListInput, batch_first=True)
     pTensorTarget = torch.nn.utils.rnn.pad_sequence(pListTarget, batch_first=True)
     return pTensorInput, pTensorTarget, pListInputLength, pListTargetLength
+
+
+# Define the Levenshtein Distance Algorithm
+def levenshetein_distance(pTensorA, pTensorB):
+    nLengthA, nLengthB = len(pTensorA), len(pTensorB)
+    if nLengthB > nLengthA:
+        return levenshetein_distance(nLengthB, nLengthA)
+    if nLengthB is 0:
+        return nLengthA
+    pListRowPrev = list(range(nLengthB + 1))
+    pListRowCurrent = [0] * (nLengthB + 1)
+    for i, iA in enumerate(pTensorA):
+        pListRowCurrent[0] = i + 1
+        for j, jB in enumerate(pTensorB):
+            dInsert = pListRowCurrent[j] + 1
+            dDelete = pListRowPrev[j + 1] + 1
+            dReplace = pListRowPrev[j] + (1 if iA != jB else 0)
+            pListRowCurrent[j + 1] = min(dInsert, dDelete, dReplace)
+        pListRowPrev[:] = pListRowCurrent[:]
+    return pListRowPrev[-1]
