@@ -1,6 +1,5 @@
 import os
 
-import editdistance
 import torch
 import torch.nn
 import torch.nn.functional
@@ -214,7 +213,7 @@ def __process_decode(pTensorData, pTensorLabel, pListLabelLength):
                           if (j == 0) or pTensorClassification[j] != pTensorClassification[j - 1]]
         # Compute the edit distance between the reference and estimated ones
         pCollapseLabel = torch.tensor([nLabel for nLabel in pCollapseLabel if nLabel != 0])
-        dDistance = editdistance.eval(pCollapseLabel, pTensorLabel[i][:pListLabelLength[i]]) / pListLabelLength[i]
+        dDistance = ASRDataset.levenshetein(pCollapseLabel, pTensorLabel[i][:pListLabelLength[i]]) / pListLabelLength[i]
         dLER += dDistance
     dLER /= pTensorData.size(0)
     return dLER

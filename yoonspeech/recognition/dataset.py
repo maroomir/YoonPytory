@@ -34,6 +34,28 @@ class ASRDataset(Dataset):
         pArrayTarget = yoonspeech.data.get_phonemes()
         return pArrayInput, pArrayTarget
 
+    # Define the Levenshtein Distance Algorithm
+    @staticmethod
+    def levenshetein(pSource, pTarget):
+        # For all i and j, distance[i, j] will hold the Levenshetein distance
+        # between the first i characters of source and the first j characters of target
+        nLengthSource, nLengthTarget = len(pSource), len(pTarget)
+        pDistance = numpy.zeros((nLengthSource + 1, nLengthTarget + 1))
+        # source prefixes can be transformed into empty string
+        # by dropping all characters
+        pDistance[:, 0] = numpy.array([i for i in range(1, nLengthSource)])
+        # target prefixes can be reached from empty source prefix
+        # by inserting every character
+        pDistance[0, :] = numpy.array([j for j in range(1, nLengthTarget)])
+        for j in range(1, nLengthTarget):
+            for i in range(1, nLengthSource):
+                nCost = 0 if pSource[i] == pTarget[j] else 1
+                pDistance[i, j] = min(pDistance[i - 1, j] + 1,  # deletion
+                                      pDistance[i, j - 1] + 1,  # insertion
+                                      pDistance[i - 1, j - 1] + nCost  # substitution
+                                      )
+        return pDistance[nLengthSource, nLengthTarget]
+
 
 # Define a collate function for the data loader (Assort for Batch)
 def collate_dvector(pListTensor):
@@ -59,23 +81,3 @@ def collate_asrdata(pListTensor):
     pTensorInput = torch.nn.utils.rnn.pad_sequence(pListInput, batch_first=True)
     pTensorTarget = torch.nn.utils.rnn.pad_sequence(pListTarget, batch_first=True)
     return pTensorInput, pTensorTarget, pListInputLength, pListTargetLength
-
-
-# Define the Levenshtein Distance Algorithm
-def levenshetein_distance(pTensorA, pTensorB):
-    nLengthA, nLengthB = len(pTensorA), len(pTensorB)
-    if nLengthB > nLengthA:
-        return levenshetein_distance(nLengthB, nLengthA)
-    if nLengthB is 0:
-        return nLengthA
-    pListRowPrev = list(range(nLengthB + 1))
-    pListRowCurrent = [0] * (nLengthB + 1)
-    for i, iA in enumerate(pTensorA):
-        pListRowCurrent[0] = i + 1
-        for j, jB in enumerate(pTensorB):
-            dInsert = pListRowCurrent[j] + 1
-            dDelete = pListRowPrev[j + 1] + 1
-            dReplace = pListRowPrev[j] + (1 if iA != jB else 0)
-            pListRowCurrent[j + 1] = min(dInsert, dDelete, dReplace)
-        pListRowPrev[:] = pListRowCurrent[:]
-    return pListRowPrev[-1]
