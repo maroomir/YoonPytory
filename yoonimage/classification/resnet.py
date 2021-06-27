@@ -147,7 +147,6 @@ def __process_evaluate(pModel: ResNet50,
                        pDataLoader: DataLoader,
                        pCriterion,
                        pLog: YoonNLM):
-    print("\nTest: ")
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
