@@ -1,19 +1,16 @@
-import os
 import math
+import os
 
+import matplotlib.pyplot
 import numpy.random
-import torch
+import sklearn.metrics
 from torch import tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
-import matplotlib.pyplot
-import sklearn.metrics
 from tqdm import tqdm
 
-from yoonimage.data import YoonDataset
+from yoonimage.classification.dataset import *
 from yoonpytory.log import YoonNLM
-from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
 
 
 class ConvolutionBlock(Module):
@@ -139,7 +136,7 @@ def __process_train(pModel: ResNet50, pDataLoader: DataLoader, pOptimizer, pCrit
         nLengthSample += pTensorTarget.size(0)
         nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
         strMessage = pLog.write(i, len(pDataLoader),
-                                Loss=dTotalLoss/nLengthSample, Acc=100*nTotalCorrect/nLengthSample)
+                                Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
         pBar.set_description(strMessage)
 
 
@@ -167,7 +164,7 @@ def __process_evaluate(pModel: ResNet50,
             nLengthSample += pTensorTarget.size(0)
             nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
             strMessage = pLog.write(i, len(pDataLoader),
-                                    Loss=dTotalLoss/nLengthSample, Acc=100*nTotalCorrect/nLengthSample)
+                                    Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
             pBar.set_description(strMessage)
     return dTotalLoss / nLengthSample
 
@@ -251,7 +248,9 @@ def train(nEpoch: int,
           nCountClass: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
-          nBatchSize=8,
+          pMeanNorm=[0.4914, 0.4822, 0.4465],
+          pNormStd=[0.247, 0.243, 0.261],
+          nBatchSize=32,
           nCountWorker=0,  # 0: CPU / 4 : GPU
           dLearningRate=0.1,
           bInitEpoch=False):
@@ -262,10 +261,12 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = ClassificationDataset(pTrainData, nCountClass, "resize", "rechannel", "z_norm")
+    pTrainSet = ClassificationDataset(pTrainData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
+                                      Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
     pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True,
                               collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = ClassificationDataset(pEvalData, nCountClass, "resize", "rechannel", "z_norm")
+    pValidationSet = ClassificationDataset(pEvalData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
+                                           Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
                                    collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Define a network model
@@ -316,6 +317,8 @@ def train(nEpoch: int,
 def test(pTestData: YoonDataset,
          strModelPath: str,
          nCountClass: int,
+         pMeanNorm=[0.4914, 0.4822, 0.4465],
+         pNormStd=[0.247, 0.243, 0.261],
          nCountWorker=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
@@ -325,7 +328,8 @@ def test(pTestData: YoonDataset,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define a data path for plot for test
-    pDataSet = ClassificationDataset(pTestData, nCountClass, "resize", "rechannel", "z_norm")
+    pDataSet = ClassificationDataset(pTestData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
+                                     Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
     pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False,
                              collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Load the model

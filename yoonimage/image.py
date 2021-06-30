@@ -108,14 +108,14 @@ class YoonImage:
         if nChannel is None:
             return self._normalize_all(dMean, dStd)
         pResultBuffer = self.copy_buffer()
-        pResultBuffer = (pResultBuffer[:, :, nChannel] - dMean) / dStd
+        pResultBuffer[:, :, nChannel] = (pResultBuffer[:, :, nChannel] - dMean) / dStd
         return YoonImage(pBuffer=pResultBuffer)
 
     def denormalize(self, nChannel=None, dMean=128, dStd=255):
         if nChannel is None:
             return self._denormalize_all(dMean, dStd)
         pResultBuffer = self.copy_buffer()
-        pResultBuffer = pResultBuffer[:, :, nChannel] * dStd + dMean
+        pResultBuffer[:, :, nChannel] = pResultBuffer[:, :, nChannel] * dStd + dMean
         return YoonImage(pBuffer=pResultBuffer)
 
     def _normalize_all(self, dMean=128, dStd=255):
