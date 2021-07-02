@@ -28,8 +28,8 @@ class VGG(Module):
                  nNumClass,
                  strType="VGG16"):
         super(VGG, self).__init__()
-        self.network = self.__make_layers(self.__config_dict[strType])
         self.channel = nDimInput
+        self.network = self.__make_layers(self.__config_dict[strType])
         self.fc_layer = torch.nn.Sequential(
             torch.nn.Linear(512 * 1 * 1, 360),
             torch.nn.ReLU(inplace=True),
