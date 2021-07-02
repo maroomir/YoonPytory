@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy
 
-from yoonimage.data import YoonDataset, YoonObject
+from yoonimage.data import YoonDataset, YoonObject, YoonTransform
 from yoonimage.image import YoonImage
 
 
@@ -45,7 +45,14 @@ def parse_cifar10_trainer(strRootDir: str,
     print("Length of Train = {}".format(pDataTrain.__len__()))
     print("Length of Test = {}".format(pDataEval.__len__()))
     nDimOutput = len(pListName)  # 10 (CIFAR-10)
-    return nDimOutput, pDataTrain, pDataEval
+    pListMeans=[0.4914, 0.4822, 0.4465]
+    pListStds=[0.247, 0.243, 0.261]
+    pTransform = YoonTransform(YoonTransform.Resize(),
+                               YoonTransform.Rechannel(nChannel=3),
+                               YoonTransform.Decimalize(),
+                               YoonTransform.Normalization(pNormalizeMean=pListMeans, pNormalizeStd=pListStds)
+                               )
+    return nDimOutput, pTransform, pDataTrain, pDataEval
 
 
 def parse_cifar10_tester(strRootDir: str,
@@ -73,4 +80,11 @@ def parse_cifar10_tester(strRootDir: str,
         pDataTest.append(pObject)
     print("Length of Test = {}".format(pDataTest.__len__()))
     nDimOutput = pArrayName.shape[0]  # 10 (CIFAR-10)
-    return nDimOutput, pDataTest
+    pListMeans = [0.4914, 0.4822, 0.4465]
+    pListStds = [0.247, 0.243, 0.261]
+    pTransform = YoonTransform(YoonTransform.Resize(),
+                               YoonTransform.Rechannel(nChannel=3),
+                               YoonTransform.Decimalize(),
+                               YoonTransform.Normalization(pNormalizeMean=pListMeans, pNormalizeStd=pListStds)
+                               )
+    return nDimOutput, pTransform, pDataTest

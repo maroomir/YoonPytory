@@ -4,12 +4,14 @@ import os
 import matplotlib.pyplot
 import numpy.random
 import sklearn.metrics
-from torch import tensor
+import torch
+from torch import Tensor
 from torch.nn import Module
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from yoonimage.classification.dataset import *
+from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
+from yoonimage.data import YoonDataset, YoonTransform
 from yoonpytory.log import YoonNLM
 
 
@@ -35,7 +37,7 @@ class ConvolutionBlock(Module):
             torch.nn.BatchNorm2d(self.filter3)
         )
 
-    def forward(self, pTensorX: tensor):
+    def forward(self, pTensorX: Tensor):
         pTensorOut = self.network(pTensorX)
         pTensorOut += self.shortcut(pTensorX)
         pTensorOut = torch.nn.functional.relu(pTensorOut)
@@ -58,7 +60,7 @@ class IdentityBlock(Module):
             torch.nn.BatchNorm2d(self.filter3)
         )
 
-    def forward(self, pTensorX: tensor):
+    def forward(self, pTensorX: Tensor):
         pTensorOut = self.network(pTensorX)
         pTensorOut += pTensorX
         pTensorOut = torch.nn.functional.relu(pTensorOut)
@@ -101,7 +103,7 @@ class ResNet50(Module):  # Conv Count = 50
         )
         self.fc_layer = torch.nn.Linear(2048, nNumClass)
 
-    def forward(self, pTensorX: tensor):
+    def forward(self, pTensorX: Tensor):
         pTensorOut = self.layer1(pTensorX)
         pTensorOut = self.layer2(pTensorOut)
         pTensorOut = self.layer3(pTensorOut)
@@ -248,8 +250,7 @@ def train(nEpoch: int,
           nCountClass: int,
           pTrainData: YoonDataset,
           pEvalData: YoonDataset,
-          pMeanNorm=[0.4914, 0.4822, 0.4465],
-          pNormStd=[0.247, 0.243, 0.261],
+          pTransform: YoonTransform,
           nBatchSize=32,
           nCountWorker=0,  # 0: CPU / 4 : GPU
           dLearningRate=0.1,
@@ -261,12 +262,10 @@ def train(nEpoch: int,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define the training and testing data-set
-    pTrainSet = ClassificationDataset(pTrainData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
-                                      Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
+    pTrainSet = ClassificationDataset(pTrainData, nCountClass, pTransform)
     pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True,
                               collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = ClassificationDataset(pEvalData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
-                                           Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
+    pValidationSet = ClassificationDataset(pEvalData, nCountClass, pTransform)
     pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
                                    collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Define a network model
@@ -317,8 +316,7 @@ def train(nEpoch: int,
 def test(pTestData: YoonDataset,
          strModelPath: str,
          nCountClass: int,
-         pMeanNorm=[0.4914, 0.4822, 0.4465],
-         pNormStd=[0.247, 0.243, 0.261],
+         pTransform: YoonTransform,
          nCountWorker=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
@@ -328,8 +326,7 @@ def test(pTestData: YoonDataset,
         pDevice = torch.device('cpu')
     print("{} device activation".format(pDevice.__str__()))
     # Define a data path for plot for test
-    pDataSet = ClassificationDataset(pTestData, nCountClass, Resize(), Rechannel(nChannel=3), Decimalize(),
-                                     Normalization(pNormalizeMean=pMeanNorm, pNormalizeStd=pNormStd))
+    pDataSet = ClassificationDataset(pTestData, nCountClass, pTransform)
     pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False,
                              collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
     # Load the model

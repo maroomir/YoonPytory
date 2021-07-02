@@ -344,3 +344,78 @@ class YoonDataset:
                 pPlot.set_title("{}".format(strName))
             pPlot.imshow(pImage)
         matplotlib.pyplot.show()
+
+
+class YoonTransform(object):
+    class Decimalize(object):
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.decimalize()
+
+    class Recover(object):
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.recover()
+
+    class Normalization(object):
+        def __init__(self,
+                     pNormalizeMean: list = None,
+                     pNormalizeStd: list = None):
+            self.means = pNormalizeMean if isinstance(pNormalizeMean, list) else [pNormalizeMean]
+            self.stds = pNormalizeStd if isinstance(pNormalizeStd, list) else [pNormalizeStd]
+            assert len(self.means) == len(self.stds)
+            assert 0 < len(self.means) <= 3
+
+        def __call__(self, pDataset: YoonDataset):
+            for iChannel in range(len(self.means)):
+                pDataset.normalize(iChannel, dMean=self.means[iChannel], dStd=self.stds[iChannel])
+            return pDataset
+
+    class Denormalization(object):
+        def __init__(self,
+                     pNormalizeMean: list = None,
+                     pNormalizeStd: list = None):
+            self.means = pNormalizeMean if isinstance(pNormalizeMean, list) else [pNormalizeMean]
+            self.stds = pNormalizeStd if isinstance(pNormalizeStd, list) else [pNormalizeStd]
+            assert len(self.means) == len(self.stds)
+            assert 0 < len(self.means) <= 3
+
+        def __call__(self, pDataset: YoonDataset):
+            for iChannel in range(len(self.means)):
+                pDataset.denormalize(iChannel, dMean=self.means[iChannel], dStd=self.stds[iChannel])
+            return pDataset
+
+    class ZNormalization(object):
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.normalize(strOption="z")
+
+    class MinMaxNormalization(object):
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.normalize(strOption="minmax")
+
+    class Resize(object):
+        def __init__(self,
+                     nWidth=0,
+                     nHeight=0):
+            self.width = 0
+            self.height = 0
+            self.option = "min" if nWidth == 0 and nHeight == 0 else None
+
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.resize(nWidth=self.width, nHeight=self.height, strOption=self.option)
+
+    class Rechannel(object):
+        def __init__(self,
+                     nChannel=0):
+            self.channel = nChannel
+            self.option = "min" if nChannel == 0 else None
+
+        def __call__(self, pDataset: YoonDataset):
+            return pDataset.rechannel(nChannel=self.channel, strOption=self.option)
+
+    def __init__(self,
+                 *args):
+        self.transforms = args
+
+    def __call__(self, pDataset: YoonDataset):
+        for pTransform in self.transforms:
+            pTransform(pDataset)
+        return pDataset
