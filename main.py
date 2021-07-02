@@ -189,7 +189,7 @@ def process_speech_recognition_with_las():
                                      strModelPath='./data/speech/las_opt.pth')
 
 
-def process_image_segmentation(mode="vgg"):
+def process_image_segmentation(mode="alexnet"):
     class_count, transform, train_data, eval_data = yoonimage.parse_cifar10_trainer(
         strRootDir='./data/image/cifar-10', dRatioTrain=0.8, strMode=mode)
     epoch = 1000

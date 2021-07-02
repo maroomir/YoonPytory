@@ -247,72 +247,6 @@ class YoonDataset:
     def min_channel(self):
         return min([pImage.channel for pImage in self.images])
 
-    def resize(self,
-               nWidth: int = 480,
-               nHeight: int = 480,
-               strOption=None  # "min", "max", "padding"
-               ):
-        if strOption == "min":
-            nWidth, nHeight = self.min_size()
-        elif strOption == "max":
-            nWidth, nHeight = self.max_size()
-        for iImage in range(len(self.images)):
-            if isinstance(self.images[iImage], YoonImage):
-                if strOption == "padding":
-                    self.images[iImage] = self.images[iImage].resize_with_padding(nWidth, nHeight)
-                else:
-                    self.images[iImage] = self.images[iImage].resize(nWidth, nHeight)
-
-    def rechannel(self,
-                  nChannel: int = 1,
-                  strOption=None  # "min", "max"
-                  ):
-        if strOption == "min":
-            nChannel = self.min_channel()
-        elif strOption == "max":
-            nChannel = self.max_channel()
-        for iImage in range(len(self.images)):
-            if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].rechannel(nChannel)
-
-    def normalize(self,
-                  nChannel: int = None,  # 0, 1, 2...
-                  dMean: float = 128,
-                  dStd: float = 255,
-                  strOption=None  # "minmax", "z"
-                  ):
-        if strOption == "minmax":
-            for iImage in range(len(self.images)):
-                if isinstance(self.images[iImage], YoonImage):
-                    self.images[iImage] = self.images[iImage].minmax_normalize()[2]
-        elif strOption == "z":
-            for iImage in range(len(self.images)):
-                if isinstance(self.images[iImage], YoonImage):
-                    self.images[iImage] = self.images[iImage].z_normalize()[2]
-        else:
-            for iImage in range(len(self.images)):
-                if isinstance(self.images[iImage], YoonImage):
-                    self.images[iImage] = self.images[iImage].normalize(nChannel, dMean, dStd)
-
-    def decimalize(self):
-        for iImage in range(len(self.images)):
-            if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].pixel_decimal()
-
-    def denormalize(self,
-                    nChannel: int = None,  # 0, 1, 2...
-                    dMean: float = 128,
-                    dStd: float = 255,
-                    ):
-        for iImage in range(len(self.images)):
-            if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].denormalize(nChannel, dMean, dStd)
-
-    def recover(self):
-        for iImage in range(len(self.images)):
-            if isinstance(self.images[iImage], YoonImage):
-                self.images[iImage] = self.images[iImage].pixel_recover()
-
     def to_region_points(self):
         pListResult = []
         for pRegion in self.regions:
@@ -349,11 +283,19 @@ class YoonDataset:
 class YoonTransform(object):
     class Decimalize(object):
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.decimalize()
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                pResultSet.images[iImage] = pDataset.images[iImage].pixel_decimal()
+            return pResultSet
 
     class Recover(object):
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.recover()
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                pResultSet.images[iImage] = pDataset.images[iImage].pixel_recover()
+            return pResultSet
 
     class Normalization(object):
         def __init__(self,
@@ -365,9 +307,14 @@ class YoonTransform(object):
             assert 0 < len(self.means) <= 3
 
         def __call__(self, pDataset: YoonDataset):
+            pResultSet = pDataset.__copy__()
             for iChannel in range(len(self.means)):
-                pDataset.normalize(iChannel, dMean=self.means[iChannel], dStd=self.stds[iChannel])
-            return pDataset
+                dMean = self.means[iChannel]
+                dStd = self.stds[iChannel]
+                for jImage in range(len(pDataset.images)):
+                    assert isinstance(pDataset.images[jImage], YoonImage)
+                    pResultSet.images[jImage] = pDataset.images[jImage].normalize(iChannel, dMean=dMean, dStd=dStd)
+            return pResultSet
 
     class Denormalization(object):
         def __init__(self,
@@ -379,37 +326,65 @@ class YoonTransform(object):
             assert 0 < len(self.means) <= 3
 
         def __call__(self, pDataset: YoonDataset):
+            pResultSet = pDataset.__copy__()
             for iChannel in range(len(self.means)):
-                pDataset.denormalize(iChannel, dMean=self.means[iChannel], dStd=self.stds[iChannel])
-            return pDataset
+                dMean = self.means[iChannel]
+                dStd = self.stds[iChannel]
+                for jImage in range(len(pDataset.images)):
+                    assert isinstance(pDataset.images[jImage], YoonImage)
+                    pResultSet.images[jImage] = pDataset.images[jImage].denormalize(iChannel, dMean=dMean, dStd=dStd)
+            return pResultSet
 
     class ZNormalization(object):
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.normalize(strOption="z")
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                pResultSet.images[iImage] = pDataset.images[iImage].z_normalize()[2]
+            return pResultSet
 
     class MinMaxNormalization(object):
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.normalize(strOption="minmax")
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                pResultSet.images[iImage] = pDataset.images[iImage].minmax_normalize()[2]
+            return pResultSet
 
     class Resize(object):
         def __init__(self,
                      nWidth=0,
-                     nHeight=0):
+                     nHeight=0,
+                     bPadding=False):
             self.width = 0
             self.height = 0
-            self.option = "min" if nWidth == 0 and nHeight == 0 else None
+            self.use_padding = bPadding
 
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.resize(nWidth=self.width, nHeight=self.height, strOption=self.option)
+            if self.width == 0 or self.height == 0:
+                self.width, self.height = pDataset.min_size()
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                if self.use_padding:
+                    pResultSet.images[iImage] = pDataset.images[iImage].resize_with_padding(self.width, self.height)
+                else:
+                    pResultSet.images[iImage] = pDataset.images[iImage].resize(self.width, self.height)
+            return pResultSet
 
     class Rechannel(object):
         def __init__(self,
                      nChannel=0):
             self.channel = nChannel
-            self.option = "min" if nChannel == 0 else None
 
         def __call__(self, pDataset: YoonDataset):
-            return pDataset.rechannel(nChannel=self.channel, strOption=self.option)
+            if self.channel == 0:
+                self.channel = pDataset.min_channel()
+            pResultSet = pDataset.__copy__()
+            for iImage in range(len(pDataset.images)):
+                assert isinstance(pDataset.images[iImage], YoonImage)
+                pResultSet.images[iImage] = pDataset.images[iImage].rechannel(self.channel)
+            return pResultSet
 
     def __init__(self,
                  *args):
@@ -417,5 +392,5 @@ class YoonTransform(object):
 
     def __call__(self, pDataset: YoonDataset):
         for pTransform in self.transforms:
-            pTransform(pDataset)
+            pDataset = pTransform(pDataset)
         return pDataset
