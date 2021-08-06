@@ -172,6 +172,11 @@ class YoonVector2D:
     def zero_vector(cls):
         return YoonVector2D(0, 0)
 
+    @classmethod
+    def from_array(cls, pArray):
+        assert isinstance(pArray, (tuple, list, numpy.array))
+        return YoonVector2D(pArray[0], pArray[1])
+
     def __copy__(self):
         return YoonVector2D(self.x, self.y, self.__stepX, self.__stepY)
 
@@ -257,8 +262,14 @@ class YoonVector2D:
     def to_list(self):
         return [self.x, self.y, 1]
 
+    def to_list_int(self):
+        return [int(self.x), int(self.y), 1]
+
     def to_tuple(self):
         return self.x, self.y
+
+    def to_tuple_int(self):
+        return int(self.x), int(self.y)
 
     def __add__(self, other):
         assert isinstance(other, (YoonVector2D, str, eYoonDir2D))

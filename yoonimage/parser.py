@@ -6,6 +6,21 @@ from yoonimage.data import YoonDataset, YoonObject, YoonTransform
 from yoonimage.image import YoonImage
 
 
+def parse_root(strRootDir: str):
+    # Parse the file list
+    pPathList = os.listdir(strRootDir)
+    pDataset = YoonDataset()
+    nCount = 0
+    for strPath in pPathList:
+        if "jpg" in strPath or "bmp" in strPath or "png" in strPath:
+            strImagePath = os.path.join(strRootDir, strPath)
+            pImage = YoonImage(strFileName=strImagePath)
+            pObject = YoonObject(nID=nCount, strName=strPath, pImage=pImage)
+            pDataset.append(pObject)
+            nCount += 1
+    return nCount, pDataset
+
+
 def parse_cifar10_trainer(strRootDir: str,
                           dRatioTrain: float = 0.8,
                           strMode: str = "alexnet"  # alexnet, resnet, vgg

@@ -367,7 +367,7 @@ class YoonTransform(object):
             for iImage in range(len(pDataset.images)):
                 assert isinstance(pDataset.images[iImage], YoonImage)
                 if self.use_padding:
-                    pResultSet.images[iImage] = pDataset.images[iImage].resize_with_padding(self.width, self.height)
+                    pResultSet.images[iImage] = pDataset.images[iImage].resize_padding(self.width, self.height)
                 else:
                     pResultSet.images[iImage] = pDataset.images[iImage].resize(self.width, self.height)
             return pResultSet

@@ -1,16 +1,19 @@
 import cv2
+import cv2.cv2
 import numpy
 
-from yoonpytory.figure import YoonVector2D, YoonRect2D
+from yoonpytory.figure import YoonVector2D, YoonRect2D, YoonLine2D
 
 
 class YoonImage:
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
-    # width: int
-    # height: int
-    # channel: int
-    # __buffer: numpy.ndarray  # height, width, channel(bpp)
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    width: int
+    height: int
+    channel: int
+    __buffer: numpy.ndarray  # height, width, channel(bpp)
+    """
 
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
@@ -32,7 +35,7 @@ class YoonImage:
             pArray = pArray.reshape(-1)
             pListBuffer = []
             for i in range(nChannel):
-                pChannel = pArray[i * nWidth * nHeight: (i+1)*nWidth*nHeight]
+                pChannel = pArray[i * nWidth * nHeight: (i + 1) * nWidth * nHeight]
                 pChannel = pChannel.reshape((nHeight, nWidth))
                 pListBuffer.append(numpy.expand_dims(pChannel, axis=-1))
             return YoonImage(pBuffer=numpy.concatenate(pListBuffer, axis=-1))
@@ -62,7 +65,7 @@ class YoonImage:
                 self.__buffer = numpy.expand_dims(self.__buffer, axis=-1)
             self.height, self.width, self.channel = self.__buffer.shape
         elif strFileName is not None:
-            self.__buffer = cv2.imread(strFileName)  # load to BGR
+            self.__buffer = cv2.cv2.imread(strFileName)  # load to BGR
             if len(self.__buffer.shape) < 3:  # Contains only the height and width
                 self.__buffer = numpy.expand_dims(self.__buffer, axis=-1)
             self.height, self.width, self.channel = self.__buffer.shape
@@ -135,15 +138,15 @@ class YoonImage:
         return self._denormalize_all(dMean=0, dStd=255)
 
     def to_binary(self, nThreshold=128):
-        pResultBuffer = cv2.threshold(self.__buffer, nThreshold, 255, cv2.THRESH_BINARY)[1]
+        pResultBuffer = cv2.cv2.threshold(self.__buffer, nThreshold, 255, cv2.cv2.THRESH_BINARY)[1]
         return YoonImage(pBuffer=pResultBuffer)
 
     def to_gray(self):
-        pResultBuffer = cv2.cvtColor(self.__buffer, cv2.COLOR_BGR2GRAY)
+        pResultBuffer = cv2.cv2.cvtColor(self.__buffer, cv2.cv2.COLOR_BGR2GRAY)
         return YoonImage(pBuffer=pResultBuffer)
 
     def to_color(self):
-        pResultBuffer = cv2.cvtColor(self.__buffer, cv2.COLOR_GRAY2BGR)
+        pResultBuffer = cv2.cv2.cvtColor(self.__buffer, cv2.cv2.COLOR_GRAY2BGR)
         return YoonImage(pBuffer=pResultBuffer)
 
     def flip_horizontal(self):
@@ -159,14 +162,28 @@ class YoonImage:
         return YoonImage(pBuffer=pResultBuffer)
 
     def scale(self, dScaleX: (int, float), dScaleY: (int, float)):
-        pResultBuffer = cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY)
+        pResultBuffer = cv2.cv2.resize(self.__buffer, None, fx=dScaleX, fy=dScaleY)
         return YoonImage(pBuffer=pResultBuffer)
 
     def resize(self, nWidth: int, nHeight: int):
         if nWidth == self.width and nHeight == self.height:
             return self.__copy__()
-        pResultBuffer = cv2.resize(self.__buffer, dsize=(nWidth, nHeight), interpolation=cv2.INTER_CUBIC)
+        pResultBuffer = cv2.cv2.resize(self.__buffer, dsize=(nWidth, nHeight), interpolation=cv2.cv2.INTER_CUBIC)
         return YoonImage(pBuffer=pResultBuffer)
+
+    # Resize image with unchanged aspect ratio using padding
+    def resize_padding(self, nWidth: int, nHeight: int, nPadding: int = 128):
+        if nWidth == self.width and nHeight == self.height:
+            return self.__copy__()
+        nWidthResized = int(self.width * min(nWidth / self.width, nHeight / self.height))
+        nHeightResized = int(self.height * min(nWidth / self.width, nHeight / self.height))
+        pBufferResized = cv2.cv2.resize(self.__buffer, dsize=(nWidthResized, nHeightResized),
+                                        interpolation=cv2.cv2.INTER_CUBIC)
+        nTop = (self.height - nHeightResized) // 2
+        nLeft = (self.width - nWidthResized) // 2
+        pCanvas = numpy.full((nHeight, nWidth, self.channel), nPadding)
+        pCanvas[nTop:nTop + nHeightResized, nLeft:nLeft + nWidthResized, :] = pBufferResized
+        return YoonImage(pBuffer=pCanvas)
 
     def rechannel(self, nChannel: int):
         if nChannel == self.channel:
@@ -176,27 +193,31 @@ class YoonImage:
         elif nChannel == 3:
             return self.to_color()
 
-    # Resize image with unchanged aspect ratio using padding
-    def resize_with_padding(self, nWidth: int, nHeight: int, nPadding: int = 128):
-        if nWidth == self.width and nHeight == self.height:
-            return self.__copy__()
-        nWidthResized = int(self.width * min(nWidth / self.width, nHeight / self.height))
-        nHeightResized = int(self.height * min(nWidth / self.width, nHeight / self.height))
-        pBufferResized = cv2.resize(self.__buffer, dsize=(nWidthResized, nHeightResized), interpolation=cv2.INTER_CUBIC)
-        nTop = (self.height - nHeightResized) // 2
-        nLeft = (self.width - nWidthResized) // 2
-        pCanvas = numpy.full((nHeight, nWidth, self.channel), nPadding)
-        pCanvas[nTop:nTop + nHeightResized, nLeft:nLeft + nWidthResized, :] = pBufferResized
-        return YoonImage(pBuffer=pCanvas)
+    def draw_line(self, pLine: YoonLine2D, pArrayColor: numpy.ndarray):
+        cv2.cv2.line(self.__buffer,
+                     pt1=(pLine.startPos.to_tuple_int()),
+                     pt2=(pLine.endPos.to_tuple_int()),
+                     color=pArrayColor,
+                     thickness=2)
 
     def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):
-        cv2.rectangle(self.__buffer, (int(pRect.left()), int(pRect.top())), (int(pRect.right()), int(pRect.bottom())),
-                      pArrayColor, 2)
+        cv2.cv2.rectangle(self.__buffer,
+                          pt1=(pRect.top_left().to_tuple_int()),
+                          pt2=(pRect.bottom_right().to_tuple_int()),
+                          color=pArrayColor,
+                          thickness=2)
 
     def draw_text(self, strText: str, pPos: YoonVector2D, pArrayColor: numpy.ndarray):
-        cv2.putText(self.__buffer, strText, (int(pPos.x), int(pPos.y)), cv2.FONT_HERSHEY_PLAIN, 3, pArrayColor, 3)
+        cv2.cv2.putText(self.__buffer,
+                        text=strText,
+                        org=(pPos.to_tuple_int()),
+                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                        fontScale=3,
+                        color=pArrayColor,
+                        thickness=3)
 
     def show_image(self):
         cv2.imshow("Image", self.__buffer)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+

@@ -1,6 +1,7 @@
 import yoonimage
 import yoonimage.classification
 
+
 def process_segmentation(mode="resnet"):
     class_count, transform, train_data, eval_data = yoonimage.parse_cifar10_trainer(
         strRootDir='./data/image/cifar-10', dRatioTrain=0.8, strMode=mode)
@@ -18,16 +19,44 @@ def process_segmentation(mode="resnet"):
                                               nCountClass=class_count, strModelPath='./data/image/res_opt.pth')
 
 
+def process_drop():
+    count, dataset = yoonimage.parse_root(strRootDir='./data/image/Drops')
+    for data_object in dataset:
+        results = yoonimage.find_blobs(pSourceImage=data_object.image,
+                                       nThreshold=100, nMaxCount=20)
+        for result_object in results:
+            data_object.image.draw_rectangle(result_object.region, yoonimage.COLOR_YELLOW)
+            data_object.image.show_image()
+        print("count = " + str(len(results)))
+
+
+def process_glass():
+    count, dataset = yoonimage.parse_root(strRootDir='./data/image/Glass')
+    for data_object in dataset:
+        results = yoonimage.find_lines(pSourceImage=data_object.image,
+                                       nThresh1=50, nThresh2=100)
+        for result_object in results:
+            data_object.image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
+            data_object.image.show_image()
+        print("count = " + str(len(results)))
+
+
 if __name__ == '__main__':
     print("Select the sample process")
     print("1. alexnet")
     print("2. vgg")
     print("3. resnet")
+    print("4. drop")
+    print("5. Glass")
     process = input(">>")
     process = process.lower()
-    if process == "1" or "alexnet":
+    if process == "1" or process == "alexnet":
         process_segmentation("alexnet")
-    elif process == "2" or "vgg":
+    elif process == "2" or process == "vgg":
         process_segmentation("vgg")
-    elif process == "3" or "resnet":
+    elif process == "3" or process == "resnet":
         process_segmentation("resnet")
+    elif process == "4" or process == "drop":
+        process_drop()
+    elif process == "5" or process == "glass":
+        process_glass()
