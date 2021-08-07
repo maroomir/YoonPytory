@@ -194,22 +194,28 @@ class YoonImage:
             return self.to_color()
 
     def draw_line(self, pLine: YoonLine2D, pArrayColor: numpy.ndarray):
+        if self.channel == 1:
+            self.to_color()
         if pLine is not None:
             cv2.cv2.line(self.__buffer,
                          pt1=(pLine.startPos.to_tuple_int()),
                          pt2=(pLine.endPos.to_tuple_int()),
                          color=pArrayColor,
-                         thickness=2)
+                         thickness=5)
 
     def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):
+        if self.channel == 1:
+            self.to_color()
         if pRect is not None:
             cv2.cv2.rectangle(self.__buffer,
                               pt1=(pRect.top_left().to_tuple_int()),
                               pt2=(pRect.bottom_right().to_tuple_int()),
                               color=pArrayColor,
-                              thickness=2)
+                              thickness=5)
 
     def draw_text(self, strText: str, pPos: YoonVector2D, pArrayColor: numpy.ndarray):
+        if self.channel == 1:
+            self.to_color()
         if pPos is not None:
             cv2.cv2.putText(self.__buffer,
                             text=strText,
