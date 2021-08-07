@@ -35,7 +35,8 @@ def process_glass():
     for data_object in dataset:
         image = data_object.image
         results = yoonimage.find_lines(pSourceImage=image,
-                                       nThresh1=50, nThresh2=200)
+                                       nThresh1=50, nThresh2=150,
+                                       nMaxCount=30)
         for result_object in results:
             image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
         print("count = " + str(len(results)))

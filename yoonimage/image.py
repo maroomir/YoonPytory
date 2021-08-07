@@ -193,7 +193,10 @@ class YoonImage:
         elif nChannel == 3:
             return self.to_color()
 
-    def draw_line(self, pLine: YoonLine2D, pArrayColor: numpy.ndarray):
+    def draw_line(self,
+                  pLine: YoonLine2D,
+                  pArrayColor: numpy.ndarray,
+                  nPenWidth: int = 3):
         if self.channel == 1:
             self.to_color()
         if pLine is not None:
@@ -201,9 +204,12 @@ class YoonImage:
                          pt1=(pLine.startPos.to_tuple_int()),
                          pt2=(pLine.endPos.to_tuple_int()),
                          color=pArrayColor,
-                         thickness=5)
+                         thickness=nPenWidth)
 
-    def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):
+    def draw_rectangle(self,
+                       pRect: YoonRect2D,
+                       pArrayColor: numpy.ndarray,
+                       nPenWidth: int = 3):
         if self.channel == 1:
             self.to_color()
         if pRect is not None:
@@ -211,9 +217,12 @@ class YoonImage:
                               pt1=(pRect.top_left().to_tuple_int()),
                               pt2=(pRect.bottom_right().to_tuple_int()),
                               color=pArrayColor,
-                              thickness=5)
+                              thickness=nPenWidth)
 
-    def draw_text(self, strText: str, pPos: YoonVector2D, pArrayColor: numpy.ndarray):
+    def draw_text(self, strText: str,
+                  pPos: YoonVector2D,
+                  pArrayColor: numpy.ndarray,
+                  nScale: int = 3):
         if self.channel == 1:
             self.to_color()
         if pPos is not None:
@@ -221,7 +230,7 @@ class YoonImage:
                             text=strText,
                             org=(pPos.to_tuple_int()),
                             fontFace=cv2.FONT_HERSHEY_PLAIN,
-                            fontScale=3,
+                            fontScale=nScale,
                             color=pArrayColor,
                             thickness=3)
 

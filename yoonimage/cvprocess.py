@@ -46,15 +46,17 @@ def find_lines(pSourceImage: YoonImage,
     for pLine in pLineStorage:
         dDistance = pLine[0][0]  # Distance as the zero position
         dTheta = pLine[0][1]  # Angle of the perpendicular line
+        dTheta = 1e-10 if dTheta < 1e-10 else dTheta
         dX0 = dDistance * numpy.cos(dTheta)  # Intersection position with perpendicular line
         dY0 = dDistance * numpy.sin(dTheta)  # Intersection position with perpendicular line
-        nScale = pResultBuffer.shape[0] + pResultBuffer.shape[1]
-        pVector1 = YoonVector2D(dX=int(dX0 - nScale * numpy.sin(dTheta)),
-                                dY=int(dY0 + nScale * numpy.cos(dTheta)))
-        pVector2 = YoonVector2D(dX=int(dX0 + nScale * numpy.sin(dTheta)),
-                                dY=int(dY0 - nScale * numpy.cos(dTheta)))
+        nHeight = pResultBuffer.shape[0]
+        nWidth = pResultBuffer.shape[1]
+        pVector1 = YoonVector2D(dX=int(dX0 - nWidth * numpy.sin(dTheta)),
+                                dY=int(dY0 + nHeight * numpy.cos(dTheta)))
+        pVector2 = YoonVector2D(dX=int(dX0 + nWidth * numpy.sin(dTheta)),
+                                dY=int(dY0 - nHeight * numpy.cos(dTheta)))
         pResultDataset.append(
-            YoonObject(pRegion=YoonLine2D(None, None, None, pVector1, pVector2),
+            YoonObject(pRegion=YoonLine2D.from_vectors(pVector1, pVector2),
                        pImage=pResultImage.__copy__())
         )
         iCount += 1

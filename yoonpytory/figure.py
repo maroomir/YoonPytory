@@ -14,6 +14,7 @@ def _list_square(pX: numpy.ndarray, pY: numpy.ndarray):
     dMeanX, dMeanY = pX.mean(), pY.mean()
     dCrossDeviationYX = numpy.sum(pY * pX) - nCount * dMeanX * dMeanY
     dSquareDeviationX = numpy.sum(pX * pX) - nCount * dMeanX * dMeanX
+    dSquareDeviationX = 1e-10 if dSquareDeviationX < 1e-10 else dSquareDeviationX
     dSlope = dCrossDeviationYX / dSquareDeviationX
     dIntercept = dMeanY - dSlope * dMeanX
     return dSlope, dIntercept
@@ -314,53 +315,57 @@ class YoonVector2D:
 
 
 class YoonLine2D:
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
-    def __init__(self,
-                 pList: list = None,
-                 dSlope=0.0,
-                 dIntercept=0.0,
-                 *args: YoonVector2D,
-                 **kwargs):
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    """
+
+    @classmethod
+    def from_list(cls,
+                  pList: list):
+        pLine = YoonLine2D()
+        if pList is not None:
+            pArrayX = YoonVector2D.list_to_array_x(pList)
+            pArrayY = YoonVector2D.list_to_array_y(pList)
+            dMinX = numpy.min(pArrayX)
+            dMaxX = numpy.max(pArrayX)
+            pLine.slope, pLine.intercept = _list_square(pArrayX, pArrayY)
+            pLine.startPos = YoonVector2D(dMinX, pLine.y(dMinX))
+            pLine.endPos = YoonVector2D(dMaxX, pLine.y(dMaxX))
+        return pLine
+
+    @classmethod
+    def from_vectors(cls,
+                     *args: YoonVector2D):
+        pLine = YoonLine2D()
         if len(args) > 0:
             pArrayX = YoonVector2D.list_to_array_x(args)
             pArrayY = YoonVector2D.list_to_array_y(args)
             dMinX = YoonVector2D.list_to_minimum_x(args)
             dMinY = YoonVector2D.list_to_minimum_y(args)
-            self.slope, self.intercept = _list_square(pArrayX, pArrayY)
-            self.startPos = YoonVector2D(dMinX, self.y(dMinX))
-            self.endPos = YoonVector2D(dMinY, self.y(dMinY))
-        elif kwargs.get("x1") and kwargs.get("x2") and kwargs.get("y1") and kwargs.get("y2"):
-            assert isinstance(kwargs["x1"], (int, float))
-            assert isinstance(kwargs["x2"], (int, float))
-            assert isinstance(kwargs["y1"], (int, float))
-            assert isinstance(kwargs["y2"], (int, float))
-            self.slope = (kwargs["y1"] - kwargs["y2"]) / (kwargs["x1"] - kwargs["x2"])
-            self.intercept = kwargs["y1"] - self.slope * kwargs["x1"]
-            dMinX = kwargs["x1"] if kwargs["x1"] < kwargs["x2"] else kwargs["x2"]
-            dMinY = kwargs["x1"] if kwargs["x1"] > kwargs["x2"] else kwargs["x2"]
-            self.startPos = YoonVector2D(dMinX, self.y(dMinX))
-            self.endPos = YoonVector2D(dMinY, self.y(dMinY))
-        else:
-            if pList is not None:
-                pArrayX = YoonVector2D.list_to_array_x(pList)
-                pArrayY = YoonVector2D.list_to_array_y(pList)
-                dMinX = numpy.min(pArrayX)
-                dMaxX = numpy.max(pArrayX)
-                self.slope, self.intercept = _list_square(pArrayX, pArrayY)
-                self.startPos = YoonVector2D(dMinX, self.y(dMinX))
-                self.endPos = YoonVector2D(dMaxX, self.y(dMaxX))
-            else:
-                self.slope = dSlope
-                self.intercept = dIntercept
-                self.startPos = YoonVector2D(-1, self.y(-1))
-                self.endPos = YoonVector2D(1, self.y(1))
+            pLine.slope, pLine.intercept = _list_square(pArrayX, pArrayY)
+            pLine.startPos = YoonVector2D(dMinX, pLine.y(dMinX))
+            pLine.endPos = YoonVector2D(dMinY, pLine.y(dMinY))
+        return pLine
+
+    def __init__(self,
+                 dSlope=0.0,
+                 dIntercept=0.0,
+                 pStartVector: YoonVector2D = None,
+                 pEndVector: YoonVector2D = None):
+        self.slope = dSlope
+        self.intercept = dIntercept
+        self.startPos = pStartVector
+        self.endPos = pEndVector
 
     def __str__(self):
         return "SLOPE : {0}, INTERCEPT : {1}".format(self.slope, self.intercept)
 
     def __copy__(self):
-        return YoonLine2D(dSlope=self.slope, dIntercept=self.intercept)
+        return YoonLine2D(dSlope=self.slope,
+                          dIntercept=self.intercept,
+                          pStartVector=self.startPos,
+                          pEndVector=self.endPos)
 
     def x(self, dY: (int, float)):
         assert isinstance(dY, (int, float))
