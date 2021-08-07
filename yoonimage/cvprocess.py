@@ -41,7 +41,7 @@ def find_lines(pSourceImage: YoonImage,
                                       max_theta=numpy.pi)
     pResultDataset = YoonDataset()
     pResultImage = YoonImage(pBuffer=pResultBuffer)
-    # pResultImage.show_image()
+    pResultImage.show_image()  # Remain for logging
     iCount = 0
     for pLine in pLineStorage:
         dDistance = pLine[0][0]  # Distance as the zero position
@@ -75,7 +75,7 @@ def find_blobs(pSourceImage: YoonImage,
     pBlobStorage = pDetector.detect(pResultBuffer)
     pResultDataset = YoonDataset()
     pResultImage = YoonImage(pBuffer=pResultBuffer)
-    # pResultImage.show_image()
+    pResultImage.show_image()  # Remain for logging
     iCount = 0
     for pKeypoint in pBlobStorage:
         pPosition = YoonVector2D(dx=int(pKeypoint.pt[0]), dy=int(pKeypoint.pt[1]))

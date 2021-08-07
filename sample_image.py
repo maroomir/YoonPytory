@@ -33,12 +33,13 @@ def process_drop():
 def process_glass():
     count, dataset = yoonimage.parse_root(strRootDir='./data/image/Glass')
     for data_object in dataset:
-        results = yoonimage.find_lines(pSourceImage=data_object.image,
-                                       nThresh1=50, nThresh2=100)
+        image = data_object.image
+        results = yoonimage.find_lines(pSourceImage=image,
+                                       nThresh1=50, nThresh2=200)
         for result_object in results:
-            data_object.image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
-            data_object.image.show_image()
+            image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
         print("count = " + str(len(results)))
+        image.show_image()
 
 
 if __name__ == '__main__':

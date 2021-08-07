@@ -194,30 +194,32 @@ class YoonImage:
             return self.to_color()
 
     def draw_line(self, pLine: YoonLine2D, pArrayColor: numpy.ndarray):
-        cv2.cv2.line(self.__buffer,
-                     pt1=(pLine.startPos.to_tuple_int()),
-                     pt2=(pLine.endPos.to_tuple_int()),
-                     color=pArrayColor,
-                     thickness=2)
+        if pLine is not None:
+            cv2.cv2.line(self.__buffer,
+                         pt1=(pLine.startPos.to_tuple_int()),
+                         pt2=(pLine.endPos.to_tuple_int()),
+                         color=pArrayColor,
+                         thickness=2)
 
     def draw_rectangle(self, pRect: YoonRect2D, pArrayColor: numpy.ndarray):
-        cv2.cv2.rectangle(self.__buffer,
-                          pt1=(pRect.top_left().to_tuple_int()),
-                          pt2=(pRect.bottom_right().to_tuple_int()),
-                          color=pArrayColor,
-                          thickness=2)
+        if pRect is not None:
+            cv2.cv2.rectangle(self.__buffer,
+                              pt1=(pRect.top_left().to_tuple_int()),
+                              pt2=(pRect.bottom_right().to_tuple_int()),
+                              color=pArrayColor,
+                              thickness=2)
 
     def draw_text(self, strText: str, pPos: YoonVector2D, pArrayColor: numpy.ndarray):
-        cv2.cv2.putText(self.__buffer,
-                        text=strText,
-                        org=(pPos.to_tuple_int()),
-                        fontFace=cv2.FONT_HERSHEY_PLAIN,
-                        fontScale=3,
-                        color=pArrayColor,
-                        thickness=3)
+        if pPos is not None:
+            cv2.cv2.putText(self.__buffer,
+                            text=strText,
+                            org=(pPos.to_tuple_int()),
+                            fontFace=cv2.FONT_HERSHEY_PLAIN,
+                            fontScale=3,
+                            color=pArrayColor,
+                            thickness=3)
 
     def show_image(self):
         cv2.imshow("Image", self.__buffer)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-
