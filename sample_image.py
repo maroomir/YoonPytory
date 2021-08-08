@@ -21,19 +21,20 @@ def process_segmentation(mode="resnet"):
 
 def process_drop():
     count, dataset = yoonimage.parse_root(strRootDir='./data/image/Drops')
-    for data_object in dataset:
-        results = yoonimage.find_blobs(pSourceImage=data_object.image,
+    for i in range(0, count):
+        image = dataset[i].image
+        results = yoonimage.find_blobs(pSourceImage=image,
                                        nThreshold=100, nMaxCount=20)
         for result_object in results:
-            data_object.image.draw_rectangle(result_object.region, yoonimage.COLOR_YELLOW)
-            data_object.image.show_image()
+            image.draw_rectangle(result_object.region, yoonimage.COLOR_YELLOW)
+            image.show_image()
         print("count = " + str(len(results)))
 
 
 def process_glass():
     count, dataset = yoonimage.parse_root(strRootDir='./data/image/Glass')
-    for data_object in dataset:
-        image = data_object.image
+    for i in range(0, count):
+        image = dataset[i].image
         results = yoonimage.find_lines(pSourceImage=image,
                                        nThresh1=50, nThresh2=150,
                                        nMaxCount=30)

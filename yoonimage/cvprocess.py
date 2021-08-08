@@ -41,7 +41,7 @@ def find_lines(pSourceImage: YoonImage,
                                       max_theta=numpy.pi)
     pResultDataset = YoonDataset()
     pResultImage = YoonImage(pBuffer=pResultBuffer)
-    pResultImage.show_image()  # Remain for logging
+    # pResultImage.show_image()  # Remain for logging
     iCount = 0
     for pLine in pLineStorage:
         dDistance = pLine[0][0]  # Distance as the zero position

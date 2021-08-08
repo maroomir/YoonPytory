@@ -21,8 +21,10 @@ def _list_square(pX: numpy.ndarray, pY: numpy.ndarray):
 
 
 class YoonVector2D:
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    """
     def __init__(self, dX=0.0, dY=0.0, nStepX=1, nStepY=1):
         self.x = dX
         self.y = dY
