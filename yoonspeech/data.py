@@ -34,25 +34,25 @@ phoneme_list = ["aa aa aa", "ae ae ae", "ah ah ah", "ao ao aa", "aw aw aw", "ax 
 
 def get_phonemes():
     def to_dict():
-        pDicPhn = {}
-        for strTag in phoneme_list:
-            if strTag.split(' ')[0] == 'q':
+        phn_dic = {}
+        for tag in phoneme_list:
+            if tag.split(' ')[0] == 'q':
                 pass
             else:
-                pDicPhn[strTag.split(' ')[0]] = strTag.split(' ')[-1]
-        return pDicPhn
+                phn_dic[tag.split(' ')[0]] = tag.split(' ')[-1]
+        return phn_dic
 
     def to_list():
-        pListPhn = [strTag.split(' ')[-1] for strTag in phoneme_list]
-        pListPhn = list(set(pListPhn))
-        return pListPhn
+        phn_list = [strTag.split(' ')[-1] for strTag in phoneme_list]
+        phn_list = list(set(phn_list))
+        return phn_list
 
     g2p = G2p()
-    pListPhoneme = ['h#']  # h# : start token
-    pListPhoneme.extend(strPhoneme.lower() for strPhoneme in g2p(pListPhoneme))
-    pListPhoneme.append('h#')  # h# : end token
+    phoneme_list = ['h#']  # h# : start token
+    phoneme_list.extend(strPhoneme.lower() for strPhoneme in g2p(phoneme_list))
+    phoneme_list.append('h#')  # h# : end token
     pListLabel = []
-    for strLabel in pListPhoneme:
+    for strLabel in phoneme_list:
         if strLabel in ['q', ' ', "'"]:
             pass
         else:
@@ -62,40 +62,42 @@ def get_phonemes():
 
 
 class YoonObject(object):
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
-    # label = 0
-    # name = ""
-    # word = ""
-    # data_type = "deltas"
-    # speech: YoonSpeech = None
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    label = 0
+    name = ""
+    word = ""
+    data_type = "deltas"
+    speech: YoonSpeech = None
+    """
 
     def __init__(self,
-                 nID: int = 0,
-                 strName: str = "",
-                 strWord: str = "",
-                 strType: str = "deltas",
-                 pSpeech: YoonSpeech = None):
-        self.label = nID
-        self.name = strName
-        self.word = strWord
-        self.data_type = strType
-        self.speech = None
-        if pSpeech is not None:
-            self.speech = pSpeech.__copy__()
+                 id: int = 0,
+                 name: str = "",
+                 word: str = "",
+                 type: str = "deltas",
+                 speech: YoonSpeech = None):
+        self.label = id
+        self.name = name
+        self.word = word
+        self.data_type = type
+        self.speech = None if speech is None else speech.__copy__()
 
     def __copy__(self):
-        return YoonObject(nID=self.label, strName=self.name, strType=self.data_type, pSpeech=self.speech)
+        return YoonObject(id=self.label, name=self.name, type=self.data_type, speech=self.speech)
 
 
 class YoonDataset(object):
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
-    # labels: list = []
-    # names: list = []
-    # words: list = []
-    # data_types: list = []
-    # speeches: list = []
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    labels: list = []
+    names: list = []
+    words: list = []
+    data_types: list = []
+    speeches: list = []
+    """
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())
@@ -103,43 +105,43 @@ class YoonDataset(object):
     def __len__(self):
         return len(self.labels)
 
-    def __init__(self,
-                 pList: list = None,
-                 *args: (YoonObject, YoonSpeech)):
+    def __init__(self):
         self.labels: list = []
         self.names: list = []
         self.words: list = []
         self.data_types: list = []
         self.speeches: list = []
-        if len(args) > 0:
-            iCount = 0
-            for pItem in args:
-                if isinstance(pItem, YoonObject):
-                    self.labels.append(pItem.label)
-                    self.names.append(pItem.name)
-                    self.words.append(pItem.word)
-                    self.data_types.append(pItem.data_type)
-                    self.speeches.append(pItem.speech.__copy__())
-                else:
-                    self.labels.append(iCount)
-                    self.data_types.append("deltas")
-                    self.speeches.append(pItem.__copy__())
-                iCount += 1
-        else:
-            if pList is not None:
-                iCount = 0
-                for pItem in args:
-                    if isinstance(pItem, YoonObject):
-                        self.labels.append(pItem.label)
-                        self.names.append(pItem.name)
-                        self.words.append(pItem.word)
-                        self.data_types.append(pItem.data_type)
-                        self.speeches.append(pItem.speech.__copy__())
-                    elif isinstance(pItem, YoonSpeech):
-                        self.labels.append(iCount)
-                        self.data_types.append("deltas")
-                        self.speeches.append(pItem.__copy__())
-                    iCount += 1
+
+    @classmethod
+    def from_list(cls, data_list: list):
+        dataset = YoonDataset()
+        for i in range(len(data_list)):
+            if isinstance(data_list[i], YoonObject):
+                dataset.labels.append(data_list[i].label)
+                dataset.names.append(data_list[i].name)
+                dataset.words.append(data_list[i].word)
+                dataset.data_types.append(data_list[i].data_type)
+                dataset.speeches.append(data_list[i].speech.__copy__())
+            elif isinstance(data_list[i], YoonSpeech):
+                dataset.labels.append(i)
+                dataset.data_types.append("deltas")
+                dataset.speeches.append(data_list[i].__copy__())
+        return dataset
+
+    @classmethod
+    def from_data(cls, *args: (YoonObject, YoonSpeech)):
+        dataset = YoonDataset()
+        for i in range(len(args)):
+            if isinstance(args[i], YoonObject):
+                dataset.labels.append(args[i].label)
+                dataset.names.append(args[i].name)
+                dataset.words.append(args[i].word)
+                dataset.data_types.append(args[i].data_type)
+                dataset.speeches.append(args[i].speech.__copy__())
+            else:
+                dataset.labels.append(i)
+                dataset.data_types.append("deltas")
+                dataset.speeches.append(args[i].__copy__())
 
     def __copy__(self):
         pResult = YoonDataset()
@@ -149,63 +151,63 @@ class YoonDataset(object):
         pResult.words = self.words.copy()
         return pResult
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, index):
         def get_object(i,
-                       nIndexStop: int = None,
-                       pRemained=None,
-                       bProcessing=False):
+                       stop_index: int = None,
+                       remains=None,
+                       is_processing=False):
             if isinstance(i, tuple):
-                pListIndex = list(i)[1:] + [None]
-                pListResult = []
-                for iIndex, iRemain in zip(i, pListIndex):
-                    pResult, nIndexStop = get_object(iIndex, nIndexStop, iRemain, True)
-                    pListResult.append(pResult)
-                return pListResult
+                index_list = list(i)[1:] + [None]
+                result_list = []
+                for start_index, remain_list in zip(i, index_list):
+                    result, stop_index = get_object(start_index, stop_index, remain_list, True)
+                    result_list.append(result)
+                return result_list
             elif isinstance(i, slice):
-                pRange = range(*i.indices(len(self)))
-                pListResult = [get_object(j) for j in pRange]
-                if bProcessing:
-                    return pListResult, pRange[-1]
+                slice_range = range(*i.indices(len(self)))
+                result_list = [get_object(j) for j in slice_range]
+                if is_processing:
+                    return result_list, slice_range[-1]
                 else:
-                    return pListResult
+                    return result_list
             elif i is Ellipsis:
-                if nIndexStop is not None:
-                    nIndexStop += 1
-                nIndexEnd = pRemained
-                if isinstance(pRemained, slice):
-                    nIndexEnd = pRemained.start
-                pResult = get_object(slice(nIndexStop, nIndexEnd), bProcessing=True)
-                if bProcessing:
-                    return pResult[0], pResult[1]
+                if stop_index is not None:
+                    stop_index += 1
+                end_index = remains
+                if isinstance(remains, slice):
+                    end_index = remains.start
+                result = get_object(slice(stop_index, end_index), is_processing=True)
+                if is_processing:
+                    return result[0], result[1]
                 else:
-                    return pResult[0]
+                    return result[0]
             else:
-                nLabel: int = 0
-                strName: str = ""
-                strWord: str = ""
-                strType: str = "deltas"
-                pSpeech: YoonSpeech = None
-                if 0 <= item < len(self.labels):
-                    nLabel = self.labels[item]
-                if 0 <= item < len(self.names):
-                    strName = self.names[item]
-                if 0 <= item < len(self.words):
-                    strWord = self.words[item]
-                if 0 <= item < len(self.data_types):
-                    strType = self.data_types[item]
-                if 0 <= item < len(self.speeches):
-                    pSpeech = self.speeches[item]
-                pObject = YoonObject(nID=nLabel, strName=strName, pSpeech=pSpeech, strWord=strWord, strType=strType)
-                if bProcessing:
+                label: int = 0
+                name: str = ""
+                word: str = ""
+                data_types: str = "deltas"
+                speech: YoonSpeech
+                if 0 <= i < len(self.labels):
+                    label = self.labels[i]
+                if 0 <= i < len(self.names):
+                    name = self.names[i]
+                if 0 <= i < len(self.words):
+                    word = self.words[i]
+                if 0 <= i < len(self.data_types):
+                    data_types = self.data_types[i]
+                if 0 <= i < len(self.speeches):
+                    speech = self.speeches[i]
+                pObject = YoonObject(id=label, name=name, speech=speech, word=word, type=data_types)
+                if is_processing:
                     return pObject, i
                 else:
                     return pObject
 
-        pResultItem = get_object(item)
-        if isinstance(pResultItem, list):
-            return YoonDataset(pList=pResultItem)
+        selected_list = get_object(index)
+        if isinstance(selected_list, list):
+            return YoonDataset.from_list(selected_list)
         else:
-            return pResultItem
+            return selected_list
 
     def __setitem__(self, key: int, value: YoonObject):
         if 0 <= key < len(self.labels):

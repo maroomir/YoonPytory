@@ -292,4 +292,4 @@ def test(pTestData: YoonDataset,
         _, pTensorPredicted = pTensorOutput.max(1)
         pListLabel.append(pTensorPredicted.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    return YoonDataset.from_tensor(pImage=None, pLabel=numpy.concatenate(pListLabel))
+    return YoonDataset.from_tensor(images=None, labels=numpy.concatenate(pListLabel))

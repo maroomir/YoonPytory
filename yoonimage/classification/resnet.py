@@ -17,13 +17,13 @@ from yoonpytory.log import YoonNLM
 
 class ConvolutionBlock(Module):
     def __init__(self,
-                 nDimInput: int,
-                 pListFilter: list,
-                 nStride: int):
+                 input_dim: int,
+                 filters: list,
+                 stride: int):
         super(ConvolutionBlock, self).__init__()
-        self.filter1, self.filter2, self.filter3 = pListFilter
+        self.filter1, self.filter2, self.filter3 = filters
         self.network = torch.nn.Sequential(
-            torch.nn.Conv2d(nDimInput, self.filter1, kernel_size=1, stride=nStride, padding=0, bias=False),
+            torch.nn.Conv2d(input_dim, self.filter1, kernel_size=1, stride=stride, padding=0, bias=False),
             torch.nn.BatchNorm2d(self.filter1),
             torch.nn.ReLU(inplace=True),
             torch.nn.Conv2d(self.filter1, self.filter2, kernel_size=3, stride=1, padding=1, bias=False),
@@ -33,22 +33,22 @@ class ConvolutionBlock(Module):
             torch.nn.BatchNorm2d(self.filter3)
         )
         self.shortcut = torch.nn.Sequential(
-            torch.nn.Conv2d(nDimInput, self.filter3, kernel_size=1, stride=nStride, bias=False),
+            torch.nn.Conv2d(input_dim, self.filter3, kernel_size=1, stride=stride, bias=False),
             torch.nn.BatchNorm2d(self.filter3)
         )
 
-    def forward(self, pTensorX: Tensor):
-        pTensorOut = self.network(pTensorX)
-        pTensorOut += self.shortcut(pTensorX)
+    def forward(self, x: Tensor):
+        pTensorOut = self.network(x)
+        pTensorOut += self.shortcut(x)
         pTensorOut = torch.nn.functional.relu(pTensorOut)
         return pTensorOut
 
 
 class IdentityBlock(Module):
     def __init__(self,
-                 pListFilter: list):
+                 filters: list):
         super(IdentityBlock, self).__init__()
-        self.filter1, self.filter2, self.filter3 = pListFilter
+        self.filter1, self.filter2, self.filter3 = filters
         self.network = torch.nn.Sequential(
             torch.nn.Conv2d(self.filter3, self.filter1, kernel_size=1, stride=1, padding=0, bias=False),  # Pad=0=valid
             torch.nn.BatchNorm2d(self.filter1),
@@ -60,289 +60,289 @@ class IdentityBlock(Module):
             torch.nn.BatchNorm2d(self.filter3)
         )
 
-    def forward(self, pTensorX: Tensor):
-        pTensorOut = self.network(pTensorX)
-        pTensorOut += pTensorX
-        pTensorOut = torch.nn.functional.relu(pTensorOut)
-        return pTensorOut
+    def forward(self, x: Tensor):
+        output = self.network(x)
+        output += x
+        output = torch.nn.functional.relu(output)
+        return output
 
 
 class ResNet50(Module):  # Conv Count = 50
     def __init__(self,
-                 nDimInput: int,
-                 nNumClass: int):
+                 input_dim: int,
+                 num_class: int):
         super(ResNet50, self).__init__()
         self.layer1 = torch.nn.Sequential(  # Conv=1
-            torch.nn.Conv2d(nDimInput, 64, kernel_size=7, stride=2, padding=3, bias=False),
+            torch.nn.Conv2d(input_dim, 64, kernel_size=7, stride=2, padding=3, bias=False),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(inplace=True)
         )
         self.layer2 = torch.nn.Sequential(  # Conv=10
             torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            ConvolutionBlock(nDimInput=64, pListFilter=[64, 64, 256], nStride=1),  # Conv=4
-            IdentityBlock(pListFilter=[64, 64, 256]),  # Conv=3
-            IdentityBlock(pListFilter=[64, 64, 256])  # Conv=3
+            ConvolutionBlock(input_dim=64, filters=[64, 64, 256], stride=1),  # Conv=4
+            IdentityBlock(filters=[64, 64, 256]),  # Conv=3
+            IdentityBlock(filters=[64, 64, 256])  # Conv=3
         )
         self.layer3 = torch.nn.Sequential(  # Conv=13
-            ConvolutionBlock(nDimInput=256, pListFilter=[128, 128, 512], nStride=2),
-            IdentityBlock(pListFilter=[128, 128, 512]),
-            IdentityBlock(pListFilter=[128, 128, 512]),
-            IdentityBlock(pListFilter=[128, 128, 512])
+            ConvolutionBlock(input_dim=256, filters=[128, 128, 512], stride=2),
+            IdentityBlock(filters=[128, 128, 512]),
+            IdentityBlock(filters=[128, 128, 512]),
+            IdentityBlock(filters=[128, 128, 512])
         )
         self.layer4 = torch.nn.Sequential(  # Conv=16
-            ConvolutionBlock(nDimInput=512, pListFilter=[256, 256, 1024], nStride=2),
-            IdentityBlock(pListFilter=[256, 256, 1024]),
-            IdentityBlock(pListFilter=[256, 256, 1024]),
-            IdentityBlock(pListFilter=[256, 256, 1024]),
-            IdentityBlock(pListFilter=[256, 256, 1024])
+            ConvolutionBlock(input_dim=512, filters=[256, 256, 1024], stride=2),
+            IdentityBlock(filters=[256, 256, 1024]),
+            IdentityBlock(filters=[256, 256, 1024]),
+            IdentityBlock(filters=[256, 256, 1024]),
+            IdentityBlock(filters=[256, 256, 1024])
         )
         self.layer5 = torch.nn.Sequential(  # Conv=10
-            ConvolutionBlock(nDimInput=1024, pListFilter=[512, 512, 2048], nStride=2),
-            IdentityBlock(pListFilter=[512, 512, 2048]),
-            IdentityBlock(pListFilter=[512, 512, 2048])
+            ConvolutionBlock(input_dim=1024, filters=[512, 512, 2048], stride=2),
+            IdentityBlock(filters=[512, 512, 2048]),
+            IdentityBlock(filters=[512, 512, 2048])
         )
-        self.fc_layer = torch.nn.Linear(2048, nNumClass)
+        self.fc_layer = torch.nn.Linear(2048, num_class)
 
-    def forward(self, pTensorX: Tensor):
-        pTensorOut = self.layer1(pTensorX)
-        pTensorOut = self.layer2(pTensorOut)
-        pTensorOut = self.layer3(pTensorOut)
-        pTensorOut = self.layer4(pTensorOut)
-        pTensorOut = self.layer5(pTensorOut)
-        pTensorOut = torch.nn.functional.avg_pool2d(pTensorOut, kernel_size=1)
-        pTensorOut = pTensorOut.view(pTensorOut.size(0), -1)
-        pTensorOut = self.fc_layer(pTensorOut)
-        return pTensorOut
+    def forward(self, x: Tensor):
+        output = self.layer1(x)
+        output = self.layer2(output)
+        output = self.layer3(output)
+        output = self.layer4(output)
+        output = self.layer5(output)
+        output = torch.nn.functional.avg_pool2d(output, kernel_size=1)
+        output = output.view(output.size(0), -1)
+        output = self.fc_layer(output)
+        return output
 
 
-def __process_train(pModel: ResNet50, pDataLoader: DataLoader, pOptimizer, pCriterion, pLog: YoonNLM):
+def __process_train(model: ResNet50, data_loader: DataLoader, optimizer, criterion, logger: YoonNLM):
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    pModel.train()
-    pBar = tqdm(enumerate(pDataLoader))
-    dTotalLoss = 0.0
-    nTotalCorrect = 0
-    nLengthSample = 0
-    for i, (pTensorInput, pTensorTarget) in pBar:
-        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
-        pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
-        pTensorOutput = pModel(pTensorInput)
-        pOptimizer.zero_grad()
-        pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
-        pTensorLoss.backward()
-        pOptimizer.step()
-        dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
-        _, pTensorPredicted = pTensorOutput.max(1)
-        nLengthSample += pTensorTarget.size(0)
-        nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-        strMessage = pLog.write(i, len(pDataLoader),
-                                Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
-        pBar.set_description(strMessage)
+        device = torch.device('cpu')
+    model.train()
+    bar = tqdm(enumerate(data_loader))
+    total_loss = 0.0
+    total_correct = 0
+    sample_length = 0
+    for i, (input, target) in bar:
+        input = input.type(torch.FloatTensor).to(device)
+        target = target.type(torch.LongTensor).to(device)
+        output = model(input)
+        optimizer.zero_grad()
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item() * target.size(0)
+        _, target_hat = output.max(1)
+        sample_length += target.size(0)
+        total_correct += target_hat.eq(target).sum().item()
+        message = logger.write(i, len(data_loader),
+                               Loss=total_loss / sample_length, Acc=100 * total_correct / sample_length)
+        bar.set_description(message)
 
 
-def __process_evaluate(pModel: ResNet50,
-                       pDataLoader: DataLoader,
-                       pCriterion,
-                       pLog: YoonNLM):
+def __process_evaluate(model: ResNet50,
+                       data_loader: DataLoader,
+                       criterion,
+                       logger: YoonNLM):
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    pModel.eval()
-    pBar = tqdm(enumerate(pDataLoader))
-    dTotalLoss = 0.0
-    nTotalCorrect = 0
-    nLengthSample = 0
+        device = torch.device('cpu')
+    model.eval()
+    bar = tqdm(enumerate(data_loader))
+    total_loss = 0.0
+    total_correct = 0
+    sample_length = 0
     with torch.no_grad():
-        for i, (pTensorInput, pTensorTarget) in pBar:
-            pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
-            pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
-            pTensorOutput = pModel(pTensorInput)
-            pTensorLoss = pCriterion(pTensorOutput, pTensorTarget)
-            dTotalLoss += pTensorLoss.item() * pTensorTarget.size(0)
-            _, pTensorPredicted = pTensorOutput.max(1)
-            nLengthSample += pTensorTarget.size(0)
-            nTotalCorrect += pTensorPredicted.eq(pTensorTarget).sum().item()
-            strMessage = pLog.write(i, len(pDataLoader),
-                                    Loss=dTotalLoss / nLengthSample, Acc=100 * nTotalCorrect / nLengthSample)
-            pBar.set_description(strMessage)
-    return dTotalLoss / nLengthSample
+        for i, (input, target) in bar:
+            input = input.type(torch.FloatTensor).to(device)
+            target = target.type(torch.LongTensor).to(device)
+            output = model(input)
+            loss = criterion(output, target)
+            total_loss += loss.item() * target.size(0)
+            _, target_hat = output.max(1)
+            sample_length += target.size(0)
+            total_correct += target_hat.eq(target).sum().item()
+            message = logger.write(i, len(data_loader),
+                                   Loss=total_loss / sample_length, Acc=100 * total_correct / sample_length)
+            bar.set_description(message)
+    return total_loss / sample_length
 
 
-def __process_test(pModel: ResNet50, pDataLoader: DataLoader, pListLabel: list):
+def __process_test(model: ResNet50, data_loader: DataLoader, labels: list):
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    pModel.eval()
-    pListTargetLabel = []
-    pListPredictedLabel = []
-    for i, (pTensorInput, pTensorTarget) in enumerate(pDataLoader):
-        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
-        pTensorTarget = pTensorTarget.type(torch.LongTensor).to(pDevice)
-        pTensorOutput = pModel(pTensorInput)
-        _, pTensorPredicted = pTensorOutput.max(1)
-        pListTargetLabel = numpy.concatenate((pListTargetLabel, pTensorTarget.cpu().numpy()))
-        pListPredictedLabel = numpy.concatenate((pListPredictedLabel, pTensorPredicted.cpu().numpy()))
+        device = torch.device('cpu')
+    model.eval()
+    target_labels = []
+    predicted_labels = []
+    for i, (input, target) in enumerate(data_loader):
+        input = input.type(torch.FloatTensor).to(device)
+        target = target.type(torch.LongTensor).to(device)
+        output = model(input)
+        _, target_hat = output.max(1)
+        target_labels = numpy.concatenate((target_labels, target.cpu().numpy()))
+        predicted_labels = numpy.concatenate((predicted_labels, target_hat.cpu().numpy()))
     # Compute confusion matrix
-    pMatrix = sklearn.metrics.confusion_matrix(pListTargetLabel, pListPredictedLabel)
+    matrix = sklearn.metrics.confusion_matrix(target_labels, predicted_labels)
     numpy.set_printoptions(precision=2)
-    pArrayCorrected = (pListPredictedLabel == pListTargetLabel)
-    dAcc = numpy.sum(pArrayCorrected * 1) / len(pArrayCorrected)
-    print("Accuracy: %.5f" % dAcc)
+    corrected = (predicted_labels == target_labels)
+    acc = numpy.sum(corrected * 1) / len(corrected)
+    print("Accuracy: %.5f" % acc)
     # Plot non-normalized confusion matrix
     matplotlib.pyplot.figure()
-    __draw_confusion_matrix(pMatrix=pMatrix, pListLabel=pListLabel, strTitle="Confusion matrix, without normalization")
+    __draw_confusion_matrix(matrix=matrix, labels=labels, title="Confusion matrix, without normalization")
     # Plot non-normalized confusion matrix
     matplotlib.pyplot.figure()
-    __draw_confusion_matrix(pMatrix=pMatrix, pListLabel=pListLabel, bNormalize=True,
-                            strTitle="Confusion matrix, without normalization")
+    __draw_confusion_matrix(matrix=matrix, labels=labels, is_norm=True,
+                            title="Confusion matrix, without normalization")
     matplotlib.pyplot.show()
 
 
-def __draw_confusion_matrix(pMatrix: numpy,
-                            pListLabel: list,
-                            bNormalize=False,
-                            pColorMap=matplotlib.pyplot.cm.Blues,
-                            strTitle="Confusion Matrix"):
-    if bNormalize:
-        pMatrix = pMatrix.astype('float') / pMatrix.sum(axis=1)[:, numpy.newaxis]
+def __draw_confusion_matrix(matrix: numpy,
+                            labels: list,
+                            is_norm=False,
+                            color_map=matplotlib.pyplot.cm.Blues,
+                            title="Confusion Matrix"):
+    if is_norm:
+        matrix = matrix.astype('float') / matrix.sum(axis=1)[:, numpy.newaxis]
         print("Normalized confusion matrix")
     else:
         print("Confusion matrix, without normalization")
-    matplotlib.pyplot.imshow(pMatrix, interpolation='nearest', cmap=pColorMap)
-    matplotlib.pyplot.title(strTitle)
+    matplotlib.pyplot.imshow(matrix, interpolation='nearest', cmap=color_map)
+    matplotlib.pyplot.title(title)
     matplotlib.pyplot.colorbar()
-    pArrayMark = numpy.arange(len(pListLabel))
-    matplotlib.pyplot.xticks(pArrayMark, pListLabel, rotation=45)
-    matplotlib.pyplot.yticks(pArrayMark, pListLabel)
-    strFormat = '.2f' if bNormalize else 'd'
-    dThreshold = pMatrix.max() / 2.
-    for i in range(pMatrix.shape[0]):
-        for j in range(pMatrix.shape[1]):
-            matplotlib.pyplot.text(j, i, format(pMatrix[i, j], strFormat), horizontalalignment="center", color="white"
-            if pMatrix[i, j] > dThreshold else "black")
+    marks = numpy.arange(len(labels))
+    matplotlib.pyplot.xticks(marks, labels, rotation=45)
+    matplotlib.pyplot.yticks(marks, labels)
+    str_format = '.2f' if is_norm else 'd'
+    thresh = matrix.max() / 2.
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            matplotlib.pyplot.text(j, i, format(matrix[i, j], str_format), horizontalalignment="center", color="white"
+            if matrix[i, j] > thresh else "black")
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.ylabel("True label")
     matplotlib.pyplot.xlabel("Predicted label")
 
 
-def __draw_dataset(pDataSet: Dataset, pListLabel: list, nCountShow=15):
-    nCount = len(pDataSet)
-    pFigure = matplotlib.pyplot.figure()
-    pListRandom = numpy.random.randint(nCount, size=nCountShow)
-    nCountHorz = int(nCountShow / 2)
-    nCountVert = nCountShow - nCountHorz
-    for i in range(nCountShow):
-        pPlot = pFigure.add_subplot(nCountHorz, nCountVert, i + 1)
-        pPlot.set_xticks([])
-        pPlot.set_yticks([])
-        pImage, nLabel = pDataSet[pListRandom[i]]
-        pPlot.set_title("%s" % pListLabel[nLabel])
-        pPlot.imshow(pImage)
+def __draw_dataset(dataset: Dataset, labels: list, show_count=15):
+    data_count = len(dataset)
+    figure = matplotlib.pyplot.figure()
+    rands = numpy.random.randint(data_count, size=show_count)
+    col_count = int(show_count / 2)
+    row_count = show_count - col_count
+    for i in range(show_count):
+        plot = figure.add_subplot(col_count, row_count, i + 1)
+        plot.set_xticks([])
+        plot.set_yticks([])
+        image, nLabel = dataset[rands[i]]
+        plot.set_title("%s" % labels[nLabel])
+        plot.imshow(image)
     matplotlib.pyplot.show()
 
 
-def train(nEpoch: int,
-          strModelPath: str,
-          nCountClass: int,
-          pTrainData: YoonDataset,
-          pEvalData: YoonDataset,
-          pTransform: YoonTransform,
-          nBatchSize=32,
-          nCountWorker=0,  # 0: CPU / 4 : GPU
-          dLearningRate=0.1,
-          bInitEpoch=False):
+def train(epoch: int,
+          model_path: str,
+          num_class: int,
+          train_data: YoonDataset,
+          eval_data: YoonDataset,
+          transform: YoonTransform,
+          batch_size=32,
+          num_workers=0,  # 0: CPU / 4 : GPU
+          learning_rate=0.1,
+          is_init_epoch=False):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    print("{} device activation".format(pDevice.__str__()))
+        device = torch.device('cpu')
+    print("{} device activation".format(device.__str__()))
     # Define the training and testing data-set
-    pTrainSet = ClassificationDataset(pTrainData, nCountClass, pTransform)
-    pTrainLoader = DataLoader(pTrainSet, batch_size=nBatchSize, shuffle=True,
-                              collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = ClassificationDataset(pEvalData, nCountClass, pTransform)
-    pValidationLoader = DataLoader(pValidationSet, batch_size=nBatchSize, shuffle=False,
-                                   collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
+    trainset = ClassificationDataset(train_data, num_class, transform)
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True,
+                              collate_fn=collate_segmentation, num_workers=num_workers, pin_memory=True)
+    valid_set = ClassificationDataset(eval_data, num_class, transform)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=False,
+                              collate_fn=collate_segmentation, num_workers=num_workers, pin_memory=True)
     # Define a network model
-    pModel = ResNet50(nDimInput=pTrainSet.input_dim, nNumClass=pTrainSet.output_dim).to(pDevice)
-    pCriterion = torch.nn.CrossEntropyLoss()
-    pOptimizer = torch.optim.SGD(pModel.parameters(), lr=dLearningRate, momentum=0.9, weight_decay=5e-4)
-    pScheduler = torch.optim.lr_scheduler.StepLR(pOptimizer, step_size=20, gamma=0.5)
+    model = ResNet50(input_dim=trainset.input_dim, num_class=trainset.output_dim).to(device)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
     # Load pre-trained model
-    nStart = 0
-    print("Directory of the pre-trained model: {}".format(strModelPath))
-    if strModelPath is not None and os.path.exists(strModelPath) and bInitEpoch is False:
-        pModelData = torch.load(strModelPath, map_location=pDevice)
-        nStart = pModelData['epoch']
-        pModel.load_state_dict(pModelData['model'])
-        pOptimizer.load_state_dict(pModelData['optimizer'])
-        print("## Successfully load the model at {} epochs!".format(nStart))
+    start = 0
+    print("Directory of the pre-trained model: {}".format(model_path))
+    if model_path is not None and os.path.exists(model_path) and is_init_epoch is False:
+        model_data = torch.load(model_path, map_location=device)
+        start = model_data['epoch']
+        model.load_state_dict(model_data['model'])
+        optimizer.load_state_dict(model_data['optimizer'])
+        print("## Successfully load the model at {} epochs!".format(start))
     # Define the log manager
-    pNLMTrain = YoonNLM(nStart, strRoot="./NLM/ResNet", strMode="Train")
-    pNLMEval = YoonNLM(nStart, strRoot="./NLM/ResNet", strMode="Eval")
+    train_logger = YoonNLM(start, root="./NLM/ResNet", mode="Train")
+    valid_logger = YoonNLM(start, root="./NLM/ResNet", mode="Eval")
     # Train and Test Repeat
-    dMinLoss = 10000.0
-    for iEpoch in range(nStart, nEpoch + 1):
-        __process_train(pModel=pModel, pDataLoader=pTrainLoader, pCriterion=pCriterion,
-                        pOptimizer=pOptimizer, pLog=pNLMTrain)
-        dLoss = __process_evaluate(pModel=pModel, pDataLoader=pValidationLoader, pCriterion=pCriterion, pLog=pNLMEval)
+    min_loss = 10000.0
+    for i in range(start, epoch + 1):
+        __process_train(model=model, data_loader=train_loader, criterion=criterion,
+                        optimizer=optimizer, logger=train_logger)
+        loss = __process_evaluate(model=model, data_loader=valid_loader, criterion=criterion, logger=valid_logger)
         # Change the learning rate
-        pScheduler.step()
+        scheduler.step()
         # Rollback the model when loss is NaN
-        if math.isnan(dLoss):
-            if strModelPath is not None and os.path.exists(strModelPath):
+        if math.isnan(loss):
+            if model_path is not None and os.path.exists(model_path):
                 # Reload the best model and decrease the learning rate
-                pModelData = torch.load(strModelPath, map_location=pDevice)
-                pModel.load_state_dict(pModelData['model'])
-                pOptimizerData = pModelData['optimizer']
+                model_data = torch.load(model_path, map_location=device)
+                model.load_state_dict(model_data['model'])
+                pOptimizerData = model_data['optimizer']
                 pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
-                pOptimizer.load_state_dict(pOptimizerData)
+                optimizer.load_state_dict(pOptimizerData)
                 print("## Rollback the Model with half learning rate!")
         # Save the optimal model
-        elif dLoss < dMinLoss:
-            dMinLoss = dLoss
-            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                       strModelPath)
-        elif iEpoch % 100 == 0:
-            torch.save({'epoch': iEpoch, 'model': pModel.state_dict(), 'optimizer': pOptimizer.state_dict()},
-                       'resnet_{}epoch.pth'.format(iEpoch))
+        elif loss < min_loss:
+            min_loss = loss
+            torch.save({'epoch': i, 'model': model.state_dict(), 'optimizer': optimizer.state_dict()},
+                       model_path)
+        elif i % 100 == 0:
+            torch.save({'epoch': i, 'model': model.state_dict(), 'optimizer': optimizer.state_dict()},
+                       'resnet_{}epoch.pth'.format(i))
 
 
-def test(pTestData: YoonDataset,
-         strModelPath: str,
-         nCountClass: int,
-         pTransform: YoonTransform,
-         nCountWorker=0,  # 0: CPU / 4 : GPU
+def test(test_data: YoonDataset,
+         model_path: str,
+         num_class: int,
+         transform: YoonTransform,
+         num_workers=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    print("{} device activation".format(pDevice.__str__()))
+        device = torch.device('cpu')
+    print("{} device activation".format(device.__str__()))
     # Define a data path for plot for test
-    pDataSet = ClassificationDataset(pTestData, nCountClass, pTransform)
-    pDataLoader = DataLoader(pDataSet, batch_size=1, shuffle=False,
-                             collate_fn=collate_segmentation, num_workers=nCountWorker, pin_memory=True)
+    dataset = ClassificationDataset(test_data, num_class, transform)
+    data_loader = DataLoader(dataset, batch_size=1, shuffle=False,
+                             collate_fn=collate_segmentation, num_workers=num_workers, pin_memory=True)
     # Load the model
-    pModel = ResNet50(nDimInput=pDataSet.input_dim, nNumClass=pDataSet.output_dim).to(pDevice)
-    pModel.eval()
-    pFile = torch.load(strModelPath)
-    pModel.load_state_dict(pFile['model'])
+    model = ResNet50(input_dim=dataset.input_dim, num_class=dataset.output_dim).to(device)
+    model.eval()
+    file = torch.load(model_path)
+    model.load_state_dict(file['model'])
     print("Successfully load the Model in path")
     # Start the test sequence
-    pBar = tqdm(pDataLoader)
-    print("Length of data = ", len(pBar))
-    pListLabel = []
-    for i, pTensorInput in enumerate(pBar):
-        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
-        pTensorOutput = pModel(pTensorInput)
-        _, pTensorPredicted = pTensorOutput.max(1)
-        pListLabel.append(pTensorPredicted.detach().cpu().numpy())
+    bar = tqdm(data_loader)
+    print("Length of data = ", len(bar))
+    labels = []
+    for i, input in enumerate(bar):
+        input = input.type(torch.FloatTensor).to(device)
+        output = model(input)
+        _, target_hat = output.max(1)
+        labels.append(target_hat.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    return YoonDataset.from_tensor(pImage=None, pLabel=numpy.concatenate(pListLabel))
+    return YoonDataset.from_tensor(images=None, labels=numpy.concatenate(labels))

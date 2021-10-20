@@ -6,89 +6,86 @@ from yoonimage import YoonImage, YoonObject, YoonDataset
 from yoonpytory.figure import YoonVector2D, YoonRect2D, YoonLine2D
 
 
-def find_template(pSourceImage : YoonImage,
-                  pTemplateImage : YoonImage,
-                  dScore: float = 0.7,
-                  nMode: int = cv2.cv2.TM_SQDIFF_NORMED):
-    assert isinstance(pTemplateImage, YoonImage)
-    pMatchStorage = cv2.cv2.matchTemplate(image=pSourceImage.get_buffer(),
-                                          templ=pTemplateImage.get_buffer(),
-                                          method=nMode)
-    _, dMaxValue, pMinPos, pMaxPos = cv2.cv2.minMaxLoc(pMatchStorage)
-    if dMaxValue > dScore:
-        pMinPos = YoonVector2D.from_array(pMinPos)
-        pMaxPos = YoonVector2D.from_array(pMaxPos)
-        pCenterPos = (pMinPos + pMaxPos) / 2
-        pRect = YoonRect2D(pPos=pCenterPos, dWidth=pTemplateImage.width, dHeight=pTemplateImage.height)
-        return YoonObject(pRegion=pRect, pImage=pSourceImage.crop(pRect), dScore=dMaxValue)
+def find_template(source: YoonImage,
+                  template: YoonImage,
+                  score: float = 0.7,
+                  mode: int = cv2.cv2.TM_SQDIFF_NORMED):
+    assert isinstance(template, YoonImage)
+    match_container = cv2.cv2.matchTemplate(image=source.get_buffer(),
+                                            templ=template.get_buffer(),
+                                            method=mode)
+    _, max, min_pos, max_pos = cv2.cv2.minMaxLoc(match_container)
+    if max > score:
+        min_pos = YoonVector2D.from_array(min_pos)
+        max_pos = YoonVector2D.from_array(max_pos)
+        center_pos = (min_pos + max_pos) / 2
+        rect = YoonRect2D(x=center_pos.x, y=center_pos.y, width=template.width, height=template.height)
+        return YoonObject(region=rect, image=source.crop(rect), score=max)
 
 
-def find_lines(pSourceImage: YoonImage,
-               nThresh1: int,
-               nThresh2: int,
-               nThreshHough: int = 150,
-               nMaxCount: int = 30):
-    pResultBuffer = cv2.cv2.Canny(pSourceImage.get_buffer(),
-                                  threshold1=nThresh1,
-                                  threshold2=nThresh2,
+def find_lines(source: YoonImage,
+               thresh1: int,
+               thresh2: int,
+               thresh_hough: int = 150,
+               max_count: int = 30):
+    result_buffer = cv2.cv2.Canny(source.get_buffer(),
+                                  threshold1=thresh1,
+                                  threshold2=thresh2,
                                   apertureSize=3,
                                   L2gradient=True)
-    pLineStorage = cv2.cv2.HoughLines(pResultBuffer,
-                                      rho=1,
-                                      theta=numpy.pi / 180,
-                                      threshold=nThreshHough,
-                                      min_theta=0,
-                                      max_theta=numpy.pi)
-    pResultDataset = YoonDataset()
-    pResultImage = YoonImage(pBuffer=pResultBuffer)
-    # pResultImage.show_image()  # Remain for logging
+    line_container = cv2.cv2.HoughLines(result_buffer,
+                                        rho=1,
+                                        theta=numpy.pi / 180,
+                                        threshold=thresh_hough,
+                                        min_theta=0,
+                                        max_theta=numpy.pi)
+    result = YoonDataset()
+    result_image = YoonImage.from_buffer(result_buffer)
+    # result_image.show_image()  # Remain for logging
     iCount = 0
-    for pLine in pLineStorage:
-        dDistance = pLine[0][0]  # Distance as the zero position
-        dTheta = pLine[0][1]  # Angle of the perpendicular line
-        dTheta = 1e-10 if dTheta < 1e-10 else dTheta
-        dX0 = dDistance * numpy.cos(dTheta)  # Intersection position with perpendicular line
-        dY0 = dDistance * numpy.sin(dTheta)  # Intersection position with perpendicular line
-        nHeight = pResultBuffer.shape[0]
-        nWidth = pResultBuffer.shape[1]
-        pVector1 = YoonVector2D(dX=int(dX0 - nWidth * numpy.sin(dTheta)),
-                                dY=int(dY0 + nHeight * numpy.cos(dTheta)))
-        pVector2 = YoonVector2D(dX=int(dX0 + nWidth * numpy.sin(dTheta)),
-                                dY=int(dY0 - nHeight * numpy.cos(dTheta)))
-        pResultDataset.append(
-            YoonObject(pRegion=YoonLine2D.from_vectors(pVector1, pVector2),
-                       pImage=pResultImage.__copy__())
+    for line in line_container:
+        distance = line[0][0]  # Distance as the zero position
+        theta = line[0][1]  # Angle of the perpendicular line
+        theta = 1e-10 if theta < 1e-10 else theta
+        x0 = distance * numpy.cos(theta)  # Intersection position with perpendicular line
+        y0 = distance * numpy.sin(theta)  # Intersection position with perpendicular line
+        height = result_buffer.shape[0]
+        width = result_buffer.shape[1]
+        vec1 = YoonVector2D(x=int(x0 - width * numpy.sin(theta)),
+                            y=int(y0 + height * numpy.cos(theta)))
+        vec2 = YoonVector2D(x=int(x0 + width * numpy.sin(theta)),
+                            y=int(y0 - height * numpy.cos(theta)))
+        result.append(
+            YoonObject(region=YoonLine2D.from_vectors(vec1, vec2), image=result_image)
         )
         iCount += 1
-        if iCount >= nMaxCount:
+        if iCount >= max_count:
             break
 
-    return pResultDataset
+    return result
 
 
-def find_blobs(pSourceImage: YoonImage,
-               nThreshold: int,
-               nMaxCount: int = 30):
-
-    pResultBuffer = cv2.cv2.threshold(pSourceImage.get_buffer(),
-                                      thresh=nThreshold, maxval=255,
+def find_blobs(source: YoonImage,
+               thresh: int,
+               max_count: int = 30):
+    result_buffer = cv2.cv2.threshold(source.get_buffer(),
+                                      thresh=thresh, maxval=255,
                                       type=cv2.cv2.THRESH_BINARY)
-    pDetector = cv2.cv2.SimpleBlobDetector()
-    pBlobStorage = pDetector.detect(pResultBuffer)
-    pResultDataset = YoonDataset()
-    pResultImage = YoonImage(pBuffer=pResultBuffer)
-    pResultImage.show_image()  # Remain for logging
-    iCount = 0
-    for pKeypoint in pBlobStorage:
-        pPosition = YoonVector2D(dx=int(pKeypoint.pt[0]), dy=int(pKeypoint.pt[1]))
-        dHeight, dWidth = pKeypoint.size[0], pKeypoint.size[1]
-        pRect = YoonRect2D(pPos=pPosition, dWidth=dWidth, dHeight=dHeight)
-        pResultDataset.append(
-            YoonObject(pRegion=pRect,
-                       pImage=pResultImage.crop(pRect))
+    detector = cv2.cv2.SimpleBlobDetector()
+    blob_container = detector.detect(result_buffer)
+    result = YoonDataset()
+    result_image = YoonImage.from_buffer(result_buffer)
+    result_image.show_image()  # Remain for logging
+    i = 0
+    for feature in blob_container:
+        pos = YoonVector2D(x=int(feature.pt[0]), y=int(feature.pt[1]))
+        height, width = feature.size[0], feature.size[1]
+        rect = YoonRect2D(x=pos.x, y=pos.y, width=width, height=height)
+        result.append(
+            YoonObject(region=rect, image=result_image.crop(rect))
         )
-        iCount += 1
-        if iCount >= nMaxCount:
+        i += 1
+        if i >= max_count:
             break
 
-    return pResultDataset
+    return result

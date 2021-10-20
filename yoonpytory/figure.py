@@ -6,37 +6,24 @@ import numpy
 from yoonpytory.dir import eYoonDir2D
 
 
-def _list_square(pX: numpy.ndarray, pY: numpy.ndarray):
-    if pX.size != pY.size:
-        raise Exception("Array X size:{0}, Y size:{1} is not equal".format(pX.size, pY.size))
-    nCount = pX.size
-    # Calculate Model per least-square
-    dMeanX, dMeanY = pX.mean(), pY.mean()
-    dCrossDeviationYX = numpy.sum(pY * pX) - nCount * dMeanX * dMeanY
-    dSquareDeviationX = numpy.sum(pX * pX) - nCount * dMeanX * dMeanX
-    dSquareDeviationX = 1e-10 if dSquareDeviationX < 1e-10 else dSquareDeviationX
-    dSlope = dCrossDeviationYX / dSquareDeviationX
-    dIntercept = dMeanY - dSlope * dMeanX
-    return dSlope, dIntercept
-
-
 class YoonVector2D:
     """
     The shared area of YoonDataset class
     All of instances are using this shared area
     """
-    def __init__(self, dX=0.0, dY=0.0, nStepX=1, nStepY=1):
-        self.x = dX
-        self.y = dY
-        self.__stepX = nStepX
-        self.__stepY = nStepY
+
+    def __init__(self, x=0.0, y=0.0):
+        self.x = x
+        self.y = y
 
     def __str__(self):
         return "{0}".format(self.to_tuple())
 
     @classmethod
-    def direction_vector(cls, eDir: eYoonDir2D, nStepX=1, nStepY=1):
-        assert isinstance(eDir, eYoonDir2D)
+    def direction_vector(cls,
+                         dir: eYoonDir2D,
+                         step_x=1, step_y=1):
+        assert isinstance(dir, eYoonDir2D)
         dic = {"NONE": (0, 0),
                "CENTER": (0, 0),
                "TOP": (0, 1),
@@ -47,129 +34,157 @@ class YoonVector2D:
                "TOP_LEFT": (-1, 1),
                "BOTTOM_LEFT": (-1, -1),
                "BOTTOM_RIGHT": (1, -1)}
-        return YoonVector2D(dic[eDir.__str__()][0] * nStepX, dic[eDir.__str__()][1] * nStepY, nStepX, nStepY)
+        return YoonVector2D(dic[dir.__str__()][0] * step_x, dic[dir.__str__()][1] * step_y)
 
     @classmethod
-    def list_to_array_xy(cls, pList: list, *args):
-        pListX, pListY = [], []
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                pListX.append(args[i].x)
-                pListY.append(args[i].y)
-            return numpy.array(pListX, pListY)
-        else:
-            if not len(pList) >= 2:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                pListX.append([pList[i].x])
-                pListY.append([pList[i].y])
-            return numpy.array(pListX, pListY)
+    def list_to_array_xy(cls, args: list):
+        list_x, list_y = [], []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_x.append([args[i].x])
+            list_y.append([args[i].y])
+        return numpy.array(list_x, list_y)
 
     @classmethod
-    def list_to_array_x(cls, pList: list, *args):
-        pListX = []
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                pListX.append([args[i].x])
-            return numpy.array(pListX)
-        else:
-            if not len(pList) >= 2:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                pListX.append([pList[i].x])
-            return numpy.array(pListX)
+    def vectors_to_array_xy(cls, *args):
+        list_x, list_y = [], []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_x.append(args[i].x)
+            list_y.append(args[i].y)
+        return numpy.array(list_x, list_y)
 
     @classmethod
-    def list_to_array_y(cls, pList: list, *args):
-        listY = []
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                listY.append([args[i].y])
-            return numpy.array(listY)
-        else:
-            if not len(pList) >= 2:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                listY.append([pList[i].y])
-            return numpy.array(listY)
+    def list_to_array_x(cls, args: list):
+        list_x = []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_x.append([args[i].x])
+        return numpy.array(list_x)
 
     @classmethod
-    def list_to_minimum_x(cls, pList: list, *args):
-        minX = sys.maxsize
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                if minX > args[i].x:
-                    minX = args[i].x
-            return minX
-        else:
-            if not len(pList) > 0:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                if minX > pList[i].x:
-                    minX = pList[i].x
-            return minX
+    def vectors_to_array_x(cls, *args):
+        list_x = []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_x.append([args[i].x])
+        return numpy.array(list_x)
 
     @classmethod
-    def list_to_maximum_x(cls, pList: list, *args):
-        maxX = -sys.maxsize
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                if maxX < args[i].x:
-                    maxX = args[i].x
-            return maxX
-        else:
-            if not len(pList) > 0:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                if maxX < pList[i].x:
-                    maxX = pList[i].x
-            return maxX
+    def list_to_array_y(cls, args: list):
+        list_y = []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_y.append([args[i].y])
+        return numpy.array(list_y)
 
     @classmethod
-    def list_to_minimum_y(cls, pList: list, *args):
-        minY = sys.maxsize
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                if minY > args[i].y:
-                    minY = args[i].y
-            return minY
-        else:
-            if not len(pList) > 0:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                if minY > pList[i].y:
-                    minY = pList[i].y
-            return minY
+    def vectors_to_array_y(cls, *args):
+        list_y = []
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            list_y.append([args[i].y])
+        return numpy.array(list_y)
 
     @classmethod
-    def list_to_maximum_y(cls, pList: list, *args):
-        maxY = -sys.maxsize
-        if len(args) > 0:
-            for i in range(len(args)):
-                assert isinstance(args[i], YoonVector2D)
-                if maxY < args[i].x:
-                    maxY = args[i].x
-            return maxY
-        else:
-            if not len(pList) > 0:
-                raise Exception("Arguments is not enough")
-            for i in range(len(pList)):
-                assert isinstance(pList[i], YoonVector2D)
-                if maxY < pList[i].x:
-                    maxY = pList[i].x
-            return maxY
+    def minimum_x_in_list(cls, args: list):
+        min_x = sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_x > args[i].x:
+                min_x = args[i].x
+        return min_x
+
+    @classmethod
+    def minimum_x_in_vectors(cls, *args):
+        min_x = sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_x > args[i].x:
+                min_x = args[i].x
+        return min_x
+
+    @classmethod
+    def maximum_x_in_list(cls, args: list):
+        max_x = -sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_x < args[i].x:
+                max_x = args[i].x
+        return max_x
+
+    @classmethod
+    def maximum_x_in_vectors(cls, *args):
+        max_x = -sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_x < args[i].x:
+                max_x = args[i].x
+        return max_x
+
+    @classmethod
+    def minimum_y_in_list(cls, args: list):
+        min_y = sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_y > args[i].y:
+                min_y = args[i].y
+        return min_y
+
+    @classmethod
+    def minimum_y_in_vectors(cls, *args):
+        min_y = sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if min_y > args[i].y:
+                min_y = args[i].y
+        return min_y
+
+    @classmethod
+    def maximum_y_in_list(cls, args: list):
+        max_y = -sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_y < args[i].x:
+                max_y = args[i].x
+        return max_y
+
+    @classmethod
+    def maximum_y_in_vectors(cls, *args):
+        max_y = -sys.maxsize
+        if not len(args) >= 2:
+            raise Exception("Arguments is not enough")
+        for i in range(len(args)):
+            assert isinstance(args[i], YoonVector2D)
+            if max_y < args[i].x:
+                max_y = args[i].x
+        return max_y
 
     @classmethod
     def zero_vector(cls):
@@ -181,7 +196,7 @@ class YoonVector2D:
         return YoonVector2D(pArray[0], pArray[1])
 
     def __copy__(self):
-        return YoonVector2D(self.x, self.y, self.__stepX, self.__stepY)
+        return YoonVector2D(self.x, self.y)
 
     def zero(self):
         self.x = 0
@@ -218,49 +233,49 @@ class YoonVector2D:
         else:
             return eYoonDir2D.NONE
 
-    def distance(self, pVector):
-        assert isinstance(pVector, YoonVector2D)
-        dx = self.x - pVector.x
-        dy = self.y - pVector.y
-        return math.sqrt(dx ** 2 + dy ** 2)
+    def distance(self, vector):
+        assert isinstance(vector, YoonVector2D)
+        dist_x = self.x - vector.x
+        dist_y = self.y - vector.y
+        return math.sqrt(dist_x ** 2 + dist_y ** 2)
 
-    def direction_to(self, pVector):
-        assert isinstance(pVector, YoonVector2D)
-        diff_vector = self - pVector
+    def direction_to(self, vector):
+        assert isinstance(vector, YoonVector2D)
+        diff_vector = self - vector
         return diff_vector.direction()
 
-    def angle(self, pVector):
-        assert isinstance(pVector, YoonVector2D)
-        dx = pVector.x - self.x
-        dy = pVector.y - self.y
-        return math.atan2(dy, dx)
+    def angle(self, vector):
+        assert isinstance(vector, YoonVector2D)
+        dist_x = vector.x - self.x
+        dist_y = vector.y - self.y
+        return math.atan2(dist_y, dist_x)
 
-    def scale(self, dScaleX: (int, float), dScaleY: (int, float)):
+    def scale(self, scale_x: (int, float), scale_y: (int, float)):
         array = numpy.eye(3)
-        array[0, 0] = dScaleX
-        array[1, 1] = dScaleY
+        array[0, 0] = scale_x
+        array[1, 1] = scale_y
         result = array.dot(self.to_array(3, 1))
-        return YoonVector2D(result[0, 0], result[1, 0], self.__stepX, self.__stepY)
+        return YoonVector2D(result[0, 0], result[1, 0])
 
-    def go(self, strTag: str):
-        assert isinstance(strTag, str)
-        pDir = self.direction().go(strTag)
-        return YoonVector2D.direction_vector(pDir, self.__stepX, self.__stepY)
+    def go(self, tag: str, step_x=1, step_y=1):
+        assert isinstance(tag, str)
+        dir = self.direction().go(tag)
+        return YoonVector2D.direction_vector(dir, step_x, step_y)
 
-    def back(self, strTag: str):
-        assert isinstance(strTag, str)
-        pDir = self.direction().back(strTag)
-        return YoonVector2D.direction_vector(pDir, self.__stepX, self.__stepY)
+    def back(self, tag: str, step_x=1, step_y=1):
+        assert isinstance(tag, str)
+        dir = self.direction().back(tag)
+        return YoonVector2D.direction_vector(dir, step_x, step_y)
 
-    def move(self, dMoveX: (int, float), dMoveY: (int, float)):
+    def move(self, move_x: (int, float), move_y: (int, float)):
         array = numpy.eye(3)
-        array[0, 2] = dMoveX
-        array[1, 2] = dMoveY
+        array[0, 2] = move_x
+        array[1, 2] = move_y
         result = array.dot(self.to_array(3, 1))
-        return YoonVector2D(result[0, 0], result[1, 0], self.__stepX, self.__stepY)
+        return YoonVector2D(result[0, 0], result[1, 0])
 
-    def to_array(self, nRow: int, nCol: int):
-        return numpy.array([self.x, self.y, 1]).reshape(nRow, nCol)
+    def to_array(self, row: int, col: int):
+        return numpy.array([self.x, self.y, 1]).reshape(row, col)
 
     def to_list(self):
         return [self.x, self.y, 1]
@@ -272,41 +287,41 @@ class YoonVector2D:
         return self.x, self.y
 
     def to_tuple_int(self):
-        dX = 0 if math.isnan(self.x) else self.x
-        dY = 0 if math.isnan(self.y) else self.y
-        return int(dX), int(dY)
+        x = 0 if math.isnan(self.x) else self.x
+        y = 0 if math.isnan(self.y) else self.y
+        return int(x), int(y)
 
     def __add__(self, other):
         assert isinstance(other, (YoonVector2D, str, eYoonDir2D))
         if isinstance(other, YoonVector2D):
-            return YoonVector2D(self.x + other.x, self.y + other.y, self.__stepX, self.__stepY)
+            return YoonVector2D(self.x + other.x, self.y + other.y)
         elif isinstance(other, eYoonDir2D):
-            dirVector = YoonVector2D.direction_vector(other, self.__stepX, self.__stepY)
-            return YoonVector2D(self.x + dirVector.x, self.y + dirVector.y, self.__stepX, self.__stepY)
+            dir_vector = YoonVector2D.direction_vector(other)
+            return YoonVector2D(self.x + dir_vector.x, self.y + dir_vector.y)
         else:
-            dirVector = YoonVector2D.direction_vector(self.direction(), self.__stepX, self.__stepY)
-            dirVector = dirVector.go(other)
-            return YoonVector2D(self.x + dirVector.x, self.y + dirVector.y, self.__stepX, self.__stepY)
+            dir_vector = YoonVector2D.direction_vector(self.direction())
+            dir_vector = dir_vector.go(other)
+            return YoonVector2D(self.x + dir_vector.x, self.y + dir_vector.y)
 
     def __sub__(self, other):
         assert isinstance(other, (YoonVector2D, str, eYoonDir2D))
         if isinstance(other, YoonVector2D):
-            return YoonVector2D(self.x - other.x, self.y - other.y, self.__stepX, self.__stepY)
+            return YoonVector2D(self.x - other.x, self.y - other.y)
         elif isinstance(other, eYoonDir2D):
-            dirVector = YoonVector2D.direction_vector(other, self.__stepX, self.__stepY)
-            return YoonVector2D(self.x - dirVector.x, self.y - dirVector.y, self.__stepX, self.__stepY)
+            dir_vector = YoonVector2D.direction_vector(other)
+            return YoonVector2D(self.x - dir_vector.x, self.y - dir_vector.y)
         else:
-            dirVector = YoonVector2D.direction_vector(self.direction(), self.__stepX, self.__stepY)
-            dirVector = dirVector.back(other)
-            return YoonVector2D(self.x + dirVector.x, self.y + dirVector.y, self.__stepX, self.__stepY)
+            dir_vector = YoonVector2D.direction_vector(self.direction())
+            dir_vector = dir_vector.back(other)
+            return YoonVector2D(self.x + dir_vector.x, self.y + dir_vector.y)
 
     def __mul__(self, number):
         assert isinstance(number, int) or isinstance(number, float)
-        return YoonVector2D(self.x * number, self.y * number, self.__stepX, self.__stepY)
+        return YoonVector2D(self.x * number, self.y * number)
 
     def __truediv__(self, number):
         assert isinstance(number, int) or isinstance(number, float)
-        return YoonVector2D(self.x / number, self.y / number, self.__stepX, self.__stepY)
+        return YoonVector2D(self.x / number, self.y / number)
 
     def __abs__(self):
         return (self.x ** 2 + self.y ** 2) ** 0.5
@@ -323,111 +338,148 @@ class YoonLine2D:
     """
 
     @classmethod
+    def _list_square(cls,
+                     array_x: numpy.ndarray, array_y: numpy.ndarray):
+        if array_x.size != array_y.size:
+            raise Exception("Array X size:{0}, Y size:{1} is not equal".format(array_x.size, array_y.size))
+        count = array_x.size
+        # Calculate Model per least-square
+        mean_x, mean_y = array_x.mean(), array_y.mean()
+        cross_deviation_yx = numpy.sum(array_y * array_x) - count * mean_x * mean_y
+        square_deviation_x = numpy.sum(array_x * array_y) - count * mean_x * mean_x
+        square_deviation_x = 1e-10 if square_deviation_x < 1e-10 else square_deviation_x
+        slope = cross_deviation_yx / square_deviation_x
+        intercept = mean_y - slope * mean_x
+        return slope, intercept
+
+    @classmethod
     def from_list(cls,
-                  pList: list):
-        pLine = YoonLine2D()
-        if pList is not None:
-            pArrayX = YoonVector2D.list_to_array_x(pList)
-            pArrayY = YoonVector2D.list_to_array_y(pList)
-            dMinX = numpy.min(pArrayX)
-            dMaxX = numpy.max(pArrayX)
-            pLine.slope, pLine.intercept = _list_square(pArrayX, pArrayY)
-            pLine.startPos = YoonVector2D(dMinX, pLine.y(dMinX))
-            pLine.endPos = YoonVector2D(dMaxX, pLine.y(dMaxX))
-        return pLine
+                  args: list):
+        line = YoonLine2D()
+        if args is not None:
+            array_x = YoonVector2D.list_to_array_x(args)
+            array_y = YoonVector2D.list_to_array_y(args)
+            min_x = numpy.min(array_x)
+            max_x = numpy.max(array_x)
+            line.slope, line.intercept = YoonLine2D._list_square(array_x, array_y)
+            line.start_pos = YoonVector2D(min_x, line.y(min_x))
+            line.end_pos = YoonVector2D(max_x, line.y(max_x))
+        return line
 
     @classmethod
     def from_vectors(cls,
                      *args: YoonVector2D):
-        pLine = YoonLine2D()
+        line = YoonLine2D()
         if len(args) > 0:
-            pArrayX = YoonVector2D.list_to_array_x(args)
-            pArrayY = YoonVector2D.list_to_array_y(args)
-            dMinX = YoonVector2D.list_to_minimum_x(args)
-            dMinY = YoonVector2D.list_to_minimum_y(args)
-            pLine.slope, pLine.intercept = _list_square(pArrayX, pArrayY)
-            pLine.startPos = YoonVector2D(dMinX, pLine.y(dMinX))
-            pLine.endPos = YoonVector2D(dMinY, pLine.y(dMinY))
-        return pLine
+            array_x = YoonVector2D.vectors_to_array_x(args)
+            array_y = YoonVector2D.vectors_to_array_y(args)
+            min_x = YoonVector2D.minimum_x_in_vectors(args)
+            max_x = YoonVector2D.maximum_x_in_vectors(args)
+            line.slope, line.intercept = YoonLine2D._list_square(array_x, array_y)
+            line.start_pos = YoonVector2D(min_x, line.y(min_x))
+            line.end_pos = YoonVector2D(max_x, line.y(max_x))
+        return line
+
+    @classmethod
+    def from_pos(cls,
+                 start_vector: YoonVector2D = None,
+                 end_vector: YoonVector2D = None):
+        line = YoonLine2D()
+        line.slope = (start_vector.y - end_vector.y) / (start_vector.x - end_vector.x)
+        line.intercept = start_vector.y - line.slope * start_vector.x
+        line.start_pos = start_vector.__copy__()
+        line.end_pos = end_vector.__copy__()
+        return line
 
     def __init__(self,
-                 dSlope=0.0,
-                 dIntercept=0.0,
-                 pStartVector: YoonVector2D = None,
-                 pEndVector: YoonVector2D = None):
-        self.slope = dSlope
-        self.intercept = dIntercept
-        self.startPos = pStartVector
-        self.endPos = pEndVector
+                 slope=0.0,
+                 intercept=0.0):
+        self.slope = slope
+        self.intercept = intercept
+        self.start_pos = YoonVector2D(0, self.y(0))
+        self.end_pos = YoonVector2D(100, self.y(100))
 
     def __str__(self):
         return "SLOPE : {0}, INTERCEPT : {1}".format(self.slope, self.intercept)
 
     def __copy__(self):
-        return YoonLine2D(dSlope=self.slope,
-                          dIntercept=self.intercept,
-                          pStartVector=self.startPos,
-                          pEndVector=self.endPos)
+        return YoonLine2D.from_pos(self.start_pos, self.end_pos)
 
-    def x(self, dY: (int, float)):
-        assert isinstance(dY, (int, float))
-        return (dY - self.intercept) / self.slope
+    def x(self, y: (int, float)):
+        assert isinstance(y, (int, float))
+        return (y - self.intercept) / self.slope
 
-    def y(self, dX: (int, float)):
-        assert isinstance(dX, (int, float))
-        return dX * self.slope + self.intercept
+    def y(self, x: (int, float)):
+        assert isinstance(x, (int, float))
+        return x * self.slope + self.intercept
 
-    def distance(self, pPos: YoonVector2D):
-        assert isinstance(pPos, YoonVector2D)
-        return abs(self.slope * pPos.x - pPos.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
+    def distance(self, pos: YoonVector2D):
+        assert isinstance(pos, YoonVector2D)
+        return abs(self.slope * pos.x - pos.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
 
-    def is_contain(self, pPos: YoonVector2D):
-        assert isinstance(pPos, YoonVector2D)
-        return pPos.y == pPos.x * self.slope + self.intercept
+    def is_contain(self, pos: YoonVector2D):
+        assert isinstance(pos, YoonVector2D)
+        return pos.y == pos.x * self.slope + self.intercept
 
-    def __add__(self, pLine):
-        assert isinstance(pLine, YoonLine2D)
-        return YoonLine2D(dSlope=self.slope + pLine.slope, dIntercept=self.intercept + pLine.intercept)
+    def __add__(self, other):
+        assert isinstance(other, YoonLine2D)
+        return YoonLine2D(slope=self.slope + other.slope, intercept=self.intercept + other.intercept)
 
-    def __sub__(self, pLine):
-        assert isinstance(pLine, YoonLine2D)
-        return YoonLine2D(dSlope=self.slope - pLine.slope, dIntercept=self.intercept + pLine.intercept)
+    def __sub__(self, other):
+        assert isinstance(other, YoonLine2D)
+        return YoonLine2D(slope=self.slope - other.slope, intercept=self.intercept + other.intercept)
 
-    def __eq__(self, pLine):
-        assert isinstance(pLine, YoonLine2D)
-        return (self.slope == pLine.slope) and (self.intercept == pLine.intercept)
+    def __eq__(self, other):
+        assert isinstance(other, YoonLine2D)
+        return (self.slope == other.slope) and (self.intercept == other.intercept)
 
 
 class YoonRect2D:
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    """
     def __init__(self,
-                 pList: list = None,
-                 pPos: YoonVector2D = None,
-                 dX=0.0,
-                 dY=0.0,
-                 dWidth=0.0,
-                 dHeight=0.0,
-                 *args: YoonVector2D,
-                 **kwargs):
+                 x=0.0,
+                 y=0.0,
+                 width=0.0,
+                 height=0.0):
+        self.center_pos = YoonVector2D(x, y).__copy__()
+        self.width = width
+        self.height = height
+
+    @classmethod
+    def from_list(cls, args: list):
+        rect = YoonRect2D()
+        if args is not None:
+            min_x = YoonVector2D.minimum_x_in_list(args)
+            min_y = YoonVector2D.minimum_y_in_list(args)
+            max_x = YoonVector2D.maximum_x_in_list(args)
+            max_y = YoonVector2D.maximum_y_in_list(args)
+            rect.center_pos.x = (min_x + max_x) / 2
+            rect.center_pos.y = (min_y + max_y) / 2
+            rect.width = max_x - min_x
+            rect.height = max_y - min_y
+        return rect
+
+    @classmethod
+    def from_vectors(cls, *args: YoonVector2D):
+        rect = YoonRect2D()
         if len(args) > 0:
-            dMinX = dMinY = sys.maxsize
-            dMaxX = dMaxY = -sys.maxsize
-            for pVector in args:
-                assert isinstance(pVector, YoonVector2D)
-                if pVector.x < dMinX:
-                    dMinX = pVector.x
-                elif pVector.x > dMaxX:
-                    dMaxX = pVector.x
-                if pVector.y < dMinY:
-                    dMinY = pVector.y
-                elif pVector.y > dMaxY:
-                    dMaxY = pVector.y
-            self.centerPos.x = (dMinX + dMaxX) / 2
-            self.centerPos.y = (dMinY + dMaxY) / 2
-            self.width = dMaxX - dMinX
-            self.height = dMaxY - dMinY
-        elif kwargs.get("dir1") and kwargs.get("dir2") and kwargs.get("pos1") and kwargs.get("pos2"):
+            min_x = YoonVector2D.minimum_x_in_vectors(args)
+            min_y = YoonVector2D.minimum_y_in_vectors(args)
+            max_x = YoonVector2D.maximum_x_in_vectors(args)
+            max_y = YoonVector2D.maximum_y_in_vectors(args)
+            rect.center_pos.x = (min_x + max_x) / 2
+            rect.center_pos.y = (min_y + max_y) / 2
+            rect.width = max_x - min_x
+            rect.height = max_y - min_y
+        return rect
+
+    @classmethod
+    def from_dir_pair(cls, **kwargs):
+        rect = YoonRect2D()
+        if kwargs.get("dir1") and kwargs.get("dir2") and kwargs.get("pos1") and kwargs.get("pos2"):
             assert isinstance(kwargs["dir1"], eYoonDir2D)
             assert isinstance(kwargs["dir2"], eYoonDir2D)
             dir1 = kwargs["dir1"]
@@ -435,67 +487,43 @@ class YoonRect2D:
             pos1 = kwargs["pos1"]
             pos2 = kwargs["pos2"]
             if dir1 == eYoonDir2D.TOP_LEFT and dir2 == eYoonDir2D.BOTTOM_RIGHT:
-                self.centerPos = (pos1 + pos2) / 2
-                self.width = (pos2 - pos1).x
-                self.height = (pos2 - pos1).y
+                rect.center_pos = (pos1 + pos2) / 2
+                rect.width = (pos2 - pos1).x
+                rect.height = (pos2 - pos1).y
             elif dir1 == eYoonDir2D.BOTTOM_RIGHT and dir2 == eYoonDir2D.TOP_LEFT:
-                self.centerPos = (pos1 + pos2) / 2
-                self.width = (pos1 - pos2).x
-                self.height = (pos1 - pos2).y
+                rect.center_pos = (pos1 + pos2) / 2
+                rect.width = (pos1 - pos2).x
+                rect.height = (pos1 - pos2).y
             elif dir1 == eYoonDir2D.TOP_RIGHT and dir2 == eYoonDir2D.BOTTOM_RIGHT:
-                self.centerPos = (pos1 + pos2) / 2
-                self.width = (pos2 - pos1).x
-                self.height = (pos1 - pos2).y
+                rect.center_pos = (pos1 + pos2) / 2
+                rect.width = (pos2 - pos1).x
+                rect.height = (pos1 - pos2).y
             elif dir1 == eYoonDir2D.BOTTOM_LEFT and dir2 == eYoonDir2D.TOP_RIGHT:
-                self.centerPos = (pos1 + pos2) / 2
-                self.width = (pos1 - pos2).x
-                self.height = (pos2 - pos1).y
-        else:
-            if pList is not None:
-                dMinX = dMinY = sys.maxsize
-                dMaxX = dMaxY = -sys.maxsize
-                for pVector in pList:
-                    assert isinstance(pVector, YoonVector2D)
-                    if pVector.x < dMinX:
-                        dMinX = pVector.x
-                    elif pVector.x > dMaxX:
-                        dMaxX = pVector.x
-                    if pVector.y < dMinY:
-                        dMinY = pVector.y
-                    elif pVector.y > dMaxY:
-                        dMaxY = pVector.y
-                self.centerPos.x = (dMinX + dMaxX) / 2
-                self.centerPos.y = (dMinY + dMaxY) / 2
-                self.width = dMaxX - dMinX
-                self.height = dMaxY - dMinY
-            else:
-                if pPos is not None:
-                    self.centerPos = pPos.__copy__()
-                else:
-                    self.centerPos = YoonVector2D(dX, dY).__copy__()
-                self.width = dWidth
-                self.height = dHeight
+                rect.center_pos = (pos1 + pos2) / 2
+                rect.width = (pos1 - pos2).x
+                rect.height = (pos2 - pos1).y
+        return rect
 
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, CENTER {2}, TL : {3}, BR : {4}".format(self.width, self.height,
-                                                                                  self.centerPos.__str__(),
+                                                                                  self.center_pos.__str__(),
                                                                                   self.top_left().__str__(),
                                                                                   self.bottom_right().__str__())
 
     def __copy__(self):
-        return YoonRect2D(pPos=self.centerPos, dWidth=self.width, dHeight=self.height)
+        return YoonRect2D(x=self.center_pos.x, y=self.center_pos.y, width=self.width, height=self.height)
 
     def left(self):
-        return self.centerPos.x - self.width / 2
+        return self.center_pos.x - self.width / 2
 
     def top(self):
-        return self.centerPos.y - self.height / 2
+        return self.center_pos.y - self.height / 2
 
     def right(self):
-        return self.centerPos.x + self.width / 2
+        return self.center_pos.x + self.width / 2
 
     def bottom(self):
-        return self.centerPos.y + self.height / 2
+        return self.center_pos.y + self.height / 2
 
     def top_left(self):
         return YoonVector2D(self.left(), self.top())
@@ -516,9 +544,9 @@ class YoonRect2D:
         return numpy.array([self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y])
 
     def to_array_xy(self):
-        pListX = [self.top_right().x, self.top_left().x, self.bottom_left().x, self.bottom_right().x]
-        pListY = [self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y]
-        return numpy.array(pListX, pListY)
+        list_x = [self.top_right().x, self.top_left().x, self.bottom_left().x, self.bottom_right().x]
+        list_y = [self.top_right().y, self.top_left().y, self.bottom_left().y, self.bottom_right().y]
+        return numpy.array(list_x, list_y)
 
     def to_list(self):
         return [self.left(), self.top(), self.width, self.height]
@@ -529,25 +557,26 @@ class YoonRect2D:
     def area(self):
         return self.width * self.height
 
-    def is_contain(self, pPos: YoonVector2D):
-        assert isinstance(pPos, YoonVector2D)
-        if self.left() < pPos.x < self.right() and self.top() < pPos.y < self.bottom():
+    def is_contain(self, pos: YoonVector2D):
+        assert isinstance(pos, YoonVector2D)
+        if self.left() < pos.x < self.right() and self.top() < pos.y < self.bottom():
             return True
         else:
             return False
 
-    def __add__(self, pRect):
-        assert isinstance(pRect, YoonRect2D)
-        top = min(self.top(), pRect.top(), self.bottom(), pRect.bottom())
-        bottom = max(self.top(), pRect.top(), self.bottom(), pRect.bottom())
-        left = min(self.left(), pRect.left(), self.right(), pRect.right())
-        right = max(self.left(), pRect.left(), self.right(), pRect.right())
-        return YoonRect2D(dX=(left + right) / 2, dY=(top + bottom) / 2, dWidth=right - left, dHeight=bottom - top)
+    def __add__(self, other):
+        assert isinstance(other, YoonRect2D)
+        top = min(self.top(), other.top(), self.bottom(), other.bottom())
+        bottom = max(self.top(), other.top(), self.bottom(), other.bottom())
+        left = min(self.left(), other.left(), self.right(), other.right())
+        right = max(self.left(), other.left(), self.right(), other.right())
+        return YoonRect2D(x=(left + right) / 2, y=(top + bottom) / 2, width=right - left, height=bottom - top)
 
-    def __mul__(self, dScale: (int, float)):
-        assert isinstance(dScale, (int, float))
-        return YoonRect2D(pPos=self.centerPos.__copy__(), dWidth=dScale * self.width, dHeight=dScale * self.height)
+    def __mul__(self, scale: (int, float)):
+        assert isinstance(scale, (int, float))
+        return YoonRect2D(x=self.center_pos.x, y=self.center_pos.y,
+                          width=scale * self.width, height=scale * self.height)
 
-    def __eq__(self, pRect: (int, float)):
-        assert isinstance(pRect, YoonRect2D)
-        return self.centerPos == pRect.centerPos and self.width == pRect.width and self.height == pRect.height
+    def __eq__(self, other: (int, float)):
+        assert isinstance(other, YoonRect2D)
+        return self.center_pos == other.center_pos and self.width == other.width and self.height == other.height

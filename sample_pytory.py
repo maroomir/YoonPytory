@@ -26,7 +26,7 @@ def process_test_vector():
     print("VEC 1 = {0}, VEC 2 = {1}, DISTANCE = {2}".format(vector1.to_tuple(), vector2.to_tuple(),
                                                             vector1.distance(vector2)))
     scale_vector = vector1.scale(2, 2)
-    move_vector = yoonpytory.vector2D(10, 10, nStepX=5, nStepY=5)
+    move_vector = yoonpytory.vector2D(10, 10)
     print("Scale VEC 1 = " + scale_vector.__str__())
     # Move vector to direction
     for i in range(10):
@@ -35,14 +35,15 @@ def process_test_vector():
 
 
 def process_test_rect():
-    vector = yoonpytory.vector2D(10, 10, nStepX=5, nStepY=5)
+    vector = yoonpytory.vector2D(10, 10)
     list_vector = [vector]
     for i_dir in yoonpytory.dir2D.get_square_directions():
         print("INSERT VECTOR = " + vector.__str__())
-        vector += i_dir
+        for i in range(5):
+            vector += i_dir
         print("DIR TO = " + i_dir.__str__())
         list_vector.append(vector)
-    rect1 = yoonpytory.rect2D(list=list_vector)
+    rect1 = yoonpytory.rect2D.from_list(args=list_vector)
     rect2 = yoonpytory.rect2D(x=0, y=0, width=15, height=15)
     print("RECT FROM TUPLES = " + rect1.__str__())
     print("OBJECT RECT = " + rect2.__str__())
@@ -51,14 +52,14 @@ def process_test_rect():
 
 def process_test_line():
     # Move vector to direction
-    move_vector = yoonpytory.vector2D(5, 5, nStepX=5, nStepY=5)
+    move_vector = yoonpytory.vector2D(5, 5)
     list_vector = []
     for i in range(10):
         print("MOVE {0} = ".format(i) + move_vector.__str__())
         list_vector.append(move_vector.__copy__())
         move_vector += yoonpytory.dir2D.TOP_RIGHT
-    line1 = yoonpytory.line2D(list_vector[0], list_vector[1], list_vector[2], list_vector[3], list_vector[4])
-    line2 = yoonpytory.line2D(list=list_vector)
+    line1 = yoonpytory.line2D.from_vectors(list_vector[0], list_vector[1], list_vector[2], list_vector[3], list_vector[4])
+    line2 = yoonpytory.line2D.from_list(list_vector)
     other_vector = yoonpytory.vector2D(1, -1)
     print(line1.__str__())
     print(line2.__str__())
@@ -68,21 +69,21 @@ def process_test_line():
 
 def process_single_layer_perception():
     net = yoonpytory.neuron()
-    net.load_source(strFileName='./data/slp/twoGaussians.npz')
-    net.load_weight(strFileName='./data/slp/weight.npz')
-    net.train(nCountEpoch=2000, bInitWeight=True, bRunTest=False)
+    net.load_source(file_path='./data/slp/twoGaussians.npz')
+    net.load_weight(file_path='./data/slp/weight.npz')
+    net.train(epoch=2000, is_init_weight=True, is_run_test=False)
     net.process()
-    net.save_weight(strFileName='./data/slp/weight.npz')
+    net.save_weight(file_path='./data/slp/weight.npz')
 
 
 def process_multi_layer_perception():
     net = yoonpytory.network()
-    net.load_source(strFileName='./data/mlp/spirals.npz')
-    net.load_weight(strFileName='./data/mlp/weights.npz')
+    net.load_source(file_path='./data/mlp/spirals.npz')
+    net.load_weight(file_path='./data/mlp/weights.npz')
     # net.train(nCountEpoch=1000, nSizeLayer=100, nOrder=10, bInitWeight=False, bRunTest=False)
     net.process()
     net.show_plot()
-    net.save_weight(strFileName='./data/mlp/weights.npz')
+    net.save_weight(file_path='./data/mlp/weights.npz')
 
 
 if __name__ == '__main__':

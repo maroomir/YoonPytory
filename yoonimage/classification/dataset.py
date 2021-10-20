@@ -6,27 +6,27 @@ from yoonimage.data import YoonDataset, YoonTransform
 
 class ClassificationDataset(Dataset):
     def __init__(self,
-                 pDataset: YoonDataset,
-                 nDimOutput: int,
-                 pTransform: YoonTransform,
+                 dataset: YoonDataset,
+                 output_dim: int,
+                 transform: YoonTransform,
                  ):
-        self.data = pTransform(pDataset)
+        self.data = transform(dataset)
         self.input_dim = self.data.min_channel()
-        self.output_dim = nDimOutput
+        self.output_dim = output_dim
 
     def __len__(self):
         return self.data.__len__()
 
     def __getitem__(self, item):
-        pArrayInput = self.data[item].image.copy_tensor()
-        nTarget = self.data[item].label
-        return pArrayInput, nTarget
+        input = self.data[item].image.copy_tensor()
+        target = self.data[item].label
+        return input, target
 
 
-def collate_segmentation(pListTensor):
+def collate_segmentation(tensors):
     # Make the batch order in first step
-    pListInput = [torch.tensor(pData).unsqueeze(dim=0) for pData, nLabel in pListTensor]
-    pListTarget = [torch.tensor(nLabel).unsqueeze(dim=0) for pData, nLabel in pListTensor]
-    pTensorInput = torch.cat(pListInput, dim=0)
-    pTensorTarget = torch.LongTensor(pListTarget)
-    return pTensorInput, pTensorTarget
+    inputs = [torch.tensor(data).unsqueeze(dim=0) for data, label in tensors]
+    targets = [torch.tensor(label).unsqueeze(dim=0) for data, label in tensors]
+    input_tensor = torch.cat(inputs, dim=0)
+    target_tensor = torch.LongTensor(targets)
+    return input_tensor, target_tensor

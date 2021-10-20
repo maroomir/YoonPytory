@@ -3,74 +3,76 @@ import csv
 from datetime import datetime
 
 
-def parse_nlm(strLogPath: str,
-              strMode="Train"  # Train, Eval, Test
+def parse_nlm(log_path: str,
+              mode="Train"  # Train, Eval, Test
               ):
-    def to_partition(strLine: str):
-        pList = strLine.replace(",", "").split(" ")  # Clear the tags
-        pDic = {}
-        for strItem in pList:
-            if strItem.find("=") > 0:
-                pDic[strItem.split("=")[0]] = strItem.split("=")[1]
-        return pDic
+    def to_partition(line: str):
+        part_list = line.replace(",", "").split(" ")  # Clear the tags
+        dic = {}
+        for item in part_list:
+            if item.find("=") > 0:
+                dic[item.split("=")[0]] = item.split("=")[1]
+        return dic
 
-    with open(strLogPath, 'r') as pFile:
-        pListTag = pFile.read().split("\n")
-    pListLog = []
-    for strTag in pListTag:
-        if strTag.find(strMode) >= 0:
-            pListLog.append(to_partition(strTag))
+    with open(log_path, 'r') as file:
+        tag_list = file.read().split("\n")
+    log_list = []
+    for tag in tag_list:
+        if tag.find(mode) >= 0:
+            log_list.append(to_partition(tag))
         else:
             pass
-    return pListLog
+    return log_list
 
 
 class YoonNLM:  # Network Log Manager
-    # The shared area of YoonDataset class
-    # All of instances are using this shared area
+    """
+    The shared area of YoonDataset class
+    All of instances are using this shared area
+    """
     def __init__(self,
-                 nStartEpoch=0,
-                 strRoot="./NLM",
-                 strMode="Train"  # Train, Eval, Test
+                 start_epoch=0,
+                 root="./NLM",
+                 mode="Train"  # Train, Eval, Test
                  ):
-        self.epoch = nStartEpoch
-        self.root = strRoot
+        self.epoch = start_epoch
+        self.root = root
         self.txt_path = ""
         self.csv_path = ""
-        self.mode = strMode
+        self.mode = mode
 
     def write(self,
-              iItem: int,
-              nLength: int,
+              count: int,
+              length: int,
               **kwargs):
-        strMessage = self.mode + " epoch={:3d} [{}/{}]".format(self.epoch, iItem + 1, nLength)
-        for pItem in kwargs.items():
-            strMessage += " {}={:.4f}".format(pItem[0], pItem[1])
-        if iItem >= nLength - 1:
+        message = self.mode + " epoch={:3d} [{}/{}]".format(self.epoch, count + 1, length)
+        for item in kwargs.items():
+            message += " {}={:.4f}".format(item[0], item[1])
+        if count >= length - 1:
             self.epoch += 1
-            self.__trace__(strMessage)
-        return strMessage
+            self.__trace__(message)
+        return message
 
-    def __trace__(self, strMessage: str):
-        pNow = datetime.now()
-        strDirPath = os.path.join(self.root, str(pNow.year), str(pNow.month)).__str__()
-        if not os.path.exists(strDirPath):
-            os.makedirs(strDirPath)
-        strCurrentFilePath = strDirPath + "/{}.txt".format(pNow.day)
+    def __trace__(self, message: str):
+        now = datetime.now()
+        dir_path = os.path.join(self.root, str(now.year), str(now.month)).__str__()
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        current_file_path = dir_path + "/{}.txt".format(now.day)
         if self.txt_path == "":
-            self.txt_path = strCurrentFilePath
-        elif strCurrentFilePath != self.txt_path:
-            pListLog = parse_nlm(self.txt_path, self.mode)
-            self.__record__(pListLog)
-            self.txt_path = strCurrentFilePath
-        with open(self.txt_path, mode='a') as pFile:
-            pFile.write("[" + pNow.strftime("%H:%M:%S") + "] " + strMessage + "\n")
+            self.txt_path = current_file_path
+        elif current_file_path != self.txt_path:
+            log_list = parse_nlm(self.txt_path, self.mode)
+            self.__record__(log_list)
+            self.txt_path = current_file_path
+        with open(self.txt_path, mode='a') as file:
+            file.write("[" + now.strftime("%H:%M:%S") + "] " + message + "\n")
 
-    def __record__(self, pListLog: list):
+    def __record__(self, logs: list):
         self.csv_path = self.txt_path.replace('.txt', '.csv')
-        with open(self.csv_path, 'a', newline='') as pFile:
-            pWriter = csv.writer(pFile)
-            for i in range(len(pListLog)):
+        with open(self.csv_path, 'a', newline='') as file:
+            writer = csv.writer(file)
+            for i in range(len(logs)):
                 if i == 0:
-                    pWriter.writerow([strItem for strItem in pListLog[i].keys()])
-                pWriter.writerow([strContents for strContents in pListLog[i].values()])
+                    writer.writerow([item for item in logs[i].keys()])
+                writer.writerow([contents for contents in logs[i].values()])

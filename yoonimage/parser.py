@@ -6,100 +6,97 @@ from yoonimage.data import YoonDataset, YoonObject, YoonTransform
 from yoonimage.image import YoonImage
 
 
-def parse_root(strRootDir: str):
+def parse_root(root: str):
     # Parse the file list
-    pPathList = os.listdir(strRootDir)
-    pDataset = YoonDataset()
-    nCount = 0
-    for strPath in pPathList:
-        if "jpg" in strPath or "bmp" in strPath or "png" in strPath:
-            strImagePath = os.path.join(strRootDir, strPath)
-            pImage = YoonImage(strFileName=strImagePath)
-            pObject = YoonObject(nID=nCount, strName=strPath, pImage=pImage)
-            pDataset.append(pObject)
-            nCount += 1
-    return nCount, pDataset
+    path_list = os.listdir(root)
+    dataset = YoonDataset()
+    count = 0
+    for path in path_list:
+        if "jpg" in path or "bmp" in path or "png" in path:
+            image_path = os.path.join(root, path)
+            image = YoonImage.from_path(image_path)
+            object = YoonObject(id=count, name=path, image=image)
+            dataset.append(object)
+            count += 1
+    return count, dataset
 
 
-def parse_cifar10_trainer(strRootDir: str,
-                          dRatioTrain: float = 0.8,
-                          strMode: str = "alexnet"  # alexnet, resnet, vgg
+def parse_cifar10_trainer(root: str,
+                          train_ratio: float = 0.8,
                           ):
     # Read the label names
-    strLabelFile = os.path.join(strRootDir, "batches.meta")
-    with open(strLabelFile, 'rb') as pFile:
-        pDicLabel = pickle.load(pFile)
-        pListName = pDicLabel['label_names']
+    label_path = os.path.join(root, "batches.meta")
+    with open(label_path, 'rb') as pFile:
+        label_data = pickle.load(pFile)
+        label_names = label_data['label_names']
     # Read the data
-    pListTrainFile = [os.path.join(strRootDir, "data_batch_{}".format(i + 1)) for i in range(5)]
-    pArrayData = []
-    pArrayLabel = []
-    for strPath in pListTrainFile:
-        with open(strPath, 'rb') as pFile:
-            pDicData = pickle.load(pFile, encoding='bytes')
-            pArrayData.append(pDicData[b'data'])
-            pArrayLabel.append(pDicData[b'labels'])
-    pArrayData = numpy.concatenate(pArrayData, axis=0)
-    pArrayLabel = numpy.concatenate(pArrayLabel, axis=0)
+    train_paths = [os.path.join(root, "data_batch_{}".format(i + 1)) for i in range(5)]
+    data_list = []
+    label_list = []
+    for path in train_paths:
+        with open(path, 'rb') as pFile:
+            data = pickle.load(pFile, encoding='bytes')
+            data_list.append(data[b'data'])
+            label_list.append(data[b'labels'])
+    data_list = numpy.concatenate(data_list, axis=0)
+    label_list = numpy.concatenate(label_list, axis=0)
     # Transform data array to YoonDataset
-    if pArrayData.shape[0] != pArrayLabel.shape[0]:
+    if data_list.shape[0] != label_list.shape[0]:
         ValueError("The label and data size is not equal")
-    pDataTrain = YoonDataset()
-    pDataEval = YoonDataset()
-    nCutLine = int(pArrayData.shape[0] * dRatioTrain)
-    for i in range(nCutLine):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
-        nLabel = pArrayLabel[i]
-        pObject = YoonObject(nID=nLabel, strName=pListName[nLabel], pImage=pImage)
-        pDataTrain.append(pObject)
-    for i in range(nCutLine, pArrayData.shape[0]):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
-        nLabel = pArrayLabel[i]
-        pObject = YoonObject(nID=nLabel, strName=pListName[nLabel], pImage=pImage)
-        pDataEval.append(pObject)
-    print("Length of Train = {}".format(pDataTrain.__len__()))
-    print("Length of Test = {}".format(pDataEval.__len__()))
-    nDimOutput = len(pListName)  # 10 (CIFAR-10)
-    pListMeans=[0.4914, 0.4822, 0.4465]
-    pListStds=[0.247, 0.243, 0.261]
+    train_dataset = YoonDataset()
+    eval_dataset = YoonDataset()
+    cutline = int(data_list.shape[0] * train_ratio)
+    for i in range(cutline):
+        image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
+        label = label_list[i]
+        object = YoonObject(id=label, name=label_names[label], image=image)
+        train_dataset.append(object)
+    for i in range(cutline, data_list.shape[0]):
+        image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
+        label = label_list[i]
+        object = YoonObject(id=label, name=label_names[label], image=image)
+        eval_dataset.append(object)
+    print("Length of Train = {}".format(train_dataset.__len__()))
+    print("Length of Test = {}".format(eval_dataset.__len__()))
+    output_dim = len(label_names)  # 10 (CIFAR-10)
+    means = [0.4914, 0.4822, 0.4465]
+    stds = [0.247, 0.243, 0.261]
     pTransform = YoonTransform(YoonTransform.Resize(),
-                               YoonTransform.Rechannel(nChannel=3),
+                               YoonTransform.Rechannel(channel=3),
                                YoonTransform.Decimalize(),
-                               YoonTransform.Normalization(pNormalizeMean=pListMeans, pNormalizeStd=pListStds)
+                               YoonTransform.Normalization(mean_norms=means, std_norms=stds)
                                )
-    return nDimOutput, pTransform, pDataTrain, pDataEval
+    return output_dim, pTransform, train_dataset, eval_dataset
 
 
-def parse_cifar10_tester(strRootDir: str,
-                         strMode: str = "alexnet"  # alexnet, resnet, unet, vgg
-                         ):
+def parse_cifar10_tester(root: str):
     # Read the label names
-    strLabelFile = os.path.join(strRootDir, "batches.meta")
-    with open(strLabelFile, 'rb') as pFile:
-        pDicLabel = pickle.load(pFile)
-        pArrayName = pDicLabel['label_names']
+    label_file = os.path.join(root, "batches.meta")
+    with open(label_file, 'rb') as pFile:
+        label_data = pickle.load(pFile)
+        label_names = label_data['label_names']
     # Read the data
-    strDataFile = os.path.join(strRootDir, "test_batch")
-    with open(strDataFile, 'rb') as pFile:
-        pDicData = pickle.load(pFile, encoding='bytes')
-    pArrayData = pDicData['data']
-    pArrayLabel = pDicData['label']
+    test_paths = os.path.join(root, "test_batch")
+    with open(test_paths, 'rb') as pFile:
+        data = pickle.load(pFile, encoding='bytes')
+    data_list = data['data']
+    label_list = data['label']
     # Transform data array to YoonDataset
-    if pArrayData.shape[0] != pArrayLabel.shape[0]:
+    if data_list.shape[0] != label_list.shape[0]:
         ValueError("The label and data size is not equal")
-    pDataTest = YoonDataset()
-    for i in range(pArrayData.shape[0]):
-        pImage = YoonImage.from_array(pArrayData[i], nWidth=32, nHeight=32, nChannel=3, strMode="parallel")
-        nLabel = pArrayLabel[i]
-        pObject = YoonObject(nID=nLabel, strName=pArrayName[nLabel], pImage=pImage)
-        pDataTest.append(pObject)
-    print("Length of Test = {}".format(pDataTest.__len__()))
-    nDimOutput = pArrayName.shape[0]  # 10 (CIFAR-10)
-    pListMeans = [0.4914, 0.4822, 0.4465]
-    pListStds = [0.247, 0.243, 0.261]
-    pTransform = YoonTransform(YoonTransform.Resize(),
-                               YoonTransform.Rechannel(nChannel=3),
-                               YoonTransform.Decimalize(),
-                               YoonTransform.Normalization(pNormalizeMean=pListMeans, pNormalizeStd=pListStds)
-                               )
-    return nDimOutput, pTransform, pDataTest
+    dataset = YoonDataset()
+    for i in range(data_list.shape[0]):
+        image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
+        label = label_list[i]
+        object = YoonObject(id=label, name=label_names[label], image=image)
+        dataset.append(object)
+    print("Length of Test = {}".format(dataset.__len__()))
+    output_dim = label_names.shape[0]  # 10 (CIFAR-10)
+    means = [0.4914, 0.4822, 0.4465]
+    stds = [0.247, 0.243, 0.261]
+    transform = YoonTransform(YoonTransform.Resize(),
+                              YoonTransform.Rechannel(channel=3),
+                              YoonTransform.Decimalize(),
+                              YoonTransform.Normalization(mean_norms=means, std_norms=stds)
+                              )
+    return output_dim, transform, dataset

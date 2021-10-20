@@ -4,27 +4,27 @@ import yoonimage.classification
 
 def process_segmentation(mode="resnet"):
     class_count, transform, train_data, eval_data = yoonimage.parse_cifar10_trainer(
-        strRootDir='./data/image/cifar-10', dRatioTrain=0.8, strMode=mode)
+        root='./data/image/cifar-10', train_ratio=0.8)
     epoch = 1000
     train_data.draw_dataset(5, 5, "name")
     eval_data.draw_dataset(5, 5, "name")
     if mode == "alexnet":
-        yoonimage.classification.alexnet.train(epoch, pTrainData=train_data, pEvalData=eval_data, pTransform=transform,
-                                               nCountClass=class_count, strModelPath='./data/image/alex_opt.pth')
+        yoonimage.classification.alexnet.train(epoch, train_data=train_data, eval_data=eval_data, transform=transform,
+                                               num_class=class_count, model_path='./data/image/alex_opt.pth')
     elif mode == "vgg":
         yoonimage.classification.vgg.train(epoch, pTrainData=train_data, pEvalData=eval_data, pTransform=transform,
                                            nCountClass=class_count, strModelPath='./data/image/vgg_opt.pth')
     elif mode == "resnet":
-        yoonimage.classification.resnet.train(epoch, pTrainData=train_data, pEvalData=eval_data, pTransform=transform,
-                                              nCountClass=class_count, strModelPath='./data/image/res_opt.pth')
+        yoonimage.classification.resnet.train(epoch, train_data=train_data, eval_data=eval_data, transform=transform,
+                                              num_class=class_count, model_path='./data/image/res_opt.pth')
 
 
 def process_drop():
-    count, dataset = yoonimage.parse_root(strRootDir='./data/image/Drops')
+    count, dataset = yoonimage.parse_root(root='./data/image/Drops')
     for i in range(0, count):
         image = dataset[i].image
-        results = yoonimage.find_blobs(pSourceImage=image,
-                                       nThreshold=100, nMaxCount=20)
+        results = yoonimage.find_blobs(source=image,
+                                       thresh=100, max_count=20)
         for result_object in results:
             image.draw_rectangle(result_object.region, yoonimage.COLOR_YELLOW)
             image.show_image()
@@ -32,12 +32,12 @@ def process_drop():
 
 
 def process_glass():
-    count, dataset = yoonimage.parse_root(strRootDir='./data/image/Glass')
+    count, dataset = yoonimage.parse_root(root='./data/image/Glass')
     for i in range(0, count):
         image = dataset[i].image
-        results = yoonimage.find_lines(pSourceImage=image,
-                                       nThresh1=50, nThresh2=150,
-                                       nMaxCount=30)
+        results = yoonimage.find_lines(source=image,
+                                       thresh1=50, thresh2=150,
+                                       max_count=30)
         for result_object in results:
             image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
         print("count = " + str(len(results)))
