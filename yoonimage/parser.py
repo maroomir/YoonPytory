@@ -15,8 +15,8 @@ def parse_root(root: str):
         if "jpg" in path or "bmp" in path or "png" in path:
             image_path = os.path.join(root, path)
             image = YoonImage.from_path(image_path)
-            object = YoonObject(id=count, name=path, image=image)
-            dataset.append(object)
+            obj = YoonObject(id=count, name=path, image=image)
+            dataset.append(obj)
             count += 1
     return count, dataset
 
@@ -45,26 +45,26 @@ def parse_cifar10_trainer(root: str,
         ValueError("The label and data size is not equal")
     train_dataset = YoonDataset()
     eval_dataset = YoonDataset()
-    cutline = int(data_list.shape[0] * train_ratio)
-    for i in range(cutline):
+    cut_line = int(data_list.shape[0] * train_ratio)
+    for i in range(cut_line):
         image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
         label = label_list[i]
-        object = YoonObject(id=label, name=label_names[label], image=image)
-        train_dataset.append(object)
-    for i in range(cutline, data_list.shape[0]):
+        obj = YoonObject(id_=label, name=label_names[label], image=image)
+        train_dataset.append(obj)
+    for i in range(cut_line, data_list.shape[0]):
         image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
         label = label_list[i]
-        object = YoonObject(id=label, name=label_names[label], image=image)
-        eval_dataset.append(object)
+        obj = YoonObject(id_=label, name=label_names[label], image=image)
+        eval_dataset.append(obj)
     print("Length of Train = {}".format(train_dataset.__len__()))
     print("Length of Test = {}".format(eval_dataset.__len__()))
     output_dim = len(label_names)  # 10 (CIFAR-10)
-    means = [0.4914, 0.4822, 0.4465]
-    stds = [0.247, 0.243, 0.261]
+    mean_norms = [0.4914, 0.4822, 0.4465]
+    std_norms = [0.247, 0.243, 0.261]
     pTransform = YoonTransform(YoonTransform.Resize(),
                                YoonTransform.Rechannel(channel=3),
                                YoonTransform.Decimalize(),
-                               YoonTransform.Normalization(mean_norms=means, std_norms=stds)
+                               YoonTransform.Normalization(mean_norms=mean_norms, std_norms=std_norms)
                                )
     return output_dim, pTransform, train_dataset, eval_dataset
 
@@ -88,8 +88,8 @@ def parse_cifar10_tester(root: str):
     for i in range(data_list.shape[0]):
         image = YoonImage.parse_array(32, 32, 3, data_list[i], mode="parallel")
         label = label_list[i]
-        object = YoonObject(id=label, name=label_names[label], image=image)
-        dataset.append(object)
+        obj = YoonObject(id_=label, name=label_names[label], image=image)
+        dataset.append(obj)
     print("Length of Test = {}".format(dataset.__len__()))
     output_dim = label_names.shape[0]  # 10 (CIFAR-10)
     means = [0.4914, 0.4822, 0.4465]

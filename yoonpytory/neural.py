@@ -1,5 +1,5 @@
-import numpy
 import matplotlib.pyplot
+import numpy
 
 
 def sigmoid(array: numpy.ndarray):
@@ -81,9 +81,9 @@ class YoonNeuron:
     # The shared area of YoonDataset class
     # All of instances are using this shared area
     def __init__(self):
-        self.input: numpy.ndarray = None
-        self.weight: numpy.ndarray = None
-        self.output: numpy.ndarray = None
+        self.input = None
+        self.weight = None
+        self.output = None
 
     def load_source(self, file_path: str):
         data_array = numpy.load(file_path)
@@ -105,7 +105,6 @@ class YoonNeuron:
         input_array = numpy.column_stack((self.input, numpy.ones([count, 1])))
         target_array = self.output
         loss_array = numpy.zeros([epoch, 1])
-        weights: numpy.ndarray
         if is_init_weight:
             # Weight is random value in -0.1 ~ 0.1 for training
             weights = scale * (2 * numpy.random.random((1, dim + 1)) - 1)
@@ -122,14 +121,14 @@ class YoonNeuron:
         self.weight = weights.copy()
         # Test weight
         if is_run_test:
-            self.process(False)
+            self.process()
 
-    def process(self, is_save_output=False):
+    def process(self, is_save=False):
         count, dim = self.input.shape
         input_transform = numpy.column_stack((self.input, numpy.ones([count, 1])))
         results = (logistic_regression(input_transform, self.weight) >= 0.5) * 1
         print('The accuracy is {:.5f}%'.format(numpy.sum(self.output == results) / count * 100))
-        if is_save_output:
+        if is_save:
             self.output = results
         return results
 
@@ -157,9 +156,9 @@ class YoonNetwork:
     # The shared area of YoonDataset class
     # All of instances are using this shared area
     def __init__(self):
-        self.input: numpy.ndarray = None
-        self.weights: list = None
-        self.output: numpy.ndarray = None
+        self.input = None
+        self.weights = None
+        self.output = None
 
     def load_source(self, file_path: str):
         data_array = numpy.load(file_path)
@@ -190,7 +189,6 @@ class YoonNetwork:
         target_array = self.output
         loss_array = numpy.zeros([count, 1])
         # Weight is random value in -0.1 ~ 0.1 for training
-        weights: list
         if self.weights is not None and not is_init_weight and order == len(self.weights):
             weights = self.weights.copy()
         else:
@@ -214,13 +212,13 @@ class YoonNetwork:
         self.weights = weights.copy()
         # Test weight
         if is_run_test:
-            self.process(False)
+            self.process()
 
-    def process(self, is_save_output=False):
+    def process(self, is_save=False):
         data_len, input_dim = self.input.shape
         results = (self.__feed_forward_network() >= 0.5) * 1
         print('The accuracy is {:.5f}%'.format(numpy.sum(self.output == results) / data_len * 100))
-        if is_save_output:
+        if is_save:
             self.output = results
         return results
 

@@ -18,13 +18,13 @@ class YoonObject:
     """
 
     def __init__(self,
-                 id: int = 0,
+                 id_: int = 0,
                  name: str = "",
                  score=0.0,
                  pix_count: int = 0,
                  region: (YoonVector2D, YoonLine2D, YoonRect2D) = None,
                  image: YoonImage = None):
-        self.label = id
+        self.label = id_
         self.name = name
         self.score = score
         self.pixel_count = pix_count
@@ -32,7 +32,7 @@ class YoonObject:
         self.image = None if image is None else image.__copy__()
 
     def __copy__(self):
-        return YoonObject(id=self.label, name=self.name, score=self.score, pix_count=self.pixel_count,
+        return YoonObject(id_=self.label, name=self.name, score=self.score, pix_count=self.pixel_count,
                           region=self.region, image=self.image)
 
 
@@ -48,94 +48,57 @@ class YoonDataset:
 
     @staticmethod
     def from_tensor(images: numpy.ndarray,
-                    labels: numpy.ndarray = None,
+                    labels: numpy.ndarray,
                     is_contain_batch: bool = True,
                     channel: int = 3):
         dataset = YoonDataset()
-        if is_contain_batch:
-            for i in range(len(images)):
-                if labels is None:
-                    dataset.labels.append(i)
-                else:
-                    dataset.labels.append(labels[i])
-                if images is not None:
-                    dataset.images.append(YoonImage.from_tensor(tensor=images[i]))
-            return dataset
-        else:
-            for i in range(len(images), channel):
-                if labels is None:
-                    dataset.labels.append(i)
-                else:
-                    dataset.labels.append(labels[i])
-                if images is not None:
-                    dataset.images.append(YoonImage.from_tensor(tensor=numpy.concatenate([images[j + i]
-                                                                                          for j in range(channel)])))
-            return dataset
+        count = len(images) if len(images) >= len(labels) else len(labels)
+        step = 1 if is_contain_batch else channel
+        for i in range(count, step):
+            obj = YoonObject()
+            obj.label = i if labels[i] is None else labels[i]
+            if images[i] is not None:
+                tensor = images[i] if is_contain_batch else numpy.concatenate([images[j + i] for j in range(channel)])
+                obj.image = YoonImage.from_tensor(tensor)
+            dataset.append(obj)
+        return dataset
 
     def __str__(self):
         return "DATA COUNT {}".format(self.__len__())
 
     def __len__(self):
-        return len(self.labels)
+        return len(self._objects)
 
     def __init__(self):
-        self.labels: list = []
-        self.names: list = []
-        self.scores: list = []
-        self.pix_counts: list = []
-        self.regions: list = []
-        self.images: list = []
+        self._objects = []
 
     @classmethod
-    def from_list(cls, args: list):
+    def from_list(cls, list_: list):
         dataset = YoonDataset()
-        i = 0
-        for obj in args:
-            if isinstance(obj, YoonObject):
-                dataset.labels.append(obj.label)
-                dataset.names.append(obj.name)
-                dataset.scores.append(obj.score)
-                dataset.pix_counts.append(obj.pixel_count)
-                dataset.regions.append(obj.region.__copy__())
-                dataset.images.append(obj.image.__copy__())
-            elif isinstance(obj, YoonImage):
-                dataset.labels.append(i)
-                dataset.images.append(obj.__copy__())
-            elif isinstance(obj, (YoonRect2D, YoonLine2D, YoonVector2D)):
-                dataset.labels.append(i)
-                dataset.regions.append(obj.__copy__())
-            i += 1
+        for i in range(len(list_)):
+            if isinstance(list_[i], YoonObject):
+                dataset._objects.append(list_[i].__copy__())
+            elif isinstance(list_[i], YoonImage):
+                dataset._objects.append(YoonObject(id_=i, image=list_[i].__copy__()))
+            elif isinstance(list_[i], (YoonRect2D, YoonLine2D, YoonVector2D)):
+                dataset._objects.append(YoonObject(id_=i, region=list_[i].__copy__()))
         return dataset
 
     @classmethod
     def from_data(cls, *args: (YoonObject, YoonImage, YoonRect2D, YoonLine2D, YoonVector2D)):
         dataset = YoonDataset()
-        i = 0
-        for obj in args:
-            if isinstance(obj, YoonObject):
-                dataset.labels.append(obj.label)
-                dataset.names.append(obj.name)
-                dataset.scores.append(obj.score)
-                dataset.pix_counts.append(obj.pixel_count)
-                dataset.regions.append(obj.region.__copy__())
-                dataset.images.append(obj.image.__copy__())
-            elif isinstance(obj, YoonImage):
-                dataset.labels.append(i)
-                dataset.images.append(obj.__copy__())
-            elif isinstance(obj, (YoonRect2D, YoonLine2D, YoonVector2D)):
-                dataset.labels.append(i)
-                dataset.regions.append(obj.__copy__())
-            i += 1
+        for i in range(len(args)):
+            if isinstance(args[i], YoonObject):
+                dataset._objects.append(args[i].__copy__())
+            elif isinstance(args[i], YoonImage):
+                dataset._objects.append(YoonObject(id_=i, image=args[i].__copy__()))
+            elif isinstance(args[i], (YoonRect2D, YoonLine2D, YoonVector2D)):
+                dataset._objects.append(YoonObject(id_=i, region=args[i].__copy__()))
         return dataset
 
     def __copy__(self):
         pResult = YoonDataset()
-        pResult.labels = self.labels.copy()
-        pResult.names = self.names.copy()
-        pResult.scores = self.scores.copy()
-        pResult.pix_counts = self.pix_counts.copy()
-        pResult.regions = self.regions.copy()
-        pResult.images = self.images.copy()
+        pResult._objects = self._objects.copy()
         return pResult
 
     def __getitem__(self, index):
@@ -144,124 +107,98 @@ class YoonDataset:
                        remains=None,
                        is_processing=False):
             if isinstance(i, tuple):
-                index_list = list(i)[1:] + [None]
-                result_list = []
-                for start, remain_indexes in zip(i, index_list):
-                    pResult, stop = get_object(start, stop, remain_indexes, True)
-                    result_list.append(pResult)
-                return result_list
+                indexes = list(i)[1:] + [None]
+                results = []
+                for _start, _remains in zip(i, indexes):
+                    _result, stop = get_object(_start, stop, _remains, True)
+                    results.append(_result)
+                return results
             elif isinstance(i, slice):
-                slice_range = range(*i.indices(len(self)))
-                result_list = [get_object(j) for j in slice_range]
+                range_ = range(*i.indices(len(self)))
+                results = [get_object(j) for j in range_]
                 if is_processing:
-                    return result_list, slice_range[-1]
+                    return results, range_[-1]
                 else:
-                    return result_list
+                    return results
             elif i is Ellipsis:
-                if stop is not None:
-                    stop += 1
-                end_index = remains
+                stop += (1 if stop is not None else 0)
+                end_ = remains
                 if isinstance(remains, slice):
-                    end_index = remains.start
-                pResult = get_object(slice(stop, end_index), is_processing=True)
+                    end_ = remains.start
+                _result = get_object(slice(stop, end_), is_processing=True)
                 if is_processing:
-                    return pResult[0], pResult[1]
+                    return _result[0], _result[1]
                 else:
-                    return pResult[0]
+                    return _result[0]
             else:
-                label: int = 0
-                name: str = ""
-                score: float = 0.00
-                pix_count: int = 0
-                region = None
-                image: YoonImage
                 if i > len(self):
                     raise IndexError("Index is too big")
                 elif i < 0:
                     raise IndexError("Index is abnormal")
-                if 0 <= i < len(self.labels):
-                    label = self.labels[i]
-                if 0 <= i < len(self.names):
-                    name = self.names[i]
-                if 0 <= i < len(self.scores):
-                    score = self.scores[i]
-                if 0 <= i < len(self.pix_counts):
-                    pix_count = self.pix_counts[i]
-                if 0 <= i < len(self.regions):
-                    region = self.regions[i]
-                if 0 <= i < len(self.images):
-                    image = self.images[i]
-                pObject = YoonObject(id=label, name=name, score=score, pix_count=pix_count,
-                                     region=region, image=image)
                 if is_processing:
-                    return pObject, i
+                    return self._objects[i], i
                 else:
-                    return pObject
+                    return self._objects[i]
 
-        pResultItem = get_object(index)
-        if isinstance(pResultItem, list):
-            return YoonDataset.from_list(pResultItem)
-        else:
-            return pResultItem
+        result = get_object(index)
+        return YoonDataset.from_list(result) if isinstance(result, list) else result
 
     def __setitem__(self, key: int, value: YoonObject):
-        if 0 <= key < len(self.labels):
-            self.labels[key] = value.label
-        if 0 <= key < len(self.names):
-            self.names[key] = value.name
-        if 0 <= key < len(self.scores):
-            self.scores[key] = value.score
-        if 0 <= key < len(self.pix_counts):
-            self.pix_counts[key] = value.pixel_count
-        if 0 <= key < len(self.regions):
-            self.regions[key] = value.region.__copy__()
-        if 0 <= key < len(self.images):
-            self.images[key] = value.image.__copy__()
+        if 0 <= key < len(self):
+            self._objects = value.__copy__()
 
     def clear(self):
-        self.labels.clear()
-        self.names.clear()
-        self.scores.clear()
-        self.pix_counts.clear()
-        self.regions.clear()
-        self.images.clear()
+        self._objects.clear()
 
-    def append(self, pObject: YoonObject):
-        self.labels.append(pObject.label)
-        self.names.append(pObject.name)
-        self.scores.append(pObject.score)
-        self.pix_counts.append(pObject.pixel_count)
-        self.regions.append(pObject.region)
-        self.images.append(pObject.image)
+    def append(self, obj: YoonObject):
+        self._objects.append(obj)
+
+    def images(self):
+        return list(filter(None,
+                           [self._objects[i].image for i in range(len(self))]))
+
+    def labels(self):
+        return list(filter(None,
+                           [self._objects[i].label for i in range(len(self))]))
+
+    def names(self):
+        return list(filter(None,
+                           [self._objects[i].name for i in range(len(self))]))
+
+    def regions(self):
+        return list(filter(None,
+                           [self._objects[i].region for i in range(len(self))]))
 
     def min_size(self):
-        height = min([image.height for image in self.images])
-        width = min([image.width for image in self.images])
+        images = self.images()
+        height = min([_image.height for _image in images])
+        width = min([_image.width for _image in images])
         return width, height
 
     def max_size(self):
-        height = max([image.height for image in self.images])
-        width = max([image.width for image in self.images])
+        images = self.images()
+        height = max([_image.height for _image in images])
+        width = max([_image.width for _image in images])
         return width, height
 
     def max_channel(self):
-        return max([image.channel for image in self.images])
+        images = self.images()
+        return max([_image.channel for _image in images])
 
     def min_channel(self):
-        return min([image.channel for image in self.images])
+        images = self.images()
+        return min([_image.channel for _image in images])
 
     def to_region_points(self):
-        results = []
-        for region in self.regions:
-            results.append(region.to_list())
-        return results
+        regions = self.regions()
+        return [_region.to_list() for _region in regions]
 
     def draw_dataset(self,
                      row: int = 4,
                      col: int = 4,
                      mode: str = "label"  # label, name
                      ):
-        image_count = len(self.images)
+        image_count = len(self)
         show_count = row * col
         if image_count < show_count:
             print("!! Insufficient the count of images")
@@ -272,12 +209,12 @@ class YoonDataset:
             plot = figure.add_subplot(row, col, i + 1)
             plot.set_xticks([])
             plot.set_yticks([])
-            image = self.images[rand_list[i]].pixel_decimal().copy_buffer()
+            image = self._objects[rand_list[i]].image.pixel_decimal().copy_buffer()
             if mode == "label":
-                label = self.labels[rand_list[i]]
+                label = self._objects[rand_list[i]].label
                 plot.set_title("{:3d}".format(label))
             elif mode == "name":
-                name = self.names[rand_list[i]]
+                name = self._objects[rand_list[i]].name
                 plot.set_title("{}".format(name))
             plot.imshow(image)
         matplotlib.pyplot.show()
@@ -287,17 +224,17 @@ class YoonTransform(object):
     class Decimalize(object):
         def __call__(self, dataset: YoonDataset):
             result = dataset.__copy__()
-            for iImage in range(len(dataset.images)):
-                assert isinstance(dataset.images[iImage], YoonImage)
-                result.images[iImage] = dataset.images[iImage].pixel_decimal()
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.pixel_decimal()
             return result
 
     class Recover(object):
         def __call__(self, dataset: YoonDataset):
             result = dataset.__copy__()
-            for iImage in range(len(dataset.images)):
-                assert isinstance(dataset.images[iImage], YoonImage)
-                result.images[iImage] = dataset.images[iImage].pixel_recover()
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.pixel_recover()
             return result
 
     class Normalization(object):
@@ -314,9 +251,9 @@ class YoonTransform(object):
             for channel in range(len(self.means)):
                 mean = self.means[channel]
                 std = self.stds[channel]
-                for image in range(len(dataset.images)):
-                    assert isinstance(dataset.images[image], YoonImage)
-                    result.images[image] = dataset.images[image].normalize(channel, mean=mean, std=std)
+                for i in range(len(dataset)):
+                    assert isinstance(dataset[i].image, YoonImage)
+                    result[i].image = dataset[i].image.normalize(channel, mean=mean, std=std)
             return result
 
     class Denormalization(object):
@@ -333,25 +270,25 @@ class YoonTransform(object):
             for channel in range(len(self.means)):
                 mean = self.means[channel]
                 std = self.stds[channel]
-                for image in range(len(dataset.images)):
-                    assert isinstance(dataset.images[image], YoonImage)
-                    result.images[image] = dataset.images[image].denormalize(channel, mean=mean, std=std)
+                for i in range(len(dataset)):
+                    assert isinstance(dataset[i].image, YoonImage)
+                    result[i].image = dataset[i].image.denormalize(channel, mean=mean, std=std)
             return result
 
     class ZNormalization(object):
         def __call__(self, dataset: YoonDataset):
             result = dataset.__copy__()
-            for iImage in range(len(dataset.images)):
-                assert isinstance(dataset.images[iImage], YoonImage)
-                result.images[iImage] = dataset.images[iImage].z_normalize()[2]
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.z_normalize()[2]
             return result
 
     class MinMaxNormalization(object):
         def __call__(self, dataset: YoonDataset):
             result = dataset.__copy__()
-            for image in range(len(dataset.images)):
-                assert isinstance(dataset.images[image], YoonImage)
-                result.images[image] = dataset.images[image].minmax_normalize()[2]
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.minmax_normalize()[2]
             return result
 
     class Resize(object):
@@ -367,12 +304,12 @@ class YoonTransform(object):
             if self.width == 0 or self.height == 0:
                 self.width, self.height = dataset.min_size()
             result = dataset.__copy__()
-            for i in range(len(dataset.images)):
-                assert isinstance(dataset.images[i], YoonImage)
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
                 if self.padding:
-                    result.images[i] = dataset.images[i].resize_padding(self.width, self.height)
+                    result[i].image = dataset[i].image.resize_padding(self.width, self.height)
                 else:
-                    result.images[i] = dataset.images[i].resize(self.width, self.height)
+                    result[i].image = dataset[i].image.resize(self.width, self.height)
             return result
 
     class ResizeToMin(object):
@@ -383,12 +320,12 @@ class YoonTransform(object):
         def __call__(self, dataset: YoonDataset):
             width, height = dataset.min_size()
             result = dataset.__copy__()
-            for i in range(len(dataset.images)):
-                assert isinstance(dataset.images[i], YoonImage)
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
                 if self.padding:
-                    result.images[i] = dataset.images[i].resize_padding(width, height)
+                    result[i].image = dataset[i].image.resize_padding(width, height)
                 else:
-                    result.images[i] = dataset.images[i].resize(width, height)
+                    result[i].image = dataset[i].image.resize(width, height)
             return result
 
     class Rechannel(object):
@@ -400,18 +337,18 @@ class YoonTransform(object):
             if self.channel == 0:
                 self.channel = dataset.min_channel()
             result = dataset.__copy__()
-            for i in range(len(dataset.images)):
-                assert isinstance(dataset.images[i], YoonImage)
-                result.images[i] = dataset.images[i].rechannel(self.channel)
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.rechannel(self.channel)
             return result
 
     class RechannelToMin(object):
         def __call__(self, dataset: YoonDataset):
             channel = dataset.min_channel()
             result = dataset.__copy__()
-            for i in range(len(dataset.images)):
-                assert isinstance(dataset.images[i], YoonImage)
-                result.images[i] = dataset.images[i].rechannel(channel)
+            for i in range(len(dataset)):
+                assert isinstance(dataset[i].image, YoonImage)
+                result[i].image = dataset[i].image.rechannel(channel)
             return result
 
     def __init__(self, *args):

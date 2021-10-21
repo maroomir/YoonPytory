@@ -10,111 +10,110 @@ from yoonspeech.data import YoonObject
 from yoonspeech.speech import YoonSpeech
 
 
-def get_phoneme_list(strFilePath: str):
-    with open(strFilePath, 'r') as pFile:
-        pList = pFile.read().split('\n')[:-1]
-    pList = [strTag.split(' ')[-1] for strTag in pList]
-    pList = list(set(pList))
-    return pList
+def get_phoneme_list(file_path: str):
+    with open(file_path, 'r') as file:
+        paths = file.read().split('\n')[:-1]
+    paths = [tag.split(' ')[-1] for tag in paths]
+    paths = list(set(paths))
+    return paths
 
 
-def get_phoneme_dict(strFilePath: str):
-    with open(strFilePath, 'r') as pFile:
-        pList = pFile.read().split('\n')[:-1]
-    pDic = {}
-    for strTag in pList:
-        if strTag.split(' ')[0] == 'q':
+def get_phoneme_dict(file_path: str):
+    with open(file_path, 'r') as pFile:
+        paths = pFile.read().split('\n')[:-1]
+    dic = {}
+    for tag in paths:
+        if tag.split(' ')[0] == 'q':
             pass
         else:
-            pDic[strTag.split(' ')[0]] = strTag.split(' ')[-1]
-    return pDic
+            dic[tag.split(' ')[0]] = tag.split(' ')[-1]
+    return dic
 
 
-def parse_librispeech_trainer(strRootDir: str,
-                              strFileType: str = '.flac',
-                              nCountSample: int = 1000,
-                              nSamplingRate: int = 16000,
-                              nFFTCount: int = 512,
-                              nMelOrder: int = 24,
-                              nMFCCOrder: int = 13,
-                              nContextSize: int = 10,
-                              dWindowLength: float = 0.025,
-                              dShiftLength: float = 0.01,
-                              strFeatureType: str = "mfcc",
-                              dRatioTrain: float = 0.8,
-                              strMode: str = "dvector"  # dvector, gmm, ctc, las
+def parse_librispeech_trainer(root_dir: str,
+                              file_type: str = '.flac',
+                              sample_len: int = 1000,
+                              sample_rate: int = 16000,
+                              fft_count: int = 512,
+                              mel_order: int = 24,
+                              mfcc_order: int = 13,
+                              context_size: int = 10,
+                              win_len: float = 0.025,
+                              shift_len: float = 0.01,
+                              feature_type: str = "mfcc",
+                              train_rate: float = 0.8,
+                              mode: str = "dvector"  # dvector, gmm, ctc, las
                               ):
 
-    def get_words_in_trans(strFilePath, strID):
-        with open(strFilePath) as pFile:
-            pListLine = pFile.read().lower().split('\n')[:-1]
-        for strLine in pListLine:
-            if strID in strLine:
-                strLine = strLine.replace(strID + ' ', "")
-                return strLine
+    def get_line_in_trans(file_path, id):
+        with open(file_path) as pFile:
+            lines = pFile.read().lower().split('\n')[:-1]
+        for line in lines:
+            if id in line:
+                line = line.replace(id + ' ', "")
+                return line
 
-    def make_speech_buffer(strFile):
-        return YoonSpeech(strFileName=strFile, nSamplingRate=nSamplingRate,
-                          strFeatureType=strFeatureType, nContextSize=nContextSize,
-                          nFFTCount=nFFTCount, nMelOrder=nMelOrder, nMFCCOrder=nMFCCOrder,
-                          dWindowLength=dWindowLength, dShiftLength=dShiftLength)
+    def make_speech_buffer(file_path):
+        speech = YoonSpeech(sample_rate=sample_rate, context_size=context_size,
+                            fft_count=fft_count, mel_order=mel_order, mfcc_order=mfcc_order,
+                            win_len=win_len, shift_len=shift_len)
+        speech.load_sound_file(file_path)
+        return speech
 
-    pDicFeatureFile = collections.defaultdict(list)
-    pDicTransFile = collections.defaultdict(dict)
-    pListTrainFile = []
-    pListTestFile = []
+    feature_file_dic = collections.defaultdict(list)
+    trans_file_dic = collections.defaultdict(dict)
+    trans_files = []
+    test_files = []
     # Extract file names
-    for strRoot, strDir, pListFileName in tqdm(os.walk(strRootDir)):
-        iCount = 0
-        for strFileName in pListFileName:
-            if splitext(strFileName)[1] == strFileType:
-                strID = splitext(strFileName)[0].split('-')[0]
-                pDicFeatureFile[strID].append(os.path.join(strRoot, strFileName))
-                iCount += 1
-                if iCount > nCountSample:
+    for root, dir_, file_paths in tqdm(os.walk(root_dir)):
+        i = 0
+        for path in file_paths:
+            if splitext(path)[1] == file_type:
+                id_ = splitext(path)[0].split('-')[0]
+                feature_file_dic[id_].append(os.path.join(root, path))
+                i += 1
+                if i > sample_len:
                     break
-            elif splitext(strFileName)[1] == ".txt":  # Recognition the words
-                strID, strPart = splitext(strFileName)[0].split('-')
-                strPart = strPart.replace(".trans", "")
-                pDicTransFile[strID][strPart] = os.path.join(strRoot, strFileName)
+            elif splitext(path)[1] == ".txt":  # Recognition the words
+                id_, part = splitext(path)[0].split('-')
+                part = part.replace(".trans", "")
+                trans_file_dic[id_][part] = os.path.join(root, path)
     # Listing test and train dataset
-    for i, pListFileName in pDicFeatureFile.items():
-        pListTrainFile.extend(pListFileName[:int(len(pListFileName) * dRatioTrain)])
-        pListTestFile.extend(pListFileName[int(len(pListFileName) * dRatioTrain):])
+    for i, file_paths in feature_file_dic.items():
+        trans_files.extend(file_paths[:int(len(file_paths) * train_rate)])
+        test_files.extend(file_paths[int(len(file_paths) * train_rate):])
     # Labeling speakers for Speaker recognition
-    pDicSpeaker = {}
-    pListSpeakers = list(pDicFeatureFile.keys())
-    nSpeakersCount = len(pListSpeakers)
-    for i in range(nSpeakersCount):
-        pDicSpeaker[pListSpeakers[i]] = i
+    speaker_dic = {}
+    speakers = list(feature_file_dic.keys())
+    num_speakers = len(speakers)
+    for i in range(num_speakers):
+        speaker_dic[speakers[i]] = i
     # Transform data dictionary
-    pDataTrain = YoonDataset()
-    pDataEval = YoonDataset()
-    for strFileName in pListTrainFile:
-        strBase = splitext(basename(strFileName))[0]
-        strID, strPart = strBase.split('-')[0], strBase.split('-')[1]
-        strWord = get_words_in_trans(pDicTransFile[strID][strPart], strBase)
-        pSpeech = make_speech_buffer(strFileName)
-        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, strWord=strWord, strType=strFeatureType,
-                             pSpeech=pSpeech)
-        pDataTrain.append(pObject)
-    for strFileName in pListTestFile:
-        strBase = splitext(basename(strFileName))[0]
-        strID, strPart = strBase.split('-')[0], strBase.split('-')[1]
-        strWord = get_words_in_trans(pDicTransFile[strID][strPart], strBase)
-        pSpeech = make_speech_buffer(strFileName)
-        pObject = YoonObject(nID=int(pDicSpeaker[strID]), strName=strID, strWord=strWord, strType=strFeatureType,
-                             pSpeech=pSpeech)
-        pDataEval.append(pObject)
-    print("Length of Train = {}".format(pDataTrain.__len__()))
-    print("Length of Test = {}".format(pDataEval.__len__()))
-    if strMode == "dvector" or strMode == "gmm":
-        nDimOutput = nSpeakersCount
-    elif strMode == "ctc" or strMode == "las":
-        nDimOutput = yoonspeech.DEFAULT_PHONEME_COUNT
+    train_dataset = YoonDataset()
+    eval_dataset = YoonDataset()
+    for path in trans_files:
+        basename_ = splitext(basename(path))[0]
+        id_, part = basename_.split('-')[0], basename_.split('-')[1]
+        word = get_line_in_trans(trans_file_dic[id_][part], basename_)
+        speech = make_speech_buffer(path)
+        obj = YoonObject(id=int(speaker_dic[id_]), name=id_, word=word, type=feature_type, speech=speech)
+        train_dataset.append(obj)
+    for path in test_files:
+        basename_ = splitext(basename(path))[0]
+        id_, part = basename_.split('-')[0], basename_.split('-')[1]
+        word = get_line_in_trans(trans_file_dic[id_][part], basename_)
+        speech = make_speech_buffer(path)
+        obj = YoonObject(id=int(speaker_dic[id_]), name=id_, word=word, type=feature_type, speech=speech)
+        eval_dataset.append(obj)
+    print("Length of Train = {}".format(train_dataset.__len__()))
+    print("Length of Test = {}".format(eval_dataset.__len__()))
+    if mode == "dvector" or mode == "gmm":
+        output_dim = num_speakers
+    elif mode == "ctc" or mode == "las":
+        output_dim = yoonspeech.DEFAULT_PHONEME_COUNT
     else:
         raise ValueError("Unsupported parsing mode")
-    return nDimOutput, pDataTrain, pDataEval
+    return output_dim, train_dataset, eval_dataset
 
 
 def parse_librispeech_tester(strRootDir: str,

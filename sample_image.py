@@ -25,8 +25,8 @@ def process_drop():
         image = dataset[i].image
         results = yoonimage.find_blobs(source=image,
                                        thresh=100, max_count=20)
-        for result_object in results:
-            image.draw_rectangle(result_object.region, yoonimage.COLOR_YELLOW)
+        for result_obj in results:
+            image.draw_rectangle(result_obj.region, yoonimage.COLOR_YELLOW)
             image.show_image()
         print("count = " + str(len(results)))
 
@@ -38,8 +38,8 @@ def process_glass():
         results = yoonimage.find_lines(source=image,
                                        thresh1=50, thresh2=150,
                                        max_count=30)
-        for result_object in results:
-            image.draw_line(result_object.region, yoonimage.COLOR_YELLOW)
+        for result_obj in results:
+            image.draw_line(result_obj.region, yoonimage.COLOR_YELLOW)
         print("count = " + str(len(results)))
         image.show_image()
 

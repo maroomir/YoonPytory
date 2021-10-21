@@ -35,7 +35,7 @@ phoneme_list = ["aa aa aa", "ae ae ae", "ah ah ah", "ao ao aa", "aw aw aw", "ax 
 def get_phonemes():
     def to_dict():
         phn_dic = {}
-        for tag in phoneme_list:
+        for tag in phonemes:
             if tag.split(' ')[0] == 'q':
                 pass
             else:
@@ -43,22 +43,22 @@ def get_phonemes():
         return phn_dic
 
     def to_list():
-        phn_list = [strTag.split(' ')[-1] for strTag in phoneme_list]
+        phn_list = [strTag.split(' ')[-1] for strTag in phonemes]
         phn_list = list(set(phn_list))
         return phn_list
 
     g2p = G2p()
-    phoneme_list = ['h#']  # h# : start token
-    phoneme_list.extend(strPhoneme.lower() for strPhoneme in g2p(phoneme_list))
-    phoneme_list.append('h#')  # h# : end token
-    pListLabel = []
-    for strLabel in phoneme_list:
-        if strLabel in ['q', ' ', "'"]:
+    phonemes = ['h#']  # h# : start token
+    phonemes.extend(strPhoneme.lower() for strPhoneme in g2p(phonemes))
+    phonemes.append('h#')  # h# : end token
+    labels = []
+    for label in phonemes:
+        if label in ['q', ' ', "'"]:
             pass
         else:
-            strLabel = ''.join([i for i in strLabel if not i.isdigit()])
-            pListLabel.append(to_list().index(to_dict()[strLabel]) + 1)
-    return numpy.concatenate(pListLabel)
+            label = ''.join([i for i in label if not i.isdigit()])
+            labels.append(to_list().index(to_dict()[label]) + 1)
+    return numpy.concatenate(labels)
 
 
 class YoonObject(object):
@@ -73,19 +73,19 @@ class YoonObject(object):
     """
 
     def __init__(self,
-                 id: int = 0,
+                 id_: int = 0,
                  name: str = "",
                  word: str = "",
-                 type: str = "deltas",
+                 type_: str = "deltas",
                  speech: YoonSpeech = None):
-        self.label = id
+        self.label = id_
         self.name = name
         self.word = word
-        self.data_type = type
+        self.data_type = type_
         self.speech = None if speech is None else speech.__copy__()
 
     def __copy__(self):
-        return YoonObject(id=self.label, name=self.name, type=self.data_type, speech=self.speech)
+        return YoonObject(id_=self.label, name=self.name, type_=self.data_type, speech=self.speech)
 
 
 class YoonDataset(object):
@@ -113,19 +113,19 @@ class YoonDataset(object):
         self.speeches: list = []
 
     @classmethod
-    def from_list(cls, data_list: list):
+    def from_list(cls, list_: list):
         dataset = YoonDataset()
-        for i in range(len(data_list)):
-            if isinstance(data_list[i], YoonObject):
-                dataset.labels.append(data_list[i].label)
-                dataset.names.append(data_list[i].name)
-                dataset.words.append(data_list[i].word)
-                dataset.data_types.append(data_list[i].data_type)
-                dataset.speeches.append(data_list[i].speech.__copy__())
-            elif isinstance(data_list[i], YoonSpeech):
+        for i in range(len(list_)):
+            if isinstance(list_[i], YoonObject):
+                dataset.labels.append(list_[i].label)
+                dataset.names.append(list_[i].name)
+                dataset.words.append(list_[i].word)
+                dataset.data_types.append(list_[i].data_type)
+                dataset.speeches.append(list_[i].speech.__copy__())
+            elif isinstance(list_[i], YoonSpeech):
                 dataset.labels.append(i)
                 dataset.data_types.append("deltas")
-                dataset.speeches.append(data_list[i].__copy__())
+                dataset.speeches.append(list_[i].__copy__())
         return dataset
 
     @classmethod
@@ -186,7 +186,7 @@ class YoonDataset(object):
                 name: str = ""
                 word: str = ""
                 data_types: str = "deltas"
-                speech: YoonSpeech
+                speech: YoonSpeech = None
                 if 0 <= i < len(self.labels):
                     label = self.labels[i]
                 if 0 <= i < len(self.names):
@@ -197,7 +197,7 @@ class YoonDataset(object):
                     data_types = self.data_types[i]
                 if 0 <= i < len(self.speeches):
                     speech = self.speeches[i]
-                pObject = YoonObject(id=label, name=name, speech=speech, word=word, type=data_types)
+                pObject = YoonObject(id_=label, name=name, speech=speech, word=word, type_=data_types)
                 if is_processing:
                     return pObject, i
                 else:
@@ -228,24 +228,24 @@ class YoonDataset(object):
         self.data_types.clear()
         self.speeches.clear()
 
-    def append(self, pObject: YoonObject):
-        self.labels.append(pObject.label)
-        self.names.append(pObject.name)
-        self.words.append(pObject.word)
-        self.data_types.append(pObject.data_type)
-        self.speeches.append(pObject.speech.__copy__())
+    def append(self, obj: YoonObject):
+        self.labels.append(obj.label)
+        self.names.append(obj.name)
+        self.words.append(obj.word)
+        self.data_types.append(obj.data_type)
+        self.speeches.append(obj.speech.__copy__())
 
     def to_features(self):
-        pListFeature = []
+        features = []
         for iSpeech in range(len(self.speeches)):
             if isinstance(self.speeches[iSpeech], YoonSpeech):
-                pListFeature.append(self.speeches[iSpeech].get_feature(self.data_types[iSpeech]))
-        return numpy.array(pListFeature)
+                features.append(self.speeches[iSpeech].get_feature(self.data_types[iSpeech]))
+        return numpy.array(features)
 
     def to_gmm_dataset(self):
-        pArrayTarget = numpy.array(self.names)
-        pArrayInput = self.to_features()
-        return numpy.array(list(zip(pArrayInput, pArrayTarget)))
+        target = numpy.array(self.names)
+        input_ = self.to_features()
+        return numpy.array(list(zip(input_, target)))
 
     def get_dimension(self):
         if len(self.speeches) == 0:

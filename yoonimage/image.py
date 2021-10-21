@@ -22,10 +22,10 @@ class YoonImage:
     @classmethod
     def from_buffer(cls, buffer: numpy.ndarray):
         image = YoonImage()
-        image.__buffer = buffer.copy()
-        if len(image.__buffer.shape) < 3:  # Contains only the height and width
-            image.__buffer = numpy.expand_dims(image.__buffer, axis=-1)
-        image.height, image.width, image.channel = image.__buffer.shape
+        image._buffer = buffer.copy()
+        if len(image._buffer.shape) < 3:  # Contains only the height and width
+            image._buffer = numpy.expand_dims(image._buffer, axis=-1)
+        image.height, image.width, image.channel = image._buffer.shape
         return image
 
     @classmethod
@@ -37,7 +37,7 @@ class YoonImage:
     @classmethod
     def from_image(cls, image):
         assert isinstance(image, YoonImage)
-        return YoonImage.from_buffer(image.__buffer)
+        return YoonImage.from_buffer(image._buffer)
 
     @classmethod
     def from_path(cls, file_path: str):
@@ -68,101 +68,101 @@ class YoonImage:
         self.width = width
         self.height = height
         self.channel = channel
-        self.__buffer = numpy.zeros((self.height, self.width, self.channel), dtype=numpy.uint8)
+        self._buffer = numpy.zeros((self.height, self.width, self.channel), dtype=numpy.uint8)
 
     def get_buffer(self):
-        return self.__buffer
+        return self._buffer
 
     def get_tensor(self):
         # Change the transform to (Channel, Height, Width)
-        return self.__buffer.transpose((2, 0, 1)).astype(numpy.float32)
+        return self._buffer.transpose((2, 0, 1)).astype(numpy.float32)
 
     def __copy__(self):
-        return YoonImage.from_buffer(self.__buffer)
+        return YoonImage.from_buffer(self._buffer)
 
     def copy_buffer(self):
-        return self.__buffer.copy()
+        return self._buffer.copy()
 
     def copy_tensor(self):
         # Change the transform to (Channel, Height, Width)
         return self.copy_buffer().transpose((2, 0, 1)).astype(numpy.float32)
 
     def minmax_normalize(self):
-        max_value = numpy.max(self.__buffer)
-        min_value = numpy.min(self.__buffer)
-        result = self.__buffer.astype(numpy.float32)
+        max_value = numpy.max(self._buffer)
+        min_value = numpy.min(self._buffer)
+        result = self._buffer.astype(numpy.float32)
         result = (result - min_value) / (max_value - min_value)
         return min_value, (max_value - min_value), YoonImage.from_buffer(result)
 
     def z_normalize(self):
-        mask_func = self.__buffer > 0
-        mean = numpy.mean(self.__buffer[mask_func])
-        std = numpy.std(self.__buffer[mask_func])
-        result = self.__buffer.astype(numpy.float32)
+        mask_func = self._buffer > 0
+        mean = numpy.mean(self._buffer[mask_func])
+        std = numpy.std(self._buffer[mask_func])
+        result = self._buffer.astype(numpy.float32)
         result = (result - mean) / std
         return mean, std, YoonImage.from_buffer(result)
 
     def normalize(self, channel=None, mean=128, std=255):
         if channel is None:
             return self._normalize_all(mean, std)
-        result = self.__buffer
+        result = self._buffer
         result[:, :, channel] = (result[:, :, channel] - mean) / std
         return YoonImage.from_buffer(result)
 
     def denormalize(self, channel=None, mean=128, std=255):
         if channel is None:
             return self._denormalize_all(mean, std)
-        result = self.__buffer
+        result = self._buffer
         result[:, :, channel] = result[:, :, channel] * std + mean
         return YoonImage.from_buffer(result)
 
     def _normalize_all(self, mean=128, std=255):
-        result = self.__buffer
+        result = self._buffer
         result = (result - mean) / std
         return YoonImage.from_buffer(result)
 
     def _denormalize_all(self, mean=128, std=255):
-        result = self.__buffer
+        result = self._buffer
         result = result * std + mean
         return YoonImage.from_buffer(result)
 
     def pixel_decimal(self):
-        return self._normalize_all(mean=0, std=255)
+        return self._normalize_all(mean=0)
 
     def pixel_recover(self):
-        return self._denormalize_all(mean=0, std=255)
+        return self._denormalize_all(mean=0)
 
     def to_binary(self, thresh=128):
-        result = cv2.cv2.threshold(self.__buffer, thresh, 255, cv2.cv2.THRESH_BINARY)[1]
+        result = cv2.cv2.threshold(self._buffer, thresh, 255, cv2.cv2.THRESH_BINARY)[1]
         return YoonImage.from_buffer(result)
 
     def to_gray(self):
-        result = cv2.cv2.cvtColor(self.__buffer, cv2.cv2.COLOR_BGR2GRAY)
+        result = cv2.cv2.cvtColor(self._buffer, cv2.cv2.COLOR_BGR2GRAY)
         return YoonImage.from_buffer(result)
 
     def to_color(self):
-        result = cv2.cv2.cvtColor(self.__buffer, cv2.cv2.COLOR_GRAY2BGR)
+        result = cv2.cv2.cvtColor(self._buffer, cv2.cv2.COLOR_GRAY2BGR)
         return YoonImage.from_buffer(result)
 
     def flip_horizontal(self):
-        return YoonImage.from_buffer(numpy.flipud(self.__buffer))
+        return YoonImage.from_buffer(numpy.flipud(self._buffer))
 
     def flip_vertical(self):
-        return YoonImage.from_buffer(numpy.fliplr(self.__buffer))
+        return YoonImage.from_buffer(numpy.fliplr(self._buffer))
 
     def crop(self, rect: YoonRect2D):
         assert isinstance(rect, YoonRect2D)
-        result = self.__buffer[int(rect.top()): int(rect.bottom()), int(rect.left()): int(rect.right())]
+        result = self._buffer[int(rect.top()): int(rect.bottom()), int(rect.left()): int(rect.right())]
         return YoonImage.from_buffer(result)
 
     def scale(self, scale_x: (int, float), scale_y: (int, float)):
-        result = cv2.cv2.resize(self.__buffer, None, fx=scale_x, fy=scale_y)
+        result = cv2.cv2.resize(self._buffer, None, fx=scale_x, fy=scale_y)
         return YoonImage.from_buffer(result)
 
     def resize(self, width: int, height: int):
         if width == self.width and height == self.height:
             return self.__copy__()
-        result = cv2.cv2.resize(self.__buffer, dsize=(width, height), interpolation=cv2.cv2.INTER_CUBIC)
+        result = cv2.cv2.resize(self._buffer, dsize=(width, height), interpolation=cv2.cv2.INTER_CUBIC)
         return YoonImage.from_buffer(result)
 
     # Resize image with unchanged aspect ratio using padding
@@ -171,7 +171,7 @@ class YoonImage:
             return self.__copy__()
         width_resized = int(self.width * min(width / self.width, height / self.height))
         height_resized = int(self.height * min(width / self.width, height / self.height))
-        result = cv2.cv2.resize(self.__buffer, dsize=(width_resized, height_resized), interpolation=cv2.cv2.INTER_CUBIC)
+        result = cv2.cv2.resize(self._buffer, dsize=(width_resized, height_resized), interpolation=cv2.cv2.INTER_CUBIC)
         top = (self.height - height_resized) // 2
         left = (self.width - width_resized) // 2
         canvas = numpy.full((height, width, self.channel), pad)
@@ -193,7 +193,7 @@ class YoonImage:
         if self.channel == 1:
             self.to_color()
         if line is not None:
-            cv2.cv2.line(self.__buffer,
+            cv2.cv2.line(self._buffer,
                          pt1=(line.start_pos.to_tuple_int()),
                          pt2=(line.end_pos.to_tuple_int()),
                          color=colors,
@@ -206,7 +206,7 @@ class YoonImage:
         if self.channel == 1:
             self.to_color()
         if rect is not None:
-            cv2.cv2.rectangle(self.__buffer,
+            cv2.cv2.rectangle(self._buffer,
                               pt1=(rect.top_left().to_tuple_int()),
                               pt2=(rect.bottom_right().to_tuple_int()),
                               color=colors,
@@ -220,7 +220,7 @@ class YoonImage:
         if self.channel == 1:
             self.to_color()
         if pos is not None:
-            cv2.cv2.putText(self.__buffer,
+            cv2.cv2.putText(self._buffer,
                             text=text,
                             org=(pos.to_tuple_int()),
                             fontFace=cv2.FONT_HERSHEY_PLAIN,
@@ -229,6 +229,6 @@ class YoonImage:
                             thickness=3)
 
     def show_image(self):
-        cv2.imshow("Image", self.__buffer)
+        cv2.imshow("Image", self._buffer)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
