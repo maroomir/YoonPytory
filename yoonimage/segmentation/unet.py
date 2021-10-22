@@ -123,9 +123,7 @@ class UNet2D(Module):
         return x, (pad_height, pad_width, height_margin, width_margin)
 
     def __unpadding(self, x, pad_height, pad_width, height_margin, width_margin):
-        return x[...,
-               pad_height[0]:height_margin - pad_height[1],
-               pad_width[0]:width_margin - pad_width[1]]
+        return x[..., pad_height[0]:height_margin - pad_height[1], pad_width[0]:width_margin - pad_width[1]]
 
     def forward(self, x: tensor):
         x, pad_option = self.__padding(x)
@@ -171,18 +169,18 @@ def __process_train(model: UNet2D, data_loader: DataLoader, criterion: BCEWithLo
     sample_length = 0
     total_loss = 0.0
     total_acc = 0.0
-    for i, (input, target) in bar:
+    for i, (_input, _target) in bar:
         # Move data and label to device
-        input = input.type(torch.FloatTensor).to(device)
-        target = target.type(torch.FloatTensor).to(device)
+        _input = _input.type(torch.FloatTensor).to(device)
+        _target = _target.type(torch.FloatTensor).to(device)
         # Pass the input data through the defined network architecture
-        output = model(input)
+        output = model(_input)
         # Compute a loss function
-        loss = criterion(output, target)
-        total_loss += loss.item() * len(target[0])  # Loss per batch * batch
+        loss = criterion(output, _target)
+        total_loss += loss.item() * len(_target[0])  # Loss per batch * batch
         # Compute network accuracy
-        acc = torch.sum(torch.eq(output > 0.5, target > 0.5)).item()  # output and targets binary
-        sample_length += len(input[0])
+        acc = torch.sum(torch.eq(output > 0.5, _target > 0.5)).item()  # output and targets binary
+        sample_length += len(_input[0])
         total_acc += acc
         # Perform backpropagation to update network parameters
         optimizer.zero_grad()
@@ -207,18 +205,18 @@ def __process_evaluate(model: UNet2D, data_loader: DataLoader, criterion: BCEWit
     sample_length = 0
     total_loss = 0
     total_acc = 0
-    for i, (input, target) in bar:
+    for i, (_input, _target) in bar:
         # Move data and label to device
-        input = input.type(torch.FloatTensor).to(device)
-        target = input.type(torch.FloatTensor).to(device)
+        _input = _input.type(torch.FloatTensor).to(device)
+        _target = _target.type(torch.FloatTensor).to(device)
         # Pass the input data through the defined network architecture
-        output = model(input)
+        output = model(_input)
         # Compute a loss function
-        loss = criterion(output, target)
-        total_loss += loss.item() * len(target[0])  # Loss per batch * batch
+        loss = criterion(output, _target)
+        total_loss += loss.item() * len(_target[0])  # Loss per batch * batch
         # Compute network accuracy
-        acc = torch.sum(torch.eq(output > 0.5, target > 0.5)).item()  # output and targets binary
-        sample_length += len(input[0])
+        acc = torch.sum(torch.eq(output > 0.5, _target > 0.5)).item()  # output and targets binary
+        sample_length += len(_input[0])
         total_acc += acc
         # Trace the log
         message = logger.write(i, len(data_loader),
@@ -322,7 +320,7 @@ def test(test_data: YoonDataset,
     data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers, pin_memory=True)
     # Load UNET model
     model = UNet2D(input_dim=dataset.input_dim, output_dim=dataset.output_dim, channel=channel,
-                    depth=depth, dropout=dropout).to(pDevice)
+                   depth=depth, dropout=dropout).to(pDevice)
     model.eval()
     file = torch.load(model_path)
     model.load_state_dict(file['model'])
@@ -331,9 +329,9 @@ def test(test_data: YoonDataset,
     bar = tqdm(data_loader)
     print("Length of data = ", len(bar))
     output_list = []
-    for i, input in enumerate(bar):
-        input = input.type(torch.FloatTensor).to(pDevice)
-        output = model(input)
+    for i, _input in enumerate(bar):
+        _input = _input.type(torch.FloatTensor).to(pDevice)
+        output = model(_input)
         output_list.append(output.detach().cpu().numpy())
     # Warp the tensor to Dataset
     return YoonDataset.from_tensor(images=numpy.concatenate(output_list))

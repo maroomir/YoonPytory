@@ -37,6 +37,7 @@ class YoonObject:
 
 
 class YoonDataset:
+    """
     # The shared area of YoonDataset class
     # All of instances are using this shared area
     # labels: list = []
@@ -45,6 +46,7 @@ class YoonDataset:
     # pix_counts: list = []
     # regions: list = []
     # images: list = []
+    """
 
     @staticmethod
     def from_tensor(images: numpy.ndarray,

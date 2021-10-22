@@ -61,18 +61,18 @@ def __process_train(model: AlexNet,
     total_loss = 0.0
     total_correct = 0
     sample_length = 0
-    for i, (input, target) in bar:
-        input = input.type(torch.FloatTensor).to(device)
-        target = target.type(torch.LongTensor).to(device)
-        output = model(input)
+    for i, (_input, _target) in bar:
+        _input = _input.type(torch.FloatTensor).to(device)
+        _target = _target.type(torch.LongTensor).to(device)
+        output = model(_input)
         optimizer.zero_grad()
-        loss = criterion(output, target)
+        loss = criterion(output, _target)
         loss.backward()
         optimizer.step()
-        total_loss += loss.item() * target.size(0)
+        total_loss += loss.item() * _target.size(0)
         _, target_hat = output.max(1)
-        sample_length += target.size(0)
-        total_correct += target_hat.eq(target).sum().item()
+        sample_length += _target.size(0)
+        total_correct += target_hat.eq(_target).sum().item()
         message = logger.write(i, len(data_loader),
                                Loss=total_loss / sample_length, Acc=100 * total_correct / sample_length)
         bar.set_description(message)
@@ -92,15 +92,15 @@ def __process_evaluate(model: AlexNet,
     total_correct = 0
     sample_length = 0
     with torch.no_grad():
-        for i, (input, target) in bar:
-            input = input.type(torch.FloatTensor).to(pDevice)
-            target = target.type(torch.LongTensor).to(pDevice)
-            output = model(input)
-            loss = criterion(output, target)
-            total_loss += loss.item() * target.size(0)
+        for i, (_input, _target) in bar:
+            _input = _input.type(torch.FloatTensor).to(pDevice)
+            _target = _target.type(torch.LongTensor).to(pDevice)
+            output = model(_input)
+            loss = criterion(output, _target)
+            total_loss += loss.item() * _target.size(0)
             _, target_hat = output.max(1)
-            sample_length += target.size(0)
-            total_correct += target_hat.eq(target).sum().item()
+            sample_length += _target.size(0)
+            total_correct += target_hat.eq(_target).sum().item()
             message = logger.write(i, len(data_loader),
                                    Loss=total_loss / sample_length, Acc=100 * total_correct / sample_length)
             bar.set_description(message)
@@ -115,12 +115,12 @@ def __process_test(model: AlexNet, data_loader: DataLoader, labels: list):
     model.eval()
     target_labels = []
     predicted_labels = []
-    for i, (input, target) in enumerate(data_loader):
-        input = input.type(torch.FloatTensor).to(device)
-        target = target.type(torch.LongTensor).to(device)
-        output = model(input)
+    for i, (_input, _target) in enumerate(data_loader):
+        _input = _input.type(torch.FloatTensor).to(device)
+        _target = _target.type(torch.LongTensor).to(device)
+        output = model(_input)
         _, target_hat = output.max(1)
-        target_labels = numpy.concatenate((target_labels, target.cpu().numpy()))
+        target_labels = numpy.concatenate((target_labels, _target.cpu().numpy()))
         predicted_labels = numpy.concatenate((predicted_labels, target_hat.cpu().numpy()))
     # Compute confusion matrix
     matrix = sklearn.metrics.confusion_matrix(target_labels, predicted_labels)
@@ -158,8 +158,8 @@ def __draw_confusion_matrix(matrix: numpy,
     thresh = matrix.max() / 2.
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
-            matplotlib.pyplot.text(j, i, format(matrix[i, j], str_format), horizontalalignment="center", color="white"
-            if matrix[i, j] > thresh else "black")
+            matplotlib.pyplot.text(j, i, format(matrix[i, j], str_format), horizontalalignment="center",
+                                   color="white" if matrix[i, j] > thresh else "black")
     matplotlib.pyplot.tight_layout()
     matplotlib.pyplot.ylabel("True label")
     matplotlib.pyplot.xlabel("Predicted label")
@@ -276,9 +276,9 @@ def test(test_data: YoonDataset,
     bar = tqdm(data_loader)
     print("Length of data = ", len(bar))
     labels = []
-    for i, input in enumerate(bar):
-        input = input.type(torch.FloatTensor).to(device)
-        output = model(input)
+    for i, _input in enumerate(bar):
+        _input = _input.type(torch.FloatTensor).to(device)
+        output = model(_input)
         _, target_hat = output.max(1)
         labels.append(target_hat.detach().cpu().numpy())
     # Warp the tensor to Dataset

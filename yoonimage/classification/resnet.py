@@ -38,10 +38,10 @@ class ConvolutionBlock(Module):
         )
 
     def forward(self, x: Tensor):
-        pTensorOut = self.network(x)
-        pTensorOut += self.shortcut(x)
-        pTensorOut = torch.nn.functional.relu(pTensorOut)
-        return pTensorOut
+        output = self.network(x)
+        output += self.shortcut(x)
+        output = torch.nn.functional.relu(output)
+        return output
 
 
 class IdentityBlock(Module):
@@ -125,18 +125,18 @@ def __process_train(model: ResNet50, data_loader: DataLoader, optimizer, criteri
     total_loss = 0.0
     total_correct = 0
     sample_length = 0
-    for i, (input, target) in bar:
-        input = input.type(torch.FloatTensor).to(device)
-        target = target.type(torch.LongTensor).to(device)
-        output = model(input)
+    for i, (_input, _target) in bar:
+        _input = _input.type(torch.FloatTensor).to(device)
+        _target = _target.type(torch.LongTensor).to(device)
+        output = model(_input)
         optimizer.zero_grad()
-        loss = criterion(output, target)
+        loss = criterion(output, _target)
         loss.backward()
         optimizer.step()
-        total_loss += loss.item() * target.size(0)
+        total_loss += loss.item() * _target.size(0)
         _, target_hat = output.max(1)
-        sample_length += target.size(0)
-        total_correct += target_hat.eq(target).sum().item()
+        sample_length += _target.size(0)
+        total_correct += target_hat.eq(_target).sum().item()
         message = logger.write(i, len(data_loader),
                                Loss=total_loss / sample_length, Acc=100 * total_correct / sample_length)
         bar.set_description(message)

@@ -14,13 +14,13 @@ def find_template(source: YoonImage,
     match_container = cv2.cv2.matchTemplate(image=source.get_buffer(),
                                             templ=template.get_buffer(),
                                             method=mode)
-    _, max, min_pos, max_pos = cv2.cv2.minMaxLoc(match_container)
-    if max > score:
+    min_, max_, min_pos, max_pos = cv2.cv2.minMaxLoc(match_container)
+    if max_ > score:
         min_pos = YoonVector2D.from_array(min_pos)
         max_pos = YoonVector2D.from_array(max_pos)
         center_pos = (min_pos + max_pos) / 2
         rect = YoonRect2D(x=center_pos.x, y=center_pos.y, width=template.width, height=template.height)
-        return YoonObject(region=rect, image=source.crop(rect), score=max)
+        return YoonObject(region=rect, image=source.crop(rect), score=max_)
 
 
 def find_lines(source: YoonImage,
@@ -89,3 +89,4 @@ def find_blobs(source: YoonImage,
             break
 
     return result
+

@@ -15,7 +15,7 @@ def parse_root(root: str):
         if "jpg" in path or "bmp" in path or "png" in path:
             image_path = os.path.join(root, path)
             image = YoonImage.from_path(image_path)
-            obj = YoonObject(id=count, name=path, image=image)
+            obj = YoonObject(id_=count, name=path, image=image)
             dataset.append(obj)
             count += 1
     return count, dataset

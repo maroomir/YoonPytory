@@ -12,8 +12,8 @@ def process_segmentation(mode="resnet"):
         yoonimage.classification.alexnet.train(epoch, train_data=train_data, eval_data=eval_data, transform=transform,
                                                num_class=class_count, model_path='./data/image/alex_opt.pth')
     elif mode == "vgg":
-        yoonimage.classification.vgg.train(epoch, pTrainData=train_data, pEvalData=eval_data, pTransform=transform,
-                                           nCountClass=class_count, strModelPath='./data/image/vgg_opt.pth')
+        yoonimage.classification.vgg.train(epoch, train_data=train_data, eval_data=eval_data, transform=transform,
+                                           num_class=class_count, model_path='./data/image/vgg_opt.pth')
     elif mode == "resnet":
         yoonimage.classification.resnet.train(epoch, train_data=train_data, eval_data=eval_data, transform=transform,
                                               num_class=class_count, model_path='./data/image/res_opt.pth')
