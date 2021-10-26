@@ -22,12 +22,15 @@ class YoonObject:
                  name: str = "",
                  score=0.0,
                  pix_count: int = 0,
-                 region: (YoonVector2D, YoonLine2D, YoonRect2D) = None,
+                 pos: (YoonVector2D) = None,
+                 region: (YoonLine2D, YoonRect2D) = None,
                  image: YoonImage = None):
+        pos = region.feature_pos if pos is None and region is not None else pos
         self.label = id_
         self.name = name
         self.score = score
         self.pixel_count = pix_count
+        self.pos = None if pos is None else pos.__copy__()
         self.region = None if region is None else region.__copy__()
         self.image = None if image is None else image.__copy__()
 
@@ -82,8 +85,10 @@ class YoonDataset:
                 dataset._objects.append(list_[i].__copy__())
             elif isinstance(list_[i], YoonImage):
                 dataset._objects.append(YoonObject(id_=i, image=list_[i].__copy__()))
-            elif isinstance(list_[i], (YoonRect2D, YoonLine2D, YoonVector2D)):
+            elif isinstance(list_[i], (YoonRect2D, YoonLine2D)):
                 dataset._objects.append(YoonObject(id_=i, region=list_[i].__copy__()))
+            elif isinstance(list_[i], YoonVector2D):
+                dataset._objects.append(YoonObject(id_=i, pos=list_[i].__copy__()))
         return dataset
 
     @classmethod
@@ -94,8 +99,10 @@ class YoonDataset:
                 dataset._objects.append(args[i].__copy__())
             elif isinstance(args[i], YoonImage):
                 dataset._objects.append(YoonObject(id_=i, image=args[i].__copy__()))
-            elif isinstance(args[i], (YoonRect2D, YoonLine2D, YoonVector2D)):
+            elif isinstance(args[i], (YoonRect2D, YoonLine2D)):
                 dataset._objects.append(YoonObject(id_=i, region=args[i].__copy__()))
+            elif isinstance(args[i], YoonVector2D):
+                dataset._objects.append(YoonObject(id_=i, pos=args[i].__copy__()))
         return dataset
 
     def __copy__(self):
