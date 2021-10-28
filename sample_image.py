@@ -23,8 +23,8 @@ def process_drop():
     count, dataset = yoonimage.parse_root(root='./data/image/Drops')
     for i in range(0, count):
         image = dataset[i].image
-        results = yoonimage.blob_detect(source=image,
-                                        thresh=100, max_count=20)
+        results = yoonimage.find_blobs(source=image,
+                                       thresh=100, max_count=20)
         for result_obj in results:
             image.draw_rectangle(result_obj.region, yoonimage.COLOR_YELLOW)
             image.show_image()
@@ -35,13 +35,21 @@ def process_glass():
     count, dataset = yoonimage.parse_root(root='./data/image/Glass')
     for i in range(0, count):
         image = dataset[i].image
-        results = yoonimage.line_detect(source=image,
-                                        thresh1=50, thresh2=150,
-                                        max_count=30)
+        results = yoonimage.find_lines(source=image,
+                                       thresh1=50, thresh2=150,
+                                       max_count=30)
         for result_obj in results:
             image.draw_line(result_obj.region, yoonimage.COLOR_YELLOW)
         print("count = " + str(len(results)))
         image.show_image()
+
+
+def process_feature():
+    count, dataset = yoonimage.parse_root(root="./data/image/Feature")
+    for i in range(0, count):
+        image = dataset[i].image
+        assert isinstance(image, yoonimage.YoonImage)
+        results = yoonimage.sift(source=image.to_gray(), is_debug=True)
 
 
 if __name__ == '__main__':
@@ -50,7 +58,8 @@ if __name__ == '__main__':
     print("2. vgg")
     print("3. resnet")
     print("4. drop")
-    print("5. Glass")
+    print("5. glass")
+    print("6. feature")
     process = input(">>")
     process = process.lower()
     if process == "1" or process == "alexnet":
@@ -63,3 +72,5 @@ if __name__ == '__main__':
         process_drop()
     elif process == "5" or process == "glass":
         process_glass()
+    elif process == "6" or process == "feature":
+        process_feature()

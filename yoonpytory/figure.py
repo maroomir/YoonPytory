@@ -2,6 +2,7 @@ import math
 import sys
 
 import numpy
+from numpy import ndarray
 
 from yoonpytory.dir import YoonDir2D
 
@@ -45,7 +46,7 @@ class YoonVector2D:
             assert isinstance(list_[i], YoonVector2D)
             list_x.append([list_[i].x])
             list_y.append([list_[i].y])
-        return numpy.array(list_x, list_y)
+        return numpy.array([list_x, list_y]).transpose()
 
     @classmethod
     def vectors_to_array_xy(cls, *args):
@@ -56,7 +57,7 @@ class YoonVector2D:
             assert isinstance(args[i], YoonVector2D)
             list_x.append(args[i].x)
             list_y.append(args[i].y)
-        return numpy.array(list_x, list_y)
+        return numpy.array([list_x, list_y]).transpose()
 
     @classmethod
     def list_to_array_x(cls, list_: list):
@@ -413,6 +414,9 @@ class YoonLine2D:
         assert isinstance(x, (int, float))
         return x * self.slope + self.intercept
 
+    def feature_pos(self):
+        return (self.start_pos + self.end_pos) / 2
+
     def distance(self, pos: YoonVector2D):
         assert isinstance(pos, YoonVector2D)
         return abs(self.slope * pos.x - pos.y + self.intercept) / math.sqrt(self.slope ** 2 + 1)
@@ -439,6 +443,7 @@ class YoonRect2D:
     The shared area of YoonDataset class
     All of instances are using this shared area
     """
+
     def __init__(self,
                  x=0.0,
                  y=0.0,
@@ -475,6 +480,15 @@ class YoonRect2D:
             rect.width = max_x - min_x
             rect.height = max_y - min_y
         return rect
+
+    @classmethod
+    def from_array(cls, array: ndarray):  # top, left, bottom, right
+        assert len(array.shape) == 1 and array.shape[0] == 4
+        x = (array[1] + array[3]) / 2
+        y = (array[0] + array[2]) / 2
+        width = abs(array[3] - array[1])
+        height = abs(array[2] - array[0])
+        return YoonRect2D(x, y, width, height)
 
     @classmethod
     def from_dir_pair(cls, **kwargs):
@@ -563,6 +577,9 @@ class YoonRect2D:
             return True
         else:
             return False
+
+    def feature_pos(self):
+        return (self.top_left() + self.bottom_right()) / 2
 
     def __add__(self, other):
         assert isinstance(other, YoonRect2D)

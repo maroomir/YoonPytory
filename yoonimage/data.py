@@ -1,5 +1,6 @@
 import numpy
 import matplotlib.pyplot
+from numpy import ndarray
 
 from yoonpytory.figure import YoonLine2D, YoonRect2D, YoonVector2D
 from yoonimage.image import YoonImage
@@ -22,7 +23,7 @@ class YoonObject:
                  name: str = "",
                  score=0.0,
                  pix_count: int = 0,
-                 pos: (YoonVector2D) = None,
+                 pos: YoonVector2D = None,
                  region: (YoonLine2D, YoonRect2D) = None,
                  image: YoonImage = None):
         pos = region.feature_pos if pos is None and region is not None else pos
@@ -105,6 +106,33 @@ class YoonDataset:
                 dataset._objects.append(YoonObject(id_=i, pos=args[i].__copy__()))
         return dataset
 
+    @classmethod
+    def from_feature_list(cls, list_: list):
+        dataset = YoonDataset()
+        for feature in list_:
+            if len(feature) == 2:
+                obj_ = YoonObject(pos=YoonVector2D.from_array(feature))
+            elif len(feature) == 4:
+                obj_ = YoonObject(region=YoonRect2D.from_array(feature))
+            else:
+                continue
+            dataset.append(obj_)
+
+
+    @classmethod
+    def from_feature_array(cls, array: ndarray):
+        dataset = YoonDataset()
+        assert len(array.shape) == 2
+        for i in array.shape[0]:
+            if array.shape[1] == 2:
+                obj_ = YoonObject(pos=YoonVector2D.from_array(array[i]))
+            elif array.shape[1] == 4:
+                obj_ = YoonObject(region=YoonRect2D.from_array(array[i]))
+            else:
+                continue
+            dataset.append(obj_)
+        return dataset
+
     def __copy__(self):
         pResult = YoonDataset()
         pResult._objects = self._objects.copy()
@@ -162,44 +190,48 @@ class YoonDataset:
     def append(self, obj: YoonObject):
         self._objects.append(obj)
 
-    def images(self):
+    def image_list(self):
         return list(filter(None,
                            [self._objects[i].image for i in range(len(self))]))
 
-    def labels(self):
+    def label_list(self):
         return list(filter(None,
                            [self._objects[i].label for i in range(len(self))]))
 
-    def names(self):
+    def name_list(self):
         return list(filter(None,
                            [self._objects[i].name for i in range(len(self))]))
 
-    def regions(self):
+    def region_list(self):
         return list(filter(None,
                            [self._objects[i].region for i in range(len(self))]))
 
+    def pos_list(self):
+        return list(filter(None,
+                           [self._objects[i].pos for i in range(len(self))]))
+
     def min_size(self):
-        images = self.images()
+        images = self.image_list()
         height = min([_image.height for _image in images])
         width = min([_image.width for _image in images])
         return width, height
 
     def max_size(self):
-        images = self.images()
+        images = self.image_list()
         height = max([_image.height for _image in images])
         width = max([_image.width for _image in images])
         return width, height
 
     def max_channel(self):
-        images = self.images()
+        images = self.image_list()
         return max([_image.channel for _image in images])
 
     def min_channel(self):
-        images = self.images()
+        images = self.image_list()
         return min([_image.channel for _image in images])
 
     def to_region_points(self):
-        regions = self.regions()
+        regions = self.region_list()
         return [_region.to_list() for _region in regions]
 
     def draw_dataset(self,

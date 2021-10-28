@@ -87,74 +87,74 @@ def blob_detect(source: YoonImage,
 
 
 def sift(source: YoonImage,
-         octaves: int = 3, contrastThresh=0.4, edgeThresh=10, sigma=2.0,
+         features=500, octaves: int = 3, contrastThresh=0.4, edgeThresh=10, sigma=2.0,
          is_output=True, is_debug=False):
-    sift_ = cv2.xfeatures2d.SIFT_create(nOctaveLayers=octaves, contrastThreshold=contrastThresh,
-                                        edgeThreshold=edgeThresh, sigma=sigma)
-    features, desc = sift_.detectAndCompute(source.get_buffer(), None)
+    sift_ = cv2.SIFT_create(nfeatures=features, nOctaveLayers=octaves, contrastThreshold=contrastThresh,
+                            edgeThreshold=edgeThresh, sigma=sigma)
+    keypoints, desc = sift_.detectAndCompute(source.get_buffer(), None)
     if is_debug:
-        result_buffer = cv2.drawKeypoints(source.get_buffer(), features, None,
-                                       flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        result_buffer = cv2.drawKeypoints(source.get_buffer(), keypoints, None,
+                                          flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         cv2.imshow("SIFT", result_buffer)
         cv2.waitKey()
         cv2.destroyAllWindows()
     if is_output:
         result = YoonDataset()
-        for feature in features:
-            pos = YoonVector2D(x=int(feature.pt[0]), y=int(feature.pt[1]))
-            height, width = feature.size[0], feature.size[1]
+        for keypoint in keypoints:
+            pos = YoonVector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
+            height, width = keypoint.size[0], keypoint.size[1]
             rect = YoonRect2D(pos.x, pos.y, width, height)
             result.append(YoonObject(region=rect))
         return result
     else:
-        return features, desc
+        return keypoints, desc
 
 
 def surf(source: YoonImage,
          metricThresh=1000, octaves: int = 3,
          is_output=True, is_debug=False):
     surf_ = cv2.xfeatures2d.SURF_create(metricThresh, octaves)
-    features, desc = surf_.detectAndCompute(source.get_buffer(), None)
+    keypoints, desc = surf_.detectAndCompute(source.get_buffer(), None)
     if is_debug:
-        res_buffer = cv2.drawKeypoints(source.get_buffer(), features, None,
+        res_buffer = cv2.drawKeypoints(source.get_buffer(), keypoints, None,
                                        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         cv2.imshow("SURF", res_buffer)
         cv2.waitKey()
         cv2.destroyAllWindows()
     if is_output:
         result = YoonDataset()
-        for feature in features:
-            pos = YoonVector2D(x=int(feature.pt[0]), y=int(feature.pt[1]))
-            height, width = feature.size[0], feature.size[1]
+        for keypoint in keypoints:
+            pos = YoonVector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
+            height, width = keypoint.size[0], keypoint.size[1]
             rect = YoonRect2D(pos.x, pos.y, width, height)
             result.append(YoonObject(region=rect))
         return result
     else:
-        return features, desc
+        return keypoints, desc
 
 
-def __feature_detect(source: YoonImage, other: YoonImage, match_func=sift, **kwargs):
-    if match_func == sift:
-        octaves = 3 if kwargs["octaves"] is None else kwargs["octaves"]
-        contrastThresh = 0.4 if kwargs["contrastThresh"] is None else kwargs["contrastThresh"]
-        edgeThresh = 10 if kwargs["edgeThresh"] is None else kwargs["edgeThresh"]
-        sigma = 2.0 if kwargs["sigma"] is None else kwargs["sigma"]
-        kp1, desc1 = match_func(source, octaves, contrastThresh, edgeThresh, sigma, is_output=False)
-        kp2, desc2 = match_func(other, octaves, contrastThresh, edgeThresh, sigma, is_output=False)
-    elif match_func == surf:
-        metricThresh = 1000 if kwargs["metricThresh"] is None else kwargs["metricThresh"]
-        octaves = 3 if kwargs["octaves"] is None else kwargs["octaves"]
-        kp1, desc1 = match_func(source, metricThresh, octaves, is_output=False)
-        kp2, desc2 = match_func(other, metricThresh, octaves, is_output=False)
+def feature_detect(source: YoonImage, match_func="sift", **kwargs):
+    if match_func == "sift":
+        features = 500 if kwargs["features"] is None else int(kwargs["features"])
+        octaves = 3 if kwargs["octaves"] is None else int(kwargs["octaves"])
+        contrast_thresh = 0.4 if kwargs["contrast_thresh"] is None else float(kwargs["contrastThresh"])
+        edge_thresh = 10 if kwargs["edge_thresh"] is None else int(kwargs["edgeThresh"])
+        sigma = 2.0 if kwargs["sigma"] is None else float(kwargs["sigma"])
+        kp, desc = sift(source, features, octaves, contrast_thresh, edge_thresh, sigma, is_output=False)
+    elif match_func == "surf":
+        metric_thresh = 1000 if kwargs["metric_thresh"] is None else int(kwargs["metricThresh"])
+        octaves = 3 if kwargs["octaves"] is None else int(kwargs["octaves"])
+        kp, desc = surf(source, metric_thresh, octaves, is_output=False)
     else:
         raise Exception("The match function is not abnormal")
-    return kp1, desc1, kp2, desc2
+    return kp, desc
 
 
-def feature_match(source: YoonImage, other: YoonImage, match_func=sift, **kwargs):
-    features1, desc1, features2, desc2 = __feature_detect(source, other, match_func, **kwargs)
+def feature_match(source: YoonImage, other: YoonImage, match_func="sift", **kwargs):
+    features1, description1 = feature_detect(source, match_func, **kwargs)
+    features2, description2 = feature_detect(other, match_func, **kwargs)
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = matcher.knnMatch(desc1, desc2, 2)
+    matches = matcher.knnMatch(description1, description2, 2)
     ratio = 0.5 if kwargs["ratio"] is None else kwargs["ratio"]
     best_matches = [first for first, second in matches if first.distance < second.distance * ratio]
     best_features1 = [features1[match.queryIdx].pt for match in best_matches]
@@ -166,6 +166,39 @@ def feature_match(source: YoonImage, other: YoonImage, match_func=sift, **kwargs
         cv2.imshow("Feature Match", res_buffer)
         cv2.waitKey()
         cv2.destroyAllWindows()
-    best_features1 = [YoonVector2D.from_array(point) for point in best_features1]
-    best_features2 = [YoonVector2D.from_array(point) for point in best_features2]
-    return YoonDataset.from_list(best_features1), YoonDataset.from_list(best_features2)
+    return YoonDataset.from_feature_list(best_features1), YoonDataset.from_feature_list(best_features2)
+
+
+def perspective_transform(source: YoonImage, other: YoonImage, points: YoonDataset = None,
+                          match_func="sift", **kwargs):
+    features1, description1 = feature_detect(source, match_func, **kwargs)
+    features2, description2 = feature_detect(other, match_func, **kwargs)
+    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = matcher.knnMatch(description1, description2, 2)
+    ratio = 0.5 if kwargs["ratio"] is None else kwargs["ratio"]
+    best_matches = [first for first, second in matches if first.distance < second.distance * ratio]
+    src_features = numpy.float32([features1[match.queryIdx].pt for match in best_matches])
+    dst_features = numpy.float32([features2[match.queryIdx].pt for match in best_matches])
+    transfer, mask = cv2.findHomography(src_features, dst_features, cv2.RANSAC, 5.0)
+    is_debug = False if kwargs["is_debug"] is None else kwargs["is_debug"]
+    if is_debug:
+        src_rect = numpy.float32([[[0, 0]],
+                                  [[0, source.height - 1]],
+                                  [[source.width - 1, source.height - 1]],
+                                  [[source.width - 1, 0]]])
+        dst_rect = cv2.perspectiveTransform(src_rect, transfer)
+        src_buffer = source.get_buffer()
+        dst_buffer = cv2.polylines(other.get_buffer(), [numpy.int32(dst_rect)], True, 255, 3, cv2.LINE_AA)
+        res_buffer = cv2.drawMatches(src_buffer, src_features, dst_buffer, dst_features, best_matches, None,
+                                     flags=cv2.cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
+        cv2.imshow("Perspective Transform", res_buffer)
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+    if points is not None:
+        points = YoonVector2D.list_to_array_xy(points.pos_list())
+        result = cv2.perspectiveTransform(points, transfer)
+        return YoonDataset.from_feature_array(result)
+
+
+def find_epiline(source: YoonImage, other: YoonImage, match_func="sift", **kwargs):
+    pass
