@@ -130,8 +130,8 @@ class UNet2D(Module):
         layers = []
         result = x
         # Apply down sampling layers
-        for i, pEncoder in enumerate(self.encoders):
-            result = pEncoder(result)
+        for i, encoder in enumerate(self.encoders):
+            result = encoder(result)
             layers.append(result)
             result = self.down_sampler(result)
         result = self.worker(result)
@@ -249,7 +249,7 @@ def train(epoch: int,
     print("{} device activation".format(device.__str__()))
     # Define the training and testing data-set
     train_set = UNetDataset(train_data, train_label)
-    pTrainLoader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     valid_set = UNetDataset(eval_data, eval_label)
     valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
     # Define a network model
@@ -265,10 +265,10 @@ def train(epoch: int,
     start = 0
     print("Directory of the pre-trained model: {}".format(model_path))
     if model_path is not None and os.path.exists(model_path) and is_init_epoch is False:
-        pModelData = torch.load(model_path, map_location=device)
-        start = pModelData['epoch']
-        model.load_state_dict(pModelData['model'])
-        optimizer.load_state_dict(pModelData['optimizer'])
+        model_data = torch.load(model_path, map_location=device)
+        start = model_data['epoch']
+        model.load_state_dict(model_data['model'])
+        optimizer.load_state_dict(model_data['optimizer'])
         print("## Successfully load the model at {} epochs!".format(start))
     # Define the log manager
     train_logger = YoonNLM(start, root="./NLM/UNet2D", mode="Train")
@@ -277,7 +277,7 @@ def train(epoch: int,
     min_loss = 10000.0
     for i in range(start, epoch + 1):
         # Train the network
-        __process_train(model=model, data_loader=pTrainLoader, criterion=criterion,
+        __process_train(model=model, data_loader=train_loader, criterion=criterion,
                         optimizer=optimizer, logger=train_logger)
         # Test the network
         loss = __process_evaluate(model=model, data_loader=valid_loader, criterion=criterion, logger=eval_logger)
@@ -287,11 +287,11 @@ def train(epoch: int,
         if math.isnan(loss):
             if model_path is not None and os.path.exists(model_path):
                 # Reload the best model and decrease the learning rate
-                pModelData = torch.load(model_path, map_location=device)
-                model.load_state_dict(pModelData['model'])
-                pOptimizerData = pModelData['optimizer']
-                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
-                optimizer.load_state_dict(pOptimizerData)
+                model_data = torch.load(model_path, map_location=device)
+                model.load_state_dict(model_data['model'])
+                optimizer_data = model_data['optimizer']
+                optimizer_data['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                optimizer.load_state_dict(optimizer_data)
                 print("## Rollback the Model with half learning rate!")
         # Save the optimal model
         elif loss < min_loss:
@@ -311,16 +311,16 @@ def test(test_data: YoonDataset,
          dropout=0.3):
     # Check if we can use a GPU device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    print("{} device activation".format(pDevice.__str__()))
+        device = torch.device('cpu')
+    print("{} device activation".format(device.__str__()))
     # Define a data path for plot for test
     dataset = UNetDataset(test_data)
     data_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers, pin_memory=True)
     # Load UNET model
     model = UNet2D(input_dim=dataset.input_dim, output_dim=dataset.output_dim, channel=channel,
-                   depth=depth, dropout=dropout).to(pDevice)
+                   depth=depth, dropout=dropout).to(device)
     model.eval()
     file = torch.load(model_path)
     model.load_state_dict(file['model'])
@@ -330,7 +330,7 @@ def test(test_data: YoonDataset,
     print("Length of data = ", len(bar))
     output_list = []
     for i, _input in enumerate(bar):
-        _input = _input.type(torch.FloatTensor).to(pDevice)
+        _input = _input.type(torch.FloatTensor).to(device)
         output = model(_input)
         output_list.append(output.detach().cpu().numpy())
     # Warp the tensor to Dataset

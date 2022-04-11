@@ -5,6 +5,7 @@ import matplotlib.pyplot
 import numpy.random
 import sklearn.metrics
 import torch
+import torch.nn.functional
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import Dataset, DataLoader
@@ -299,9 +300,9 @@ def train(epoch: int,
                 # Reload the best model and decrease the learning rate
                 model_data = torch.load(model_path, map_location=device)
                 model.load_state_dict(model_data['model'])
-                pOptimizerData = model_data['optimizer']
-                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
-                optimizer.load_state_dict(pOptimizerData)
+                optimizer_data = model_data['optimizer']
+                optimizer_data['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                optimizer.load_state_dict(optimizer_data)
                 print("## Rollback the Model with half learning rate!")
         # Save the optimal model
         elif loss < min_loss:

@@ -21,57 +21,57 @@ from tqdm import tqdm
 
 class CustomTransform(object):
     def __init__(self,
-                 dMean=0.5,
-                 dStd=0.5):
-        self.mean = dMean
-        self.std = dStd
+                 mean=0.5,
+                 std=0.5):
+        self.mean = mean
+        self.std = std
 
     def __call__(self,
-                 pImage: ndarray,
-                 pTarget: ndarray = None):
-        def to_tensor(pArray: ndarray):  # Height X Width X Channel
-            if numpy.iscomplexobj(pArray):
-                pArray = numpy.stack((pArray.real, pArray.imag), axis=-1)
-            pArray = pArray.transpose((2, 0, 1)).astype(numpy.float32)  # Channel X Height X Width
-            return torch.from_numpy(pArray)
+                 image: ndarray,
+                 target: ndarray = None):
+        def to_tensor(x: ndarray):  # Height X Width X Channel
+            if numpy.iscomplexobj(x):
+                x = numpy.stack((x.real, x.imag), axis=-1)
+            x = x.transpose((2, 0, 1)).astype(numpy.float32)  # Channel X Height X Width
+            return torch.from_numpy(x)
 
-        def z_normalize(pTensor: tensor):
-            pFuncMask = pTensor > 0
-            pMean = pTensor[pFuncMask].mean()
-            pStd = pTensor[pFuncMask].std()
-            return torch.mul((pTensor - pMean) / pStd, pFuncMask.float())
+        def z_normalize(x: tensor):
+            mask_func = x > 0
+            mean = x[mask_func].mean()
+            std = x[mask_func].std()
+            return torch.mul((x - mean) / std, mask_func.float())
 
-        def minmax_normalize(pTensor: tensor):
-            pMax = pTensor.max()
-            pMin = pTensor.min()
-            return (pTensor - pMin) / (pMax - pMin)
+        def minmax_normalize(x: tensor):
+            max = x.max()
+            min = x.min()
+            return (x - min) / (max - min)
 
-        def normalize(pTensor: tensor):
-            return (pTensor - self.mean) / self.std
+        def normalize(x: tensor):
+            return (x - self.mean) / self.std
 
-        def pixel_compress(pTensor: tensor):
-            pFuncMax = pTensor > 255
-            pFuncMin = pTensor < 0
-            pTensor[pFuncMax] = 255
-            pTensor[pFuncMin] = 0
-            return pTensor / 255.0
+        def pixel_compress(x: tensor):
+            max_func = x > 255
+            min_func = x < 0
+            x[max_func] = 255
+            x[min_func] = 0
+            return x / 255.0
 
-        pTensorInput = minmax_normalize(to_tensor(pImage))
-        if pTarget is not None:
-            pTensorTarget = minmax_normalize(to_tensor(pTarget))
-            return pTensorInput, pTensorTarget
+        input_ = minmax_normalize(to_tensor(image))
+        if target is not None:
+            target_ = minmax_normalize(to_tensor(target))
+            return input_, target_
         else:
-            return pTensorInput
+            return input_
 
 
 class ConvDataset(Dataset):
     def __init__(self,
-                 strFilePath,
-                 pTransform=None,
-                 strMode="train",  # train, eval, test
-                 dTrainRatio=0.8):
-        self.transform = pTransform
-        self.mode = strMode
+                 file_path,
+                 transform=None,
+                 mode_="train",  # train, eval, test
+                 train_ratio=0.8):
+        self.transform = transform
+        self.mode = mode_
         # Initial the H5PY Inputs
         self.len = 0
         self.height = 0
@@ -79,28 +79,26 @@ class ConvDataset(Dataset):
         self.channel = 0
         self.input_data = None
         self.label_data = None
-        self.load_dataset(strFilePath, dRatio=dTrainRatio)
+        self.load_dataset(file_path, ratio=train_ratio)
 
-    def load_dataset(self,
-                     strFilePath: str,
-                     dRatio: float):
-        pFile = h5py.File(strFilePath)
-        pInputData = numpy.array(pFile['input'], dtype=numpy.float32)  # 216 X 384 X 384 X 3
+    def load_dataset(self, file_path: str, ratio: float):
+        file = h5py.File(file_path)
+        input_ = numpy.array(file['input'], dtype=numpy.float32)  # 216 X 384 X 384 X 3
         try:
-            pLabelData = numpy.array(pFile['label'], dtype=numpy.float32)  # 216 X 384 X 384 X 1
+            label = numpy.array(file['label'], dtype=numpy.float32)  # 216 X 384 X 384 X 1
         except:
-            pLabelData = None
+            label = None
             print("Label data is not contained")
-        self.len, self.height, self.width, self.channel = pInputData.shape
-        nCountTrain = int(self.len * dRatio)
+        self.len, self.height, self.width, self.channel = input_.shape
+        num_train = int(self.len * ratio)
         if self.mode == "train":
-            self.input_data = pInputData[:nCountTrain, :, :, :]
-            self.label_data = pLabelData[:nCountTrain, :, :, :]
+            self.input_data = input_[:num_train, :, :, :]
+            self.label_data = label[:num_train, :, :, :]
         elif self.mode == "eval":
-            self.input_data = pInputData[nCountTrain:, :, :, :]
-            self.label_data = pLabelData[nCountTrain:, :, :, :]
+            self.input_data = input_[num_train:, :, :, :]
+            self.label_data = label[num_train:, :, :, :]
         elif self.mode == "test":
-            self.input_data = pInputData
+            self.input_data = input_
         else:
             raise Exception("Data mode is not compatible")
 
@@ -122,511 +120,507 @@ class CustomLoss(Module):
         self.mse_loss = torch.nn.MSELoss()
         self.l1_loss = torch.nn.L1Loss()
 
-    def forward(self, pTensorPredict: tensor, pTensorTarget: tensor):
-        pTensorLossMSE = self.mse_loss(pTensorPredict, pTensorTarget)
-        pTensorLossL1 = self.l1_loss(pTensorPredict, pTensorTarget)
-        self.prediction = pTensorPredict.detach().cpu()
-        self.target = pTensorTarget.detach().cpu()
-        dSSIM = 1 - self.ssim_score()
-        return pTensorLossMSE + pTensorLossL1 + dSSIM
+    def forward(self, predict: tensor, target: tensor):
+        mse_loss = self.mse_loss(predict, target)
+        l1_loss = self.l1_loss(predict, target)
+        self.prediction = predict.detach().cpu()
+        self.target = target.detach().cpu()
+        ssim = 1 - self.ssim_score()
+        return mse_loss + l1_loss + ssim
 
     def psnr_score(self):
-        dPSNR = 0.0
-        for iBatch in range(self.prediction.shape[0]):
-            pArrayPredict = self.prediction[iBatch].numpy()
-            pArrayTarget = self.target[iBatch].numpy()
-            dPSNR += skimage.metrics.peak_signal_noise_ratio(pArrayTarget, pArrayPredict)
-        return dPSNR / self.prediction.shape[0]
+        psnr = 0.0
+        for batch in range(self.prediction.shape[0]):
+            predict = self.prediction[batch].numpy()
+            target = self.target[batch].numpy()
+            psnr += skimage.metrics.peak_signal_noise_ratio(target, predict)
+        return psnr / self.prediction.shape[0]
 
     def ssim_score(self):
-        dSSIM = 0.0
-        for iBatch in range(self.prediction.shape[0]):
-            pArrayPredict = self.prediction[iBatch].numpy()
-            pArrayTarget = self.target[iBatch].numpy()
-            dSSIM += skimage.metrics.structural_similarity(pArrayTarget, pArrayPredict)
-        return dSSIM / self.prediction.shape[0]
+        ssim = 0.0
+        for batch in range(self.prediction.shape[0]):
+            predict = self.prediction[batch].numpy()
+            target = self.target[batch].numpy()
+            ssim += skimage.metrics.structural_similarity(target, predict)
+        return ssim / self.prediction.shape[0]
 
-    def dice_coefficient(self, dSmooth=1e-4):
-        pTensorPredict = self.prediction.contiguous().view(-1)
-        pTensorTarget = self.target.contiguous().view(-1)
-        pTensorIntersection = (pTensorPredict * pTensorTarget).sum()
-        pTensorCoefficient = (2.0 * pTensorIntersection + dSmooth) / (
-                pTensorPredict.sum() + pTensorTarget.sum() + dSmooth)
-        return pTensorCoefficient
+    def dice_coefficient(self, smooth=1e-4):
+        predict = self.prediction.contiguous().view(-1)
+        target = self.target.contiguous().view(-1)
+        intersection = (predict * target).sum()
+        coefficient = (2.0 * intersection + smooth) / (predict.sum() + target.sum() + smooth)
+        return coefficient
 
 
-def save_labels(pArrayOutput: ndarray, strFilePath):
-    scipy.io.savemat(strFilePath, mdict={'y_pred': pArrayOutput})
+def save_labels(output: ndarray, file_path):
+    scipy.io.savemat(file_path, mdict={'y_pred': output})
     print("Save output files completed!")
 
 
 class ConvolutionBlock(Module):
     def __init__(self,
-                 nDimInput: int,
-                 nDimOutput: int,
-                 dRateDropout: float = 0.3):
+                 input_dim: int,
+                 output_dim: int,
+                 dropout: float = 0.3):
         super(ConvolutionBlock, self).__init__()
         self.network = torch.nn.Sequential(
-            torch.nn.Conv2d(nDimInput, nDimOutput, kernel_size=3, padding=1, bias=False),
-            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=1, bias=False),
+            torch.nn.InstanceNorm2d(output_dim),
             torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
-            torch.nn.Dropout2d(dRateDropout),
-            torch.nn.Conv2d(nDimOutput, nDimOutput, kernel_size=3, padding=1, bias=False),
-            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.Dropout2d(dropout),
+            torch.nn.Conv2d(output_dim, output_dim, kernel_size=3, padding=1, bias=False),
+            torch.nn.InstanceNorm2d(output_dim),
             torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
-            torch.nn.Dropout2d(dRateDropout)
+            torch.nn.Dropout2d(dropout)
         )
 
-    def forward(self, pTensorX: tensor):
-        return self.network(pTensorX)
+    def forward(self, x: tensor):
+        return self.network(x)
 
 
 class UpSamplerBlock(Module):
     def __init__(self,
-                 nDimInput: int,
-                 nDimOutput: int):
+                 input_dim: int,
+                 output_dim: int):
         super(UpSamplerBlock, self).__init__()
         self.network = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(nDimInput, nDimOutput, kernel_size=2, stride=2, bias=True),
-            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.ConvTranspose2d(input_dim, output_dim, kernel_size=2, stride=2, bias=True),
+            torch.nn.InstanceNorm2d(output_dim),
             torch.nn.LeakyReLU(negative_slope=0.2, inplace=True),
         )
 
-    def forward(self, pTensorX: tensor):
-        return self.network(pTensorX)
+    def forward(self, x: tensor):
+        return self.network(x)
 
 
 class DiscriminateBlock(Module):
     def __init__(self,
-                 nDimInput: int,
-                 nDimOutput: int):
+                 input_dim: int,
+                 output_dim: int):
         super(DiscriminateBlock, self).__init__()
         self.network = torch.nn.Sequential(
-            torch.nn.Conv2d(nDimInput, nDimOutput, kernel_size=4, stride=2, padding=1),
-            torch.nn.InstanceNorm2d(nDimOutput),
+            torch.nn.Conv2d(input_dim, output_dim, kernel_size=4, stride=2, padding=1),
+            torch.nn.InstanceNorm2d(output_dim),
             torch.nn.LeakyReLU(negative_slope=0.2, inplace=True)
         )
 
-    def forward(self, pTensorX: tensor):
-        return self.network(pTensorX)
+    def forward(self, x: tensor):
+        return self.network(x)
 
 
 class Discriminator(Module):
     def __init__(self,
-                 nDimInput: int,
-                 nDimOutput: int,
-                 nChannel: int,
-                 nCountDepth: int):
+                 input_dim: int,
+                 output_dim: int,
+                 channel: int,
+                 num_depth: int):
         super(Discriminator, self).__init__()
         self.blocks = torch.nn.ModuleList([
-            torch.nn.Sequential(torch.nn.Conv2d(nDimInput, nChannel, kernel_size=4, stride=2, padding=1),
+            torch.nn.Sequential(torch.nn.Conv2d(input_dim, channel, kernel_size=4, stride=2, padding=1),
                                 torch.nn.LeakyReLU(negative_slope=0.2, inplace=True))])
-        for i in range(nCountDepth - 1):
-            self.blocks += [DiscriminateBlock(nChannel, nChannel * 2)]
-            nChannel *= 2
+        for i in range(num_depth - 1):
+            self.blocks += [DiscriminateBlock(channel, channel * 2)]
+            channel *= 2
         self.blocks += [torch.nn.Sequential(
             torch.nn.ZeroPad2d((1, 0, 1, 0)),
-            torch.nn.Conv2d(nChannel, nDimOutput, kernel_size=4, stride=2, padding=1, bias=False))]
+            torch.nn.Conv2d(channel, output_dim, kernel_size=4, stride=2, padding=1, bias=False))]
 
-    def forward(self,
-                pTensorInput: tensor,
-                pTensorTarget: tensor):
-        pTensorResult = torch.cat((pTensorInput, pTensorTarget), dim=1)
-        for i, pBlock in enumerate(self.blocks):
-            pTensorResult = pBlock(pTensorResult)
-        return pTensorResult
+    def forward(self, x: tensor, target: tensor):
+        result = torch.cat((x, target), dim=1)
+        for _, block in enumerate(self.blocks):
+            result = block(result)
+        return result
 
 
 class GeneratorUNet(Module):
     def __init__(self,
-                 nDimInput: int,
-                 nDimOutput: int,
-                 nChannel: int,
-                 nCountDepth: int,
-                 dRateDropout: float = 0.3):
+                 input_dim: int,
+                 output_dim: int,
+                 channel: int,
+                 num_depth: int,
+                 dropout: float = 0.3):
         super(GeneratorUNet, self).__init__()
         # Init Encoders and Decoders
-        self.encoders = torch.nn.ModuleList([ConvolutionBlock(nDimInput, nChannel, dRateDropout)])
-        for i in range(nCountDepth - 1):
-            self.encoders += [ConvolutionBlock(nChannel, nChannel * 2, dRateDropout)]
-            nChannel *= 2
+        self.encoders = torch.nn.ModuleList([ConvolutionBlock(input_dim, channel, dropout)])
+        for i in range(num_depth - 1):
+            self.encoders += [ConvolutionBlock(channel, channel * 2, dropout)]
+            channel *= 2
         self.down_sampler = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.worker = ConvolutionBlock(nChannel, nChannel * 2, dRateDropout)
+        self.worker = ConvolutionBlock(channel, channel * 2, dropout)
         self.decoders = torch.nn.ModuleList()
         self.up_samplers = torch.nn.ModuleList()
-        for i in range(nCountDepth - 1):
-            self.up_samplers += [UpSamplerBlock(nChannel * 2, nChannel)]
-            self.decoders += [ConvolutionBlock(nChannel * 2, nChannel, dRateDropout)]
-            nChannel //= 2
-        self.up_samplers += [UpSamplerBlock(nChannel * 2, nChannel)]
+        for i in range(num_depth - 1):
+            self.up_samplers += [UpSamplerBlock(channel * 2, channel)]
+            self.decoders += [ConvolutionBlock(channel * 2, channel, dropout)]
+            channel //= 2
+        self.up_samplers += [UpSamplerBlock(channel * 2, channel)]
         self.decoders += [
             torch.nn.Sequential(
-                ConvolutionBlock(nChannel * 2, nChannel, dRateDropout),
-                torch.nn.Conv2d(nChannel, nDimOutput, kernel_size=1, stride=1),
+                ConvolutionBlock(channel * 2, channel, dropout),
+                torch.nn.Conv2d(channel, output_dim, kernel_size=1, stride=1),
                 torch.nn.Tanh()
             )
         ]
 
-    def __padding(self, pTensorX: tensor):
+    def __padding(self, x: tensor):
         def floor_ceil(n):
             return math.floor(n), math.ceil(n)
 
-        nBatch, nDensity, nHeight, nWidth = pTensorX.shape
-        nWidthBitMargin = ((nWidth - 1) | 15) + 1  # 15 = (1111)
-        nHeightBitMargin = ((nHeight - 1) | 15) + 1
-        pPadWidth = floor_ceil((nWidthBitMargin - nWidth) / 2)
-        pPadHeight = floor_ceil((nHeightBitMargin - nHeight) / 2)
-        x = torch.nn.functional.pad(pTensorX, pPadWidth + pPadHeight)
-        return x, (pPadHeight, pPadWidth, nHeightBitMargin, nWidthBitMargin)
+        batch, density, height, width = x.shape
+        width_margin = ((width - 1) | 15) + 1  # 15 = (1111)
+        height_margin = ((height - 1) | 15) + 1
+        width_pad = floor_ceil((width_margin - width) / 2)
+        height_pad = floor_ceil((height_margin - height) / 2)
+        x = torch.nn.functional.pad(x, width_pad + height_pad)
+        return x, (height_pad, width_pad, height_margin, width_margin)
 
-    def __unpadding(self, x, pPadHeight, pPadWidth, nHeightMargin, nWidthMargin):
+    def __unpadding(self, x, height_pad, width_pad, height_margin, width_margin):
         return x[...,
-               pPadHeight[0]:nHeightMargin - pPadHeight[1],
-               pPadWidth[0]:nWidthMargin - pPadWidth[1]]
+               height_pad[0]:height_margin - height_pad[1],
+               width_pad[0]:width_margin - width_pad[1]]
 
-    def forward(self, pTensorX: tensor):
-        pTensorX, pPadOption = self.__padding(pTensorX)
-        pListStack = []
-        pTensorResult = pTensorX
+    def forward(self, x: tensor):
+        x, pad_option = self.__padding(x)
+        stacks = []
+        result = x
         # Apply down sampling layers
-        for i, pEncoder in enumerate(self.encoders):
-            pTensorResult = pEncoder(pTensorResult)
-            pListStack.append(pTensorResult)
-            pTensorResult = self.down_sampler(pTensorResult)
-        pTensorResult = self.worker(pTensorResult)
+        for i, encoder in enumerate(self.encoders):
+            result = encoder(result)
+            stacks.append(result)
+            result = self.down_sampler(result)
+        result = self.worker(result)
         # Apply up sampling layers
-        for pSampler, pDecoder in zip(self.up_samplers, self.decoders):
-            pTensorAttached = pListStack.pop()
-            pTensorResult = pSampler(pTensorResult)
+        for sampler, decoder in zip(self.up_samplers, self.decoders):
+            attached = stacks.pop()
+            result = sampler(result)
             # Reflect pad on the right/botton if needed to handle odd input dimensions.
-            pPadding = [0, 0, 0, 0]  # left, right, top, bottom
-            if pTensorResult.shape[-1] != pTensorAttached.shape[-1]:
-                pPadding[1] = 1  # Padding right
-            if pTensorResult.shape[-2] != pTensorAttached.shape[-2]:
-                pPadding[3] = 1  # Padding bottom
-            if sum(pPadding) != 0:
-                pTensorResult = torch.nn.functional.pad(pTensorResult, pPadding, "reflect")
-            pTensorResult = torch.cat([pTensorResult, pTensorAttached], dim=1)
-            pTensorResult = pDecoder(pTensorResult)
-        pListStack.clear()  # To Memory Optimizing
-        pTensorResult = self.__unpadding(pTensorResult, *pPadOption)
-        return pTensorResult
+            padding = [0, 0, 0, 0]  # left, right, top, bottom
+            if result.shape[-1] != attached.shape[-1]:
+                padding[1] = 1  # Padding right
+            if result.shape[-2] != attached.shape[-2]:
+                padding[3] = 1  # Padding bottom
+            if sum(padding) != 0:
+                result = torch.nn.functional.pad(result, padding, "reflect")
+            result = torch.cat([result, attached], dim=1)
+            result = decoder(result)
+        stacks.clear()  # To Memory Optimizing
+        result = self.__unpadding(result, *pad_option)
+        return result
 
 
-def __trace_in__(strMessage: str):
-    pNow = datetime.now()
-    strFilePath = "LOG_PIX2PIX_" + pNow.strftime("%Y-%m-%d") + '.txt'
-    with open(strFilePath, mode='a') as pFile:
-        pFile.write("[" + pNow.strftime("%H:%M:%S") + "] " + strMessage + "\n")
+def __trace_in__(message: str):
+    now = datetime.now()
+    file_path = "LOG_PIX2PIX_" + now.strftime("%Y-%m-%d") + '.txt'
+    with open(file_path, mode='a') as pFile:
+        pFile.write("[" + now.strftime("%H:%M:%S") + "] " + message + "\n")
 
 
-def __process_train(nEpoch: int, pDataLoader: DataLoader,
-                    pGenerator: GeneratorUNet, pDiscriminator: Discriminator,
-                    pCriterionGenerate: CustomLoss, pCriterionDiscrimanate: Module,
-                    pOptimizerGenerate: Adam, pOptimizerDiscriminate: Adam):
-    def __train_generator(pInput: tensor,
-                          pTarget: tensor,
-                          dRateOutside=0.01):
-        pOptimizerGenerate.zero_grad()
-        pTargetFake = pGenerator(pInput).to(pDevice)
-        pPredictFake = pDiscriminator(pInput, pTargetFake).to(pDevice)
+def __process_train(epoch: int, data_loader: DataLoader,
+                    generator: GeneratorUNet, discriminator: Discriminator,
+                    generator_criterion: CustomLoss, discriminator_criterion: Module,
+                    generator_optimizer: Adam, discriminator_optimizer: Adam):
+    def __train_generator(_input: tensor,
+                          _target: tensor,
+                          outside=0.01):
+        generator_optimizer.zero_grad()
+        fake = generator(_input).to(device)
+        fake_predict = discriminator(_input, fake).to(device)
         # Reshape the tensor data of use
-        pTargetFake = pTargetFake.squeeze(axis=1)  # reshape : (batch, 384, 384)
-        pPredictFake = pPredictFake.squeeze(axis=1)
-        pTarget = pTarget.squeeze(axis=1)
+        fake = fake.squeeze(axis=1)  # reshape : (batch, 384, 384)
+        fake_predict = fake_predict.squeeze(axis=1)
+        _target = _target.squeeze(axis=1)
         # Set-up the ground truths (Shape like the prediction size)
-        pPass = torch.ones(pPredictFake.size(), requires_grad=True).type(torch.FloatTensor).to(pDevice)
+        pass_ = torch.ones(fake_predict.size(), requires_grad=True).type(torch.FloatTensor).to(device)
         # Compute the network accuracy
-        pLossGenerator = pCriterionGenerate(pTargetFake, pTarget)  # Loss the generator
-        pLossDiscriminator = pCriterionDiscrimanate(pPredictFake, pPass)  # Loss the pass rate of the fake image
-        pLoss = pLossGenerator + (pLossDiscriminator * dRateOutside)
-        dPSNR = pCriterionGenerate.psnr_score()
-        dSSIM = pCriterionGenerate.ssim_score()
+        generator_loss = generator_criterion(fake, _target)  # Loss the generator
+        discriminator_loss = discriminator_criterion(fake_predict, pass_)  # Loss the pass rate of the fake image
+        loss = generator_loss + (discriminator_loss * outside)
+        psnr = generator_criterion.psnr_score()
+        ssim = generator_criterion.ssim_score()
         # Perform backpropagation to update GENERATOR parameters
-        pLoss.backward()
-        pOptimizerGenerate.step()
+        loss.backward()
+        generator_optimizer.step()
         # Fix the CUDA Out of Memory problem
-        del pTargetFake
-        del pPredictFake
+        del fake
+        del fake_predict
         torch.cuda.empty_cache()
-        return pLoss.item(), dPSNR, dSSIM
+        return loss.item(), psnr, ssim
 
-    def __train_discriminator(pInput: tensor,
-                              pTarget: tensor):
-        pOptimizerDiscriminate.zero_grad()
-        pTargetFake = pGenerator(pInput).to(pDevice).to(pDevice)
-        pPredictReal = pDiscriminator(pInput, pTarget).to(pDevice)
-        pPredictFake = pDiscriminator(pInput, pTargetFake).to(pDevice)
+    def __train_discriminator(_input: tensor,
+                              _target: tensor):
+        discriminator_optimizer.zero_grad()
+        target_fake = generator(_input).to(device).to(device)
+        predict_real = discriminator(_input, _target).to(device)
+        predict_fake = discriminator(_input, target_fake).to(device)
         # Reshape the tensor data of use
-        pPredictReal = pPredictReal.squeeze(axis=1)
-        pPredictFake = pPredictFake.squeeze(axis=1)
+        predict_real = predict_real.squeeze(axis=1)
+        predict_fake = predict_fake.squeeze(axis=1)
         # Set-up the ground truths (Shape like the prediction size)
-        pPass = torch.ones(pPredictReal.size(), requires_grad=True).type(torch.FloatTensor).to(pDevice)
-        pNG = torch.zeros(pPredictReal.size(), requires_grad=True).type(torch.FloatTensor).to(pDevice)
+        pass_ = torch.ones(predict_real.size(), requires_grad=True).type(torch.FloatTensor).to(device)
+        ng = torch.zeros(predict_real.size(), requires_grad=True).type(torch.FloatTensor).to(device)
         # Compute the Real Pass or NG rate
-        pLossRealNG = pCriterionDiscrimanate(pPredictFake, pNG)
-        pLossRealOK = pCriterionDiscrimanate(pPredictReal, pPass)
-        pLoss = pLossRealNG + pLossRealOK
+        real_ng_loss = discriminator_criterion(predict_fake, ng)
+        real_ok_loss = discriminator_criterion(predict_real, pass_)
+        loss = real_ng_loss + real_ok_loss
         # Perform backpropagation to update GENERATOR parameters
-        pLoss.backward()
-        pOptimizerDiscriminate.step()
+        loss.backward()
+        discriminator_optimizer.step()
         # Fix the CUDA Out of Memory problem
-        del pTargetFake
-        del pPredictReal
-        del pPredictFake
+        del target_fake
+        del predict_real
+        del predict_fake
         torch.cuda.empty_cache()
-        return pLoss.item(), pLossRealOK.item(), pLossRealNG.item()
+        return loss.item(), real_ok_loss.item(), real_ng_loss.item()
 
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
+        device = torch.device('cpu')
     # Perform a training using the defined network
-    pGenerator.train()
-    pDiscriminator.train()
+    generator.train()
+    discriminator.train()
     # Warp the iterable Data Loader with TQDM
-    pBar = tqdm(enumerate(pDataLoader))
-    strMessage = ""
-    for i, (pTensorInput, pTensorTarget) in pBar:
+    bar = tqdm(enumerate(data_loader))
+    message = ""
+    for i, (input_, target) in bar:
         # Move data and label to device
-        pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)  # Shape : (batch, 3, 384, 384)
-        pTensorTarget = pTensorTarget.type(torch.FloatTensor).to(pDevice)  # Shape : (batch, 1, 384, 384)
+        input_ = input_.type(torch.FloatTensor).to(device)  # Shape : (batch, 3, 384, 384)
+        target = target.type(torch.FloatTensor).to(device)  # Shape : (batch, 1, 384, 384)
         # Pass the input data through the GENERATOR architecture
-        dLossGenerator, dPSNR, dSSIM = __train_generator(pTensorInput, pTensorTarget, dRateOutside=0.01)
+        generator_loss, psnr, ssim = __train_generator(input_, target, outside=0.01)
         # Pass the input data through the GENERATOR architecture
-        dLossDiscriminator, dRealOK, dRealNG = __train_discriminator(pTensorInput, pTensorTarget)
+        discriminator_loss, real_ok, real_ng = __train_discriminator(input_, target)
         # Perform backpropagation to update DISCRIMINATOR parameters
-        strMessage = "Train Epoch:{:3d} [{}/{} {:.2f}%], " \
-                     "Generator={:.4f}, PSNR={:.4f}, SSIM={:.4f}, " \
-                     "RealOK={:.4f}, RealNG={:.4f}".format(nEpoch, i + 1, len(pDataLoader),
-                                                           100.0 * ((i + 1) / len(pDataLoader)),
-                                                           dLossGenerator, dPSNR, dSSIM, dRealOK, dRealNG)
-        pBar.set_description(strMessage)
+        message = "Train Epoch:{:3d} [{}/{} {:.2f}%], " \
+                  "Generator={:.4f}, PSNR={:.4f}, SSIM={:.4f}, " \
+                  "RealOK={:.4f}, RealNG={:.4f}".format(epoch, i + 1, len(data_loader),
+                                                        100.0 * ((i + 1) / len(data_loader)),
+                                                        generator_loss, psnr, ssim, real_ok, real_ng)
+        bar.set_description(message)
     # trace the last message
-    __trace_in__(strMessage)
+    __trace_in__(message)
 
 
-def __process_evaluate(pModel: GeneratorUNet, pDataLoader: DataLoader, pCriterion: CustomLoss):
+def __process_evaluate(model: GeneratorUNet, data_loader: DataLoader, criterion: CustomLoss):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
+        device = torch.device('cpu')
     # Perform an evaluation using the defined network
-    pModel.eval()
+    model.eval()
     # Warp the iterable Data Loader with TQDM
-    pBar = tqdm(enumerate(pDataLoader))
-    nLengthSample = 0
-    nTotalLoss = 0
-    dTotalPSNR = 0.0
-    dTotalSSIM = 0.0
-    strMessage = ""
+    bar = tqdm(enumerate(data_loader))
+    sample_len = 0
+    total_loss = 0
+    total_psnr = 0.0
+    total_ssim = 0.0
+    message = ""
     with torch.no_grad():
-        for i, (pTensorInput, pTensorTarget) in pBar:
+        for i, (input_, target) in bar:
             # Move data and label to device
-            pTensorInput = pTensorInput.type(torch.FloatTensor).to(pDevice)
-            pTensorTarget = pTensorTarget.type(torch.FloatTensor).to(pDevice)
+            input_ = input_.type(torch.FloatTensor).to(device)
+            target = target.type(torch.FloatTensor).to(device)
             # Pass the input data through the defined network architecture
-            pTensorOutput = pModel(pTensorInput).squeeze(axis=1)  # reshape : (batch, 384, 384)
-            pTensorTarget = pTensorTarget.squeeze(axis=1)  # reshape : (batch, 384, 384)
+            output = model(input_).squeeze(axis=1)  # reshape : (batch, 384, 384)
+            target = target.squeeze(axis=1)  # reshape : (batch, 384, 384)
             # Compute a loss function
-            pTensorLoss = pCriterion(pTensorOutput, pTensorTarget).to(pDevice)
-            nTotalLoss += pTensorLoss.item() * len(pTensorTarget)
+            loss = criterion(output, target).to(device)
+            total_loss += loss.item() * len(target)
             # Compute network accuracy
-            dTotalPSNR += pCriterion.psnr_score() * len(pTensorTarget)
-            dTotalSSIM += pCriterion.ssim_score() * len(pTensorTarget)
-            nLengthSample += len(pTensorTarget)
-            strMessage = "Eval {}/{} {:.2f}%, Loss={:.4f}, PSNR={:.4f}, SSIM={:.4f}". \
-                format(i + 1, len(pDataLoader), 100.0 * ((i + 1) / len(pDataLoader)),
-                       nTotalLoss / nLengthSample, dTotalPSNR / nLengthSample, dTotalSSIM / nLengthSample)
-            pBar.set_description(strMessage)
+            total_psnr += criterion.psnr_score() * len(target)
+            total_ssim += criterion.ssim_score() * len(target)
+            sample_len += len(target)
+            message = "Eval {}/{} {:.2f}%, Loss={:.4f}, PSNR={:.4f}, SSIM={:.4f}". \
+                format(i + 1, len(data_loader), 100.0 * ((i + 1) / len(data_loader)),
+                       total_loss / sample_len, total_psnr / sample_len, total_ssim / sample_len)
+            bar.set_description(message)
     # trace the last message
-    __trace_in__(strMessage)
+    __trace_in__(message)
     # Fix the CUDA Out of Memory problem
-    del pTensorOutput
-    del pTensorLoss
+    del output
+    del loss
     torch.cuda.empty_cache()
-    return nTotalLoss / nLengthSample
+    return total_loss / sample_len
 
 
-def train(nEpoch: int,
-          strPath: str,
-          strGeneratorPath: str = None,
-          strDiscriminatorPath: str = None,
-          nChannel=8,
-          nCountDepth=4,
-          nBatchSize=1,
-          nCountWorker=0,  # 0: CPU / 4 : GPU
-          dRateDropout=0.3,
-          dRatioDecay=0.5,
-          bInitEpoch=False,
+def train(epoch: int,
+          file_path: str,
+          generator_path: str = None,
+          discriminator_path: str = None,
+          channel=8,
+          num_depth=4,
+          batch_size=1,
+          num_worker=0,  # 0: CPU / 4 : GPU
+          dropout=0.3,
+          decay=0.5,
+          init_epoch=False,
           ):
-
-    def learning_func(iStep):
-        return 1.0 - max(0, iStep - nEpoch * (1 - dRatioDecay)) / (dRatioDecay * nEpoch + 1)
+    def learning_func(step):
+        return 1.0 - max(0, step - epoch * (1 - decay)) / (decay * epoch + 1)
 
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    print("{} device activation".format(pDevice.__str__()))
+        device = torch.device('cpu')
+    print("{} device activation".format(device.__str__()))
     # Define the training and testing data-set
-    pTrainSet = ConvDataset(strFilePath=strPath, pTransform=CustomTransform(), strMode="train", dTrainRatio=0.8)
-    pTrainLoader = DataLoader(dataset=pTrainSet, batch_size=nBatchSize, shuffle=True,
-                              num_workers=nCountWorker, pin_memory=True)
-    pValidationSet = ConvDataset(strFilePath=strPath, pTransform=CustomTransform(), strMode="eval", dTrainRatio=0.8)
-    pValidationLoader = DataLoader(dataset=pValidationSet, batch_size=1, shuffle=False,
-                                   num_workers=nCountWorker, pin_memory=True)
+    train_set = ConvDataset(file_path=file_path, transform=CustomTransform(), mode_="train", train_ratio=0.8)
+    train_loader = DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True,
+                              num_workers=num_worker, pin_memory=True)
+    valid_set = ConvDataset(file_path=file_path, transform=CustomTransform(), mode_="eval", train_ratio=0.8)
+    valid_loader = DataLoader(dataset=valid_set, batch_size=1, shuffle=False,
+                              num_workers=num_worker, pin_memory=True)
     # Define a network model
-    pGenerator = GeneratorUNet(nDimInput=3, nDimOutput=1, nChannel=nChannel, nCountDepth=nCountDepth,
-                               dRateDropout=dRateDropout).to(pDevice)  # T1, T2, GRE(3) => STIR(1)
-    pDiscriminator = Discriminator(nDimInput=4, nDimOutput=1, nChannel=64,
-                                   nCountDepth=nCountDepth).to(pDevice)  # Input(3), Target(1) => BOOL(1)
+    generator = GeneratorUNet(input_dim=3, output_dim=1, channel=channel, num_depth=num_depth,
+                              dropout=dropout).to(device)  # T1, T2, GRE(3) => STIR(1)
+    discriminator = Discriminator(input_dim=4, output_dim=1, channel=64,
+                                  num_depth=num_depth).to(device)  # Input(3), Target(1) => BOOL(1)
     # Set the optimizer with adam
-    pOptimizerGenerate = torch.optim.Adam(pGenerator.parameters())
-    pOptimizerDiscriminate = torch.optim.Adam(pDiscriminator.parameters())
+    generator_optimizer = torch.optim.Adam(generator.parameters())
+    discriminator_optimizer = torch.optim.Adam(discriminator.parameters())
     # Set the scheduler to control the learning rate
-    pSchedulerGenerate = torch.optim.lr_scheduler.LambdaLR(pOptimizerGenerate, lr_lambda=learning_func)
-    pSchedulerDiscriminate = torch.optim.lr_scheduler.LambdaLR(pOptimizerDiscriminate, lr_lambda=learning_func)
+    generator_scheduler = torch.optim.lr_scheduler.LambdaLR(generator_optimizer, lr_lambda=learning_func)
+    discriminator_scheduler = torch.optim.lr_scheduler.LambdaLR(discriminator_optimizer, lr_lambda=learning_func)
     # Set the Loss Function
-    pCriterionGenerator = CustomLoss()
-    pCriterionDiscriminate = torch.nn.MSELoss()
+    generator_criterion = CustomLoss()
+    discriminator_criterion = torch.nn.MSELoss()
     # Load pre-trained model
-    nStart = 0
-    print("Directory of the generator model: {}".format(strGeneratorPath))
-    if strGeneratorPath is not None and os.path.exists(strGeneratorPath) and bInitEpoch is False:
-        pModelData = torch.load(strGeneratorPath, map_location=pDevice)
-        nStart = pModelData['epoch']
-        pGenerator.load_state_dict(pModelData['model'])
-        pOptimizerGenerate.load_state_dict(pModelData['optimizer'])
+    start = 0
+    print("Directory of the generator model: {}".format(generator_path))
+    if generator_path is not None and os.path.exists(generator_path) and init_epoch is False:
+        model_data = torch.load(generator_path, map_location=device)
+        start = model_data['epoch']
+        generator.load_state_dict(model_data['model'])
+        generator_optimizer.load_state_dict(model_data['optimizer'])
         print("## Successfully load the Generator!")
-    print("Directory of the discriminator model: {}".format(strDiscriminatorPath))
-    if strDiscriminatorPath is not None and os.path.exists(strDiscriminatorPath) and bInitEpoch is False:
-        pModelData = torch.load(strDiscriminatorPath, map_location=pDevice)
-        nStart = pModelData['epoch'] if pModelData['epoch'] < nStart else nStart
-        pDiscriminator.load_state_dict(pModelData['model'])
-        pOptimizerDiscriminate.load_state_dict(pModelData['optimizer'])
+    print("Directory of the discriminator model: {}".format(discriminator_path))
+    if discriminator_path is not None and os.path.exists(discriminator_path) and init_epoch is False:
+        model_data = torch.load(discriminator_path, map_location=device)
+        start = model_data['epoch'] if model_data['epoch'] < start else start
+        discriminator.load_state_dict(model_data['model'])
+        discriminator_optimizer.load_state_dict(model_data['optimizer'])
         print("## Successfully load the Discriminator!")
     # Train and Test Repeat
-    dMinLoss = 10000.0
-    for iEpoch in range(nStart, nEpoch + 1):
+    min_loss = 10000.0
+    for epoch in range(start, epoch + 1):
         # Train the network
-        __process_train(iEpoch, pDataLoader=pTrainLoader, pGenerator=pGenerator, pDiscriminator=pDiscriminator,
-                        pCriterionGenerate=pCriterionGenerator, pCriterionDiscrimanate=pCriterionDiscriminate,
-                        pOptimizerGenerate=pOptimizerGenerate, pOptimizerDiscriminate=pOptimizerDiscriminate)
+        __process_train(epoch, data_loader=train_loader, generator=generator, discriminator=discriminator,
+                        generator_criterion=generator_criterion, discriminator_criterion=discriminator_criterion,
+                        generator_optimizer=generator_optimizer, discriminator_optimizer=discriminator_optimizer)
         # Test the network
-        dLoss = __process_evaluate(pModel=pGenerator, pDataLoader=pValidationLoader, pCriterion=pCriterionGenerator)
+        loss = __process_evaluate(model=generator, data_loader=valid_loader, criterion=generator_criterion)
         # Change the learning rate
-        pSchedulerGenerate.step()
-        pSchedulerDiscriminate.step()
+        generator_scheduler.step()
+        discriminator_scheduler.step()
         # Rollback the model when loss is NaN
-        if math.isnan(dLoss):
-            if strGeneratorPath is not None and os.path.exists(strGeneratorPath):
+        if math.isnan(loss):
+            if generator_path is not None and os.path.exists(generator_path):
                 # Reload the best model and decrease the learning rate
-                pModelData = torch.load(strGeneratorPath, map_location=pDevice)
-                pGenerator.load_state_dict(pModelData['model'])
-                pOptimizerData = pModelData['optimizer']
-                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
-                pOptimizerGenerate.load_state_dict(pOptimizerData)
+                model_data = torch.load(generator_path, map_location=device)
+                generator.load_state_dict(model_data['model'])
+                optimizer_data = model_data['optimizer']
+                optimizer_data['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                generator_optimizer.load_state_dict(optimizer_data)
                 print("## Rollback the Generator with half learning rate!")
-            if strDiscriminatorPath is not None and os.path.exists(strDiscriminatorPath):
+            if discriminator_path is not None and os.path.exists(discriminator_path):
                 # Reload the best model and decrease the learning rate
-                pModelData = torch.load(strDiscriminatorPath, map_location=pDevice)
-                pDiscriminator.load_state_dict(pModelData['model'])
-                pOptimizerData = pModelData['optimizer']
-                pOptimizerData['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
-                pOptimizerDiscriminate.load_state_dict(pOptimizerData)
+                model_data = torch.load(discriminator_path, map_location=device)
+                discriminator.load_state_dict(model_data['model'])
+                optimizer_data = model_data['optimizer']
+                optimizer_data['param_groups'][0]['lr'] /= 2  # Decrease the learning rate by 2
+                discriminator_optimizer.load_state_dict(optimizer_data)
                 print("## Rollback the Discriminator with half learning rate!")
         # Save the optimal model
-        elif dLoss < dMinLoss:
-            dMinLoss = dLoss
-            torch.save({'epoch': iEpoch, 'model': pGenerator.state_dict(),
-                        'optimizer': pOptimizerGenerate.state_dict()}, strGeneratorPath)
-            torch.save({'epoch': iEpoch, 'model': pDiscriminator.state_dict(),
-                        'optimizer': pOptimizerDiscriminate.state_dict()}, strDiscriminatorPath)
-        elif iEpoch % 100 == 0:
-            torch.save({'epoch': iEpoch, 'model': pGenerator.state_dict(),
-                        'optimizer': pOptimizerGenerate.state_dict()}, 'gen_{}epoch.pth'.format(iEpoch))
-            torch.save({'epoch': iEpoch, 'model': pDiscriminator.state_dict(),
-                        'optimizer': pOptimizerDiscriminate.state_dict()}, 'disc_{}epoch.pth'.format(iEpoch))
+        elif loss < min_loss:
+            min_loss = loss
+            torch.save({'epoch': epoch, 'model': generator.state_dict(),
+                        'optimizer': generator_optimizer.state_dict()}, generator_path)
+            torch.save({'epoch': epoch, 'model': discriminator.state_dict(),
+                        'optimizer': discriminator_optimizer.state_dict()}, discriminator_path)
+        elif epoch % 100 == 0:
+            torch.save({'epoch': epoch, 'model': generator.state_dict(),
+                        'optimizer': generator_optimizer.state_dict()}, 'gen_{}epoch.pth'.format(epoch))
+            torch.save({'epoch': epoch, 'model': discriminator.state_dict(),
+                        'optimizer': discriminator_optimizer.state_dict()}, 'disc_{}epoch.pth'.format(epoch))
 
 
-def test(strPath: str,
-         strModelPath: str,
-         nChannel=8,
-         nCountDepth=4,
-         nCountWorker=0,  # 0: CPU / 4 : GPU
-         dRateDropout=0.3):
+def test(file_path: str,
+         model_path: str,
+         channel=8,
+         num_depth=4,
+         num_worker=0,  # 0: CPU / 4 : GPU
+         dropout=0.3):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
-        pDevice = torch.device('cuda')
+        device = torch.device('cuda')
     else:
-        pDevice = torch.device('cpu')
-    print("{} device activation".format(pDevice.__str__()))
+        device = torch.device('cpu')
+    print("{} device activation".format(device.__str__()))
     # Define a network model
-    pModel = GeneratorUNet(nDimInput=3, nDimOutput=1, nChannel=nChannel, nCountDepth=nCountDepth,
-                           dRateDropout=dRateDropout).to(pDevice)
-    pModelData = torch.load(strModelPath, map_location=pDevice)
-    pModel.load_state_dict(pModelData['model'])
-    pModel.eval()
+    model = GeneratorUNet(input_dim=3, output_dim=1, channel=channel, num_depth=num_depth,
+                          dropout=dropout).to(device)
+    model_data = torch.load(model_path, map_location=device)
+    model.load_state_dict(model_data['model'])
+    model.eval()
     print("Successfully load the Model in path")
     # Define the validation data-set
-    pTestSet = ConvDataset(strFilePath=strPath, pTransform=CustomTransform(), strMode="test")
-    pTestLoader = DataLoader(dataset=pTestSet, batch_size=1, shuffle=False,
-                             num_workers=nCountWorker, pin_memory=True)
-    pBar = tqdm(pTestLoader)
-    pListResult = []
+    test_set = ConvDataset(file_path=file_path, transform=CustomTransform(), mode_="test")
+    test_loader = DataLoader(dataset=test_set, batch_size=1, shuffle=False,
+                             num_workers=num_worker, pin_memory=True)
+    bar = tqdm(test_loader)
+    results = []
     with torch.no_grad():
-        for pTensorInput in pBar:
-            pTensorInput = pTensorInput.to(pDevice)
-            pTensorResult = pModel(pTensorInput)
-            pTensorResult = torch.argmax(pTensorResult, dim=1)
-            for i in range(pTensorResult.shape[0]):  # Attach per batch
-                pListResult.append(pTensorResult[i].detach().cpu().numpy())
+        for input_ in bar:
+            input_ = input_.to(device)
+            result = model(input_)
+            result = torch.argmax(result, dim=1)
+            for i in range(result.shape[0]):  # Attach per batch
+                results.append(result[i].detach().cpu().numpy())
     # Save the result to mat
-    save_labels(numpy.array(pListResult), '2021451143_CheoljoungYoon_ContrastConversion.mat')
+    save_labels(numpy.array(results), 'ContrastConversion.mat')
 
 
 if __name__ == '__main__':
     mode = 'train'
     if mode == 'all':
-        train(nEpoch=1000,
-              strPath='contrast_conversion_train_dataset.mat',
-              strGeneratorPath='model_gen.pth',
-              strDiscriminatorPath='model_disc.pth',
-              nChannel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
-              nCountDepth=4,
-              nBatchSize=2,
-              nCountWorker=0,  # 0: CPU / 4 : GPU
-              dRateDropout=0.3,
-              dRatioDecay=0.5,
-              bInitEpoch=False)
-        test(strPath='contrast_conversion_train_dataset.mat',
-             strModelPath='model_gen.pth',
-             nChannel=64,  # 8 : colab / 4 : RTX2070
-             nCountDepth=4,
-             nCountWorker=0,  # 0: CPU / 4 : GPU
-             dRateDropout=0)
+        train(epoch=1000,
+              file_path='contrast_conversion_train_dataset.mat',
+              generator_path='model_gen.pth',
+              discriminator_path='model_disc.pth',
+              channel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
+              num_depth=4,
+              batch_size=2,
+              num_worker=0,  # 0: CPU / 4 : GPU
+              dropout=0.3,
+              decay=0.5,
+              init_epoch=False)
+        test(file_path='contrast_conversion_train_dataset.mat',
+             model_path='model_gen.pth',
+             channel=64,  # 8 : colab / 4 : RTX2070
+             num_depth=4,
+             num_worker=0,  # 0: CPU / 4 : GPU
+             dropout=0)
     elif mode == 'train':
-        train(nEpoch=3000,
-              strPath='contrast_conversion_train_dataset.mat',
-              strGeneratorPath='model_gen.pth',
-              strDiscriminatorPath='model_disc.pth',
-              nChannel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
-              nCountDepth=4,
-              nBatchSize=2,
-              nCountWorker=0,  # 0: CPU / 4 : GPU
-              dRateDropout=0.3,
-              dRatioDecay=0.5,
-              bInitEpoch=False)
+        train(epoch=3000,
+              file_path='contrast_conversion_train_dataset.mat',
+              generator_path='model_gen.pth',
+              discriminator_path='model_disc.pth',
+              channel=64,  # 8 >= VRAM 9GB / 4 >= VRAM 6.5GB
+              num_depth=4,
+              batch_size=2,
+              num_worker=0,  # 0: CPU / 4 : GPU
+              dropout=0.3,
+              decay=0.5,
+              init_epoch=False)
     elif mode == 'test':
-        test(strPath='contrast_conversion_train_dataset.mat',
-             strModelPath='model_gen.pth',
-             nChannel=64,  # 8 : colab / 4 : RTX2070
-             nCountDepth=4,
-             nCountWorker=0,  # 0: CPU / 4 : GPU
-             dRateDropout=0)
+        test(file_path='contrast_conversion_train_dataset.mat',
+             model_path='model_gen.pth',
+             channel=64,  # 8 : colab / 4 : RTX2070
+             num_depth=4,
+             num_worker=0,  # 0: CPU / 4 : GPU
+             dropout=0)
     else:
         pass

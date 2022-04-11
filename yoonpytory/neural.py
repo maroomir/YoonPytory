@@ -179,7 +179,7 @@ class YoonNetwork:
         args = (self.weights[i] for i in range(len(self.weights)))
         numpy.savez(file_path, *args)
 
-    def train(self, count=5000, layer_size=10, order=3, dim_output=1, scale=1.0,
+    def train(self, count=5000, layer_size=10, order=3, output_dim=1, scale=1.0,
               is_init_weight=True, is_run_test=True):
         if count < 1000 or order < 2 or layer_size < 10:
             raise Exception("Train arguments is too little, Epoch: {0}, Size {1}, Order {2}".
@@ -198,7 +198,7 @@ class YoonNetwork:
                 if i == 0:
                     weights.append(scale * (2 * numpy.random.random((layer_size, input_dim + 1)) - 1))
                 elif i == order - 1:
-                    weights.append(scale * (2 * numpy.random.random((dim_output, layer_size)) - 1))
+                    weights.append(scale * (2 * numpy.random.random((output_dim, layer_size)) - 1))
                 else:
                     weights.append(scale * (2 * numpy.random.random((layer_size, layer_size)) - 1))
         # Train
