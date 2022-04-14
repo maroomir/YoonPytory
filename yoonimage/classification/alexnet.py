@@ -11,8 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
-from yoonimage.data import YoonDataset, YoonTransform
-from yoonpytory.log import YoonNLM
+from yoonimage.data import Dataset1D, Transform1D
+from yoonpytory.log import NLM
 
 
 class AlexNet(Module):
@@ -51,7 +51,7 @@ def __process_train(model: AlexNet,
                     data_loader: DataLoader,
                     optimizer,
                     criterion,
-                    logger: YoonNLM):
+                    logger: NLM):
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
@@ -81,7 +81,7 @@ def __process_train(model: AlexNet,
 def __process_evaluate(model: AlexNet,
                        data_loader: DataLoader,
                        criterion,
-                       logger: YoonNLM):
+                       logger: NLM):
     if torch.cuda.is_available():
         pDevice = torch.device('cuda')
     else:
@@ -184,9 +184,9 @@ def __draw_dataset(dataset: Dataset, labels: list, show_count=15):
 def train(epoch: int,
           model_path: str,
           num_class: int,
-          train_data: YoonDataset,
-          eval_data: YoonDataset,
-          transform: YoonTransform,
+          train_data: Dataset1D,
+          eval_data: Dataset1D,
+          transform: Transform1D,
           batch_size=32,
           num_workers=0,  # 0: CPU / 4 : GPU
           learning_rate=0.1,
@@ -219,8 +219,8 @@ def train(epoch: int,
         optimizer.load_state_dict(model_data['optimizer'])
         print("## Successfully load the model at {} epochs!".format(start))
     # Define the log manager
-    train_logger = YoonNLM(start, root="./NLM/AlexNet", mode="Train")
-    eval_logger = YoonNLM(start, root="./NLM/AlexNet", mode="Eval")
+    train_logger = NLM(start, root="./NLM/AlexNet", mode="Train")
+    eval_logger = NLM(start, root="./NLM/AlexNet", mode="Eval")
     # Train and Test Repeat
     min_loss = 10000.0
     for i in range(start, epoch + 1):
@@ -250,10 +250,10 @@ def train(epoch: int,
                        'alexnet_{}epoch.pth'.format(i))
 
 
-def test(test_data: YoonDataset,
+def test(test_data: Dataset1D,
          model_path: str,
          num_class: int,
-         transform: YoonTransform,
+         transform: Transform1D,
          num_worker=0,  # 0: CPU / 4 : GPU
          ):
     # Check if we can use a GPU device
@@ -282,4 +282,4 @@ def test(test_data: YoonDataset,
         _, target_hat = output.max(1)
         labels.append(target_hat.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    return YoonDataset.from_tensor(images=None, labels=numpy.concatenate(labels))
+    return Dataset1D.from_tensor(images=None, labels=numpy.concatenate(labels))

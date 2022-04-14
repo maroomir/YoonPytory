@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class YoonDir2D(Enum):
+class Dir2D(Enum):
     NONE = -1
     CENTER = 0
     TOP_LEFT = 1
@@ -302,25 +302,25 @@ class YoonDir2D(Enum):
         ndX = pair[0]
         ndY = pair[1]
         if ndX == 0 and ndY == 0:
-            return YoonDir2D.CENTER
+            return Dir2D.CENTER
         elif ndX == 0 and ndY > 0:
-            return YoonDir2D.TOP
+            return Dir2D.TOP
         elif ndX == 0 and ndY < 0:
-            return YoonDir2D.BOTTOM
+            return Dir2D.BOTTOM
         elif ndX > 0 and ndY == 0:
-            return YoonDir2D.RIGHT
+            return Dir2D.RIGHT
         elif ndX < 0 and ndY == 0:
-            return YoonDir2D.LEFT
+            return Dir2D.LEFT
         elif ndX > 0 and ndY > 0:
-            return YoonDir2D.TOP_RIGHT
+            return Dir2D.TOP_RIGHT
         elif ndX < 0 < ndY:
-            return YoonDir2D.TOP_LEFT
+            return Dir2D.TOP_LEFT
         elif ndX < 0 and ndY < 0:
-            return YoonDir2D.BOTTOM_LEFT
+            return Dir2D.BOTTOM_LEFT
         elif ndX > 0 > ndY:
-            return YoonDir2D.BOTTOM_RIGHT
+            return Dir2D.BOTTOM_RIGHT
         else:
-            return YoonDir2D.NONE
+            return Dir2D.NONE
 
     @classmethod
     def get_clock_directions(cls):
@@ -344,23 +344,23 @@ class YoonDir2D(Enum):
         return [cls.TOP, cls.BOTTOM]
 
     def __add__(self, other):
-        assert isinstance(other, (YoonDir2D, str))
-        if isinstance(other, YoonDir2D):
+        assert isinstance(other, (Dir2D, str))
+        if isinstance(other, Dir2D):
             originX, originY = self.to_tuple()
             inputX, inputY = other.to_tuple()
-            return YoonDir2D.from_tuple((originX + inputX, originY + inputY))
+            return Dir2D.from_tuple((originX + inputX, originY + inputY))
         else:
             return self.go(other)
 
     def __sub__(self, other):
-        assert isinstance(other, (YoonDir2D, str))
-        if isinstance(other, YoonDir2D):
+        assert isinstance(other, (Dir2D, str))
+        if isinstance(other, Dir2D):
             originX, originY = self.to_tuple()
             inputX, inputY = other.to_tuple()
-            return YoonDir2D.from_tuple((originX - inputX, originY - inputY))
+            return Dir2D.from_tuple((originX - inputX, originY - inputY))
         else:
             return self.back(other)
 
     def __eq__(self, other):
-        assert isinstance(other, YoonDir2D)
+        assert isinstance(other, Dir2D)
         return self.name == other.name

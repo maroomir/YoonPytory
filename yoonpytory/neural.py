@@ -77,7 +77,7 @@ def back_propagation(array_x: numpy.ndarray, weights: list, array_y: numpy.ndarr
     return weights
 
 
-class YoonNeuron:
+class Neuron:
     # The shared area of YoonDataset class
     # All of instances are using this shared area
     def __init__(self):
@@ -152,7 +152,7 @@ class YoonNeuron:
         matplotlib.pyplot.show()
 
 
-class YoonNetwork:
+class Network:
     # The shared area of YoonDataset class
     # All of instances are using this shared area
     def __init__(self):

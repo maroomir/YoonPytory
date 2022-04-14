@@ -3,26 +3,26 @@ import cv2.cv2
 from cv2 import cv2
 import numpy
 
-from yoonimage import YoonImage, YoonObject, YoonDataset
-from yoonpytory.figure import YoonVector2D, YoonRect2D, YoonLine2D
+from yoonimage import Image, Object, Dataset1D
+from yoonpytory.figure import Vector2D, Rect2D, Line2D
 
 
-def template_match(source: YoonImage, template: YoonImage,
+def template_match(source: Image, template: Image,
                    score: float = 0.7, mode: int = cv2.TM_SQDIFF_NORMED):
-    assert isinstance(template, YoonImage)
+    assert isinstance(template, Image)
     match_container = cv2.matchTemplate(image=source.get_buffer(),
                                         templ=template.get_buffer(),
                                         method=mode)
     min_, max_, min_pos, max_pos = cv2.minMaxLoc(match_container)
     if max_ > score:
-        min_pos = YoonVector2D.from_array(min_pos)
-        max_pos = YoonVector2D.from_array(max_pos)
+        min_pos = Vector2D.from_array(min_pos)
+        max_pos = Vector2D.from_array(max_pos)
         center_pos = (min_pos + max_pos) / 2
-        rect = YoonRect2D(x=center_pos.x, y=center_pos.y, width=template.width, height=template.height)
-        return YoonObject(region=rect, image=source.crop(rect), score=max_)
+        rect = Rect2D(x=center_pos.x, y=center_pos.y, width=template.width, height=template.height)
+        return Object(region=rect, image=source.crop(rect), score=max_)
 
 
-def line_detect(source: YoonImage, thresh1: int, thresh2: int,
+def line_detect(source: Image, thresh1: int, thresh2: int,
                 thresh_hough: int = 150, max_count: int = 30,
                 is_debug=False):
     result_buffer = cv2.Canny(source.get_buffer(),
@@ -36,9 +36,9 @@ def line_detect(source: YoonImage, thresh1: int, thresh2: int,
                               threshold=thresh_hough,
                               min_theta=0,
                               max_theta=numpy.pi, )
-    result = YoonDataset()
+    result = Dataset1D()
     if is_debug:
-        result_image = YoonImage.from_buffer(result_buffer)
+        result_image = Image.from_buffer(result_buffer)
         result_image.show_image()
     i = 0
     for line in features:
@@ -49,11 +49,11 @@ def line_detect(source: YoonImage, thresh1: int, thresh2: int,
         y0 = distance * numpy.sin(theta)  # Intersection position with perpendicular line
         height = result_buffer.shape[0]
         width = result_buffer.shape[1]
-        vec1 = YoonVector2D(x=int(x0 - width * numpy.sin(theta)),
-                            y=int(y0 + height * numpy.cos(theta)))
-        vec2 = YoonVector2D(x=int(x0 + width * numpy.sin(theta)),
-                            y=int(y0 - height * numpy.cos(theta)))
-        result.append(YoonObject(region=YoonLine2D.from_vectors(vec1, vec2)))
+        vec1 = Vector2D(x=int(x0 - width * numpy.sin(theta)),
+                        y=int(y0 + height * numpy.cos(theta)))
+        vec2 = Vector2D(x=int(x0 + width * numpy.sin(theta)),
+                        y=int(y0 - height * numpy.cos(theta)))
+        result.append(Object(region=Line2D.from_vectors(vec1, vec2)))
         i += 1
         if i >= max_count:
             break
@@ -61,7 +61,7 @@ def line_detect(source: YoonImage, thresh1: int, thresh2: int,
     return result
 
 
-def blob_detect(source: YoonImage,
+def blob_detect(source: Image,
                 thresh: int, max_count: int = 30,
                 is_debug=False):
     result_buffer = cv2.threshold(source.get_buffer(),
@@ -69,16 +69,16 @@ def blob_detect(source: YoonImage,
                                   type=cv2.THRESH_BINARY)
     detector = cv2.SimpleBlobDetector()
     features = detector.detect(result_buffer)
-    result = YoonDataset()
+    result = Dataset1D()
     if is_debug:
-        result_image = YoonImage.from_buffer(result_buffer)
+        result_image = Image.from_buffer(result_buffer)
         result_image.show_image()
     i = 0
     for feature in features:
-        pos = YoonVector2D(x=int(feature.pt[0]), y=int(feature.pt[1]))
+        pos = Vector2D(x=int(feature.pt[0]), y=int(feature.pt[1]))
         height, width = feature.size[0], feature.size[1]
-        rect = YoonRect2D(x=pos.x, y=pos.y, width=width, height=height)
-        result.append(YoonObject(region=rect))
+        rect = Rect2D(x=pos.x, y=pos.y, width=width, height=height)
+        result.append(Object(region=rect))
         i += 1
         if i >= max_count:
             break
@@ -86,7 +86,7 @@ def blob_detect(source: YoonImage,
     return result
 
 
-def sift(source: YoonImage,
+def sift(source: Image,
          features=500, octaves: int = 3, contrastThresh=0.4, edgeThresh=10, sigma=2.0,
          is_output=True, is_debug=False):
     sift_ = cv2.SIFT_create(nfeatures=features, nOctaveLayers=octaves, contrastThreshold=contrastThresh,
@@ -99,18 +99,18 @@ def sift(source: YoonImage,
         cv2.waitKey()
         cv2.destroyAllWindows()
     if is_output:
-        result = YoonDataset()
+        result = Dataset1D()
         for keypoint in keypoints:
-            pos = YoonVector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
+            pos = Vector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
             height, width = keypoint.size[0], keypoint.size[1]
-            rect = YoonRect2D(pos.x, pos.y, width, height)
-            result.append(YoonObject(region=rect))
+            rect = Rect2D(pos.x, pos.y, width, height)
+            result.append(Object(region=rect))
         return result
     else:
         return keypoints, desc
 
 
-def surf(source: YoonImage,
+def surf(source: Image,
          metricThresh=1000, octaves: int = 3,
          is_output=True, is_debug=False):
     surf_ = cv2.xfeatures2d.SURF_create(metricThresh, octaves)
@@ -122,18 +122,18 @@ def surf(source: YoonImage,
         cv2.waitKey()
         cv2.destroyAllWindows()
     if is_output:
-        result = YoonDataset()
+        result = Dataset1D()
         for keypoint in keypoints:
-            pos = YoonVector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
+            pos = Vector2D(x=int(keypoint.pt[0]), y=int(keypoint.pt[1]))
             height, width = keypoint.size[0], keypoint.size[1]
-            rect = YoonRect2D(pos.x, pos.y, width, height)
-            result.append(YoonObject(region=rect))
+            rect = Rect2D(pos.x, pos.y, width, height)
+            result.append(Object(region=rect))
         return result
     else:
         return keypoints, desc
 
 
-def feature_detect(source: YoonImage, match_func="sift", **kwargs):
+def feature_detect(source: Image, match_func="sift", **kwargs):
     if match_func == "sift":
         features = 500 if kwargs["features"] is None else int(kwargs["features"])
         octaves = 3 if kwargs["octaves"] is None else int(kwargs["octaves"])
@@ -150,7 +150,7 @@ def feature_detect(source: YoonImage, match_func="sift", **kwargs):
     return kp, desc
 
 
-def feature_match(source: YoonImage, other: YoonImage, match_func="sift", **kwargs):
+def feature_match(source: Image, other: Image, match_func="sift", **kwargs):
     features1, description1 = feature_detect(source, match_func, **kwargs)
     features2, description2 = feature_detect(other, match_func, **kwargs)
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -166,10 +166,10 @@ def feature_match(source: YoonImage, other: YoonImage, match_func="sift", **kwar
         cv2.imshow("Feature Match", res_buffer)
         cv2.waitKey()
         cv2.destroyAllWindows()
-    return YoonDataset.from_feature_list(best_features1), YoonDataset.from_feature_list(best_features2)
+    return Dataset1D.from_feature_list(best_features1), Dataset1D.from_feature_list(best_features2)
 
 
-def perspective_transform(source: YoonImage, other: YoonImage, points: YoonDataset = None,
+def perspective_transform(source: Image, other: Image, points: Dataset1D = None,
                           match_func="sift", **kwargs):
     features1, description1 = feature_detect(source, match_func, **kwargs)
     features2, description2 = feature_detect(other, match_func, **kwargs)
@@ -195,10 +195,10 @@ def perspective_transform(source: YoonImage, other: YoonImage, points: YoonDatas
         cv2.waitKey()
         cv2.destroyAllWindows()
     if points is not None:
-        points = YoonVector2D.list_to_array_xy(points.pos_list())
+        points = Vector2D.list_to_array_xy(points.pos_list())
         result = cv2.perspectiveTransform(points, transfer)
-        return YoonDataset.from_feature_array(result)
+        return Dataset1D.from_feature_array(result)
 
 
-def find_epiline(source: YoonImage, other: YoonImage, match_func="sift", **kwargs):
+def find_epiline(source: Image, other: Image, match_func="sift", **kwargs):
     pass

@@ -13,19 +13,19 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from yoonimage.data import YoonDataset, YoonTransform
-from yoonpytory.log import YoonNLM
+from yoonimage.data import Dataset1D, Transform1D
+from yoonpytory.log import NLM
 
 
 class UNetDataset(Dataset):
     def __init__(self,
-                 inputs: YoonDataset,
-                 targets: YoonDataset = None,
+                 inputs: Dataset1D,
+                 targets: Dataset1D = None,
                  output_dim=1
                  ):
-        self.transform = YoonTransform(YoonTransform.ResizeToMin(),
-                                       YoonTransform.RechannelToMin(),
-                                       YoonTransform.ZNormalization())
+        self.transform = Transform1D(Transform1D.ResizeToMin(),
+                                     Transform1D.RechannelToMin(),
+                                     Transform1D.ZNormalization())
         self.inputs = self.transform(inputs)
         self.input_dim = self.inputs.min_channel()
         self.targets = targets
@@ -156,7 +156,7 @@ class UNet2D(Module):
 
 # Define a train function
 def __process_train(model: UNet2D, data_loader: DataLoader, criterion: BCEWithLogitsLoss,
-                    optimizer: Adam, logger: YoonNLM):
+                    optimizer: Adam, logger: NLM):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -192,7 +192,7 @@ def __process_train(model: UNet2D, data_loader: DataLoader, criterion: BCEWithLo
 
 
 # Define a test function
-def __process_evaluate(model: UNet2D, data_loader: DataLoader, criterion: BCEWithLogitsLoss, logger: YoonNLM):
+def __process_evaluate(model: UNet2D, data_loader: DataLoader, criterion: BCEWithLogitsLoss, logger: NLM):
     # Check if we can use a GPU Device
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -227,10 +227,10 @@ def __process_evaluate(model: UNet2D, data_loader: DataLoader, criterion: BCEWit
 
 def train(epoch: int,
           model_path: str,
-          train_data: YoonDataset,
-          train_label: YoonDataset,
-          eval_data: YoonDataset,
-          eval_label: YoonDataset,
+          train_data: Dataset1D,
+          train_label: Dataset1D,
+          eval_data: Dataset1D,
+          eval_label: Dataset1D,
           channel=8,
           depth=4,
           batch_size=1,
@@ -271,8 +271,8 @@ def train(epoch: int,
         optimizer.load_state_dict(model_data['optimizer'])
         print("## Successfully load the model at {} epochs!".format(start))
     # Define the log manager
-    train_logger = YoonNLM(start, root="./NLM/UNet2D", mode="Train")
-    eval_logger = YoonNLM(start, root="./NLM/UNet2D", mode="Eval")
+    train_logger = NLM(start, root="./NLM/UNet2D", mode="Train")
+    eval_logger = NLM(start, root="./NLM/UNet2D", mode="Eval")
     # Train and Test Repeat
     min_loss = 10000.0
     for i in range(start, epoch + 1):
@@ -303,7 +303,7 @@ def train(epoch: int,
                        'unet_{}epoch.pth'.format(i))
 
 
-def test(test_data: YoonDataset,
+def test(test_data: Dataset1D,
          model_path: str,
          channel=8,
          depth=4,
@@ -334,4 +334,4 @@ def test(test_data: YoonDataset,
         output = model(_input)
         output_list.append(output.detach().cpu().numpy())
     # Warp the tensor to Dataset
-    return YoonDataset.from_tensor(images=numpy.concatenate(output_list))
+    return Dataset1D.from_tensor(images=numpy.concatenate(output_list))

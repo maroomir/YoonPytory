@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 import numpy
 
-from yoonimage.data import YoonDataset
+from yoonimage.data import Dataset1D
 
 
 def parse_config(config: str):
@@ -38,7 +38,7 @@ def parse_config(config: str):
 
 class YoloDataset(Dataset):
     def __init__(self,
-                 dataset: YoonDataset,
+                 dataset: Dataset1D,
                  config: str):
         self.data = dataset
         self.blocks = parse_config(config)

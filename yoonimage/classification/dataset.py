@@ -1,14 +1,14 @@
 import torch
 from torch.utils.data import Dataset
 
-from yoonimage.data import YoonDataset, YoonTransform
+from yoonimage.data import Dataset1D, Transform1D
 
 
 class ClassificationDataset(Dataset):
     def __init__(self,
-                 dataset: YoonDataset,
+                 dataset: Dataset1D,
                  output_dim: int,
-                 transform: YoonTransform,
+                 transform: Transform1D,
                  ):
         self.data = transform(dataset)
         self.input_dim = self.data.min_channel()

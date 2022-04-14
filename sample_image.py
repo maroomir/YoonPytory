@@ -48,7 +48,7 @@ def process_feature():
     count, dataset = yoonimage.parse_root(root="./data/image/Feature")
     for i in range(0, count):
         image = dataset[i].image
-        assert isinstance(image, yoonimage.YoonImage)
+        assert isinstance(image, yoonimage.Image)
         results = yoonimage.sift(source=image.to_gray(), is_debug=True)
 
 

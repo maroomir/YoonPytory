@@ -25,7 +25,7 @@ def parse_nlm(log_path: str,
     return log_list
 
 
-class YoonNLM:  # Network Log Manager
+class NLM:  # Network Log Manager
     """
     The shared area of YoonDataset class
     All of instances are using this shared area
