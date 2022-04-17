@@ -30,19 +30,6 @@ class Image:
         return new_image
 
     @property
-    def path(self) -> str:
-        return self._path
-
-    @path.setter
-    def path(self, file_path: str):
-        self._path = file_path
-        self._buffer = cv2.cv2.imread(file_path)
-        # Expand dimension when contains only the height and width
-        if len(self._buffer.shape) < 3:
-            self._buffer = numpy.expand_dims(self._buffer, axis=-1)
-        self.height, self.width, self.channel = self._buffer.shape
-
-    @property
     def buffer(self) -> ndarray:
         return self._buffer
 
@@ -53,6 +40,15 @@ class Image:
         if len(self._buffer.shape) < 3:
             self._buffer = numpy.expand_dims(self._buffer, axis=-1)
         self.height, self.width, self.channel = self._buffer.shape
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @path.setter
+    def path(self, file_path: str):
+        self._path = file_path
+        self.buffer = cv2.cv2.imread(file_path)
 
     @property
     def tensor(self) -> ndarray:
