@@ -4,7 +4,7 @@ import yoonimage.classification
 
 def process_segmentation(mode="resnet"):
     class_count, transform, train_data, eval_data = yoonimage.parse_cifar10_trainer(
-        root='./data/image/cifar-10', train_ratio=0.8)
+        root='./data/image/cifar-10', ratio=0.8)
     epoch = 1000
     train_data.draw_dataset(5, 5, "name")
     eval_data.draw_dataset(5, 5, "name")
