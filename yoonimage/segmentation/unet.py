@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from yoonimage.data import Dataset1D, Transform1D
+from yoonimage.dataset import Dataset1D, Transform1D
 from yoonpytory.log import NLM
 
 

@@ -1,3 +1,6 @@
+import os.path
+from typing import List
+
 import cv2
 import numpy
 from numpy import ndarray
@@ -16,18 +19,31 @@ class Image:
     def __str__(self):
         return "WIDTH : {0}, HEIGHT : {1}, PLANE : {2}".format(self.width, self.height, self.channel)
 
-    def __init__(self, width=640, height=480, channel=1):
-        self.width = width
-        self.height = height
-        self.channel = channel
-        self._path = ''
-        self._buffer = numpy.zeros((self.height, self.width, self.channel), dtype=numpy.uint8)
+    def __init__(self, width=640, height=480, channel=1, path=None):
+        self.width, self.height, self.channel = 0, 0, 0
+        self._path: str = ''
+        self._buffer: ndarray
+        if isinstance(path, str):
+            self.path = path
+        else:
+            self.buffer = numpy.zeros((height, width, channel), dtype=numpy.uint8)
 
     def clone(self):
-        new_image = Image(self.width, self.height, self.channel)
-        new_image._path = self.path
+        new_image = Image(self.width, self.height, self.channel, self.path)
         new_image._buffer = numpy.copy(self._buffer)
         return new_image
+
+    @property
+    def buffer(self) -> ndarray:
+        return self._buffer
+
+    @buffer.setter
+    def buffer(self, buffer: numpy.ndarray):
+        self._buffer = buffer
+        # Expand dimension when contains only the height and width
+        if len(self._buffer.shape) < 3:
+            self._buffer = numpy.expand_dims(self._buffer, axis=-1)
+        self.height, self.width, self.channel = self._buffer.shape
 
     @property
     def path(self) -> str:
@@ -36,23 +52,16 @@ class Image:
     @path.setter
     def path(self, file_path: str):
         self._path = file_path
-        self._buffer = cv2.cv2.imread(file_path)
-        # Expand dimension when contains only the height and width
-        if len(self._buffer.shape) < 3:
-            self._buffer = numpy.expand_dims(self._buffer, axis=-1)
-        self.height, self.width, self.channel = self._buffer.shape
+        self.buffer = cv2.cv2.imread(file_path)
 
     @property
-    def buffer(self) -> ndarray:
-        return self._buffer
+    def parents(self) -> List[str]:
+        return os.path.split(self._path)[0].split(os.sep)
 
-    @buffer.setter
-    def buffer(self, buffer: numpy.ndarray):
-        self._buffer = buffer.copy()
-        # Expand dimension when contains only the height and width
-        if len(self._buffer.shape) < 3:
-            self._buffer = numpy.expand_dims(self._buffer, axis=-1)
-        self.height, self.width, self.channel = self._buffer.shape
+    @property
+    def name(self) -> str:
+        f_name = os.path.basename(self._path)
+        return os.path.splitext(f_name)[0]
 
     @property
     def tensor(self) -> ndarray:

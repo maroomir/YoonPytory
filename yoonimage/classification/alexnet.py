@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from yoonimage.classification.dataset import ClassificationDataset, collate_segmentation
-from yoonimage.data import Dataset1D, Transform1D
+from yoonimage.dataset import Dataset1D, Transform1D
 from yoonpytory.log import NLM
 
 

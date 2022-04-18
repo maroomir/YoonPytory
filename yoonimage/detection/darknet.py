@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 import numpy
 
-from yoonimage.data import Dataset1D
+from yoonimage.dataset import Dataset1D
 
 
 def parse_config(config: str):
